@@ -12,7 +12,7 @@ import { validateOffer, executeOffer } from "../engine/trade.js";
 import { rollNumbers, createUserPlayer, defaultAssign, dealCard, answerCard, signUser, cpuTakes, unsigned } from "../engine/playermode.js";
 import { runOffseason, beginMatch, finishMatch, activeFx, suspend, tickSuspensions, applyCaps, enforceCap, playOne } from "../engine/game.js";
 import { buyItem } from "../engine/market.js";
-import { topScorers } from "../engine/game.js";
+import { topScorers, incomeBreakdown, applyIncome } from "../engine/game.js";
 import { buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
@@ -99,7 +99,7 @@ t("re-signing costs the market fee, only for your own expired player", () => {
   const g = fresh(); ageAll(g);
   const ti = g.teams.findIndex((x) => expiring(g, x.id).length), id = expiring(g, ti)[0];
   assert.ok(ti >= 0);
-  g.teams[ti].coins = 5000; const before = g.teams[ti].coins, fee = feeFor(g.players[id], 2, g.P);
+  g.teams[ti].coins = 5000; const before = g.teams[ti].coins, fee = feeFor(g.players[id], 2, g.P, true);
   assert.equal(resign(g, ti, id, 2), fee); assert.equal(g.teams[ti].coins, before - fee); assert.equal(g.players[id].contract, 2);
   assert.equal(resign(g, ti, id, 2), false);                                     // already has a contract
   const other = expiring(g, (ti + 1) % g.teams.length)[0];
@@ -217,5 +217,19 @@ t("match flow: ten readings, possession is a probability, momentum within -1..1;
   const total = s.results.reduce((x, r) => x + r.ga + r.gb, 0), tally = Object.values(g2.goals).reduce((x, e) => x + e.g, 0);
   assert.equal(tally, total);
   const top = topScorers(g2, 5); assert.ok(top.length > 0 && top.every((x, i) => i === 0 || top[i - 1].g >= x.g));
+});
+t("money: staggered draft contracts, loyalty discount, win/draw bonus, catch-up still pays the bottom more", () => {
+  const g = createGame({ D, N: 10, seed: 17 }); runDraft(g);
+  const byRound = { 3: 0, 2: 0, 1: 0 }; for (const t of g.teams) for (const id of t.players) byRound[g.players[id].contract]++;
+  assert.ok(byRound[3] > 0 && byRound[2] > 0 && byRound[1] > 0, JSON.stringify(byRound));          // contracts end at different times
+  assert.equal(g.teams[0].coins, 650);
+  const p = g.players[g.teams[0].players[0]];
+  assert.equal(feeFor(p, 2, g.P, true), Math.round(feeFor(p, 2, g.P) * 0.75));
+  const table = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => ({ i })), day = [{ a: 0, b: 9, ga: 2, gb: 0 }, { a: 1, b: 8, ga: 1, gb: 1 }];
+  const bd = incomeBreakdown(g, table, day);
+  assert.deepEqual([bd.get(0).result, bd.get(9).result, bd.get(1).result, bd.get(8).result], ["W", "L", "D", "D"]);
+  assert.equal(bd.get(0).total, 45 + 0 + 10); assert.equal(bd.get(8).bonus, 5);
+  assert.ok(bd.get(9).catchup > bd.get(0).catchup && bd.get(9).total > bd.get(0).total - 10 + 0);      // last place, even losing, out-earns the leader minus the win bonus
+  const before = g.teams[0].coins; applyIncome(g, bd); assert.equal(g.teams[0].coins, before + 55);
 });
 console.log(`\n${n} tests passed`);

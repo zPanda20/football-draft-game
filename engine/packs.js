@@ -100,7 +100,7 @@ export function applyPicks(game, hands, picks, P) {
     const team = game.teams[ti];
     if (card.t === "p") {
       const p = game.players[card.id];
-      p.team = team.id; p.contract = P.money.draftContract; team.players.push(card.id);
+      p.team = team.id; p.contract = (P.money.draftContracts && P.money.draftContracts[(game.round || 1) - 1]) || P.money.draftContract; team.players.push(card.id);
       game.pool = game.pool.filter((x) => x !== card.id);
     } else {
       const it = game.items.find((i) => i.id === card.id);

@@ -42,12 +42,15 @@ export const DEFAULT_PARAMS = {
   money: {
     mvBase: 100, mvPerOvr: 0.157, mvAgeFrom: 30, mvAgePerYear: 0.05, mvAgeMin: 0.4, // market value = 100 * e^(0.157 (ovr-81)), older players cheaper
     lenMult: { 1: 1.0, 2: 1.7, 3: 2.4 },            // fee multiplier by contract length (placeholders)
-    startCoins: 450,
-    draftContract: 2,                               // seasons on a contract won in the pack draft (no fee)
+    startCoins: 650,
+    draftContract: 2,                               // fallback length of a contract won in the pack draft (no fee)
+    draftContracts: [3, 3, 2, 2, 2, 1, 1, 1],       // by pack round: early picks get longer deals, so contracts end at different times
+    resignMult: 0.75,                               // re-signing your own expiring player costs this share of the normal fee
     rookieContract: 3,
     extraCap: 2.0,                                  // extra coins count up to +200% of the minimum offer
     catchUp: 1.0,                                   // lottery weight 1 / (1 + catchUp * value / mean value)
-    incomePerMatch: 20, incomeCatchUp: 0.25,        // base income per match; lowest team earns +25%, highest -0% (linear in table rank)
+    incomePerMatch: 45, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
+    winBonus: 10, drawBonus: 5,                     // paid on top of the base, win or draw
     rosterMax: 10, rosterMin: 6,
   },
 

@@ -1,6 +1,6 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
 import { makeRng, shuffle } from "../engine/rng.js";
-import { topScorers, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, payIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
+import { topScorers, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
@@ -462,7 +462,7 @@ export class Room {
       matches.push({ a: m.a, b: m.b, all: res.events.map((e) => ({ half: e.half, minute: e.minute, team: e.team, type: e.type })), score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), flow: res.flow, goals: res.events.filter((e) => e.type === "goal").map((e) => ({ minute: e.minute, team: e.team, player: e.player })), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out })) });
     }
     this.pendingTable = standingsOf(this.results, g.teams.length);
-    payIncome(g, this.pendingTable); tickSuspensions(g);
+    this.pendingIncome = incomeBreakdown(g, this.pendingTable, this.results.filter((r) => r.day === day)); tickSuspensions(g);
     this.setReveal({ kind: "half2", day, matches });
     this.step = "md.half2";
     this.after(this.p(HALF_MS), () => this.showResult());
@@ -470,6 +470,7 @@ export class Room {
   }
   showResult() {
     this.shownTable = this.pendingTable;
+    if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
     this.dealCareerCards(); this.rollStore();
     this.step = "md.result";
     this.after(this.p(14000), () => this.nextMatchday());
@@ -577,7 +578,7 @@ export class Room {
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
       const t = g.teams[me.teamId];
-      const mv = { teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
+      const mv = { gain: this.gain && this.gain.byTeam.get(t.id) ? { seq: this.gain.seq, ...this.gain.byTeam.get(t.id) } : null, teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
       if (this.step === "draft.pick") { mv.hand = this.hands[t.id]; const h = this.picks.get(t.id); mv.pick = h ? { idx: h.idx, locked: h.locked } : null; }
       if (this.step.startsWith("market.")) {
         const b = this.bids.get(t.id); mv.bid = b || null; mv.done = !!t.marketDone;
@@ -594,7 +595,7 @@ export class Room {
         }
       }
       if (this.phase === "offseason") {
-        if (this.step === "off.resign") mv.resign = expiring(g, t.id).map((id) => { const p = g.players[id]; return { id, fees: [1, 2, 3].map((l) => feeFor(p, l, g.P)) }; });
+        if (this.step === "off.resign") mv.resign = expiring(g, t.id).map((id) => { const p = g.players[id]; return { id, fees: [1, 2, 3].map((l) => feeFor(p, l, g.P, true)) }; });
         if (this.step === "off.rookie.turn") mv.myTurn = this.worstFirst[this.rIdx] === t.id;
         if (this.step === "off.trade") mv.trade = this.tradeView(me);
       }

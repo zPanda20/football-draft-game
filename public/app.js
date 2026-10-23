@@ -32,6 +32,8 @@ function connect(first) {
       history.replaceState(null, "", (st.watch ? "/screen" : "/") + "?room=" + m.room);
     } else if (m.t === "state") {
       st.S = m.s; st.off = m.s.now - Date.now();
+      { const g = m.s.me && m.s.me.gain ? m.s.me.gain : m.s.pm && m.s.pm.gain ? m.s.pm.gain : null;   // money paid after a match: show it once
+        if (st.ui.gainSeen === undefined) st.ui.gainSeen = g ? g.seq : 0; else if (g && g.seq > st.ui.gainSeen) { st.ui.gainSeen = g.seq; showGain(g); } }
       { const ns = m.s.notices || [], top = ns.length ? ns[ns.length - 1].id : 0; if (st.ui.noticeSeen === undefined) st.ui.noticeSeen = top; else for (const n of ns) if (n.id > st.ui.noticeSeen) { toast(n.text); st.ui.noticeSeen = n.id; } }
       const nt = m.s.speed && m.s.speed.note;
       if (nt && nt.id !== st.ui.paceNoteId) { if (st.ui.paceNoteId !== undefined) toast(nt.text); st.ui.paceNoteId = nt.id; } else if (st.ui.paceNoteId === undefined) st.ui.paceNoteId = 0;
@@ -179,6 +181,16 @@ function nowLine(S) {
   return null;
 }
 const CLOCK_STEPS = ["draft.pick", "market.bid", "md.lineup", "md.half", "off.resign", "off.rookie.turn", "off.trade"];
+// A short stack of chips under the money line: what was just paid and why.
+function showGain(g) {
+  const box = $("#gains"); if (!box) return;
+  const lines = g.coins != null ? [["wallet", `+${g.coins} wallet`]] : [["inc", `+${g.base} income`]];
+  if (g.catchup > 0) lines.push(["cu", `+${g.catchup} catch-up`]);
+  if (g.result === "W") lines.push(["win", `+${g.bonus} win`]); else if (g.result === "D") lines.push(["draw", `+${g.bonus} draw`]);
+  const wrap = document.createElement("div"); wrap.className = "gain " + (g.result === "W" ? "w" : g.result === "D" ? "d" : "");
+  wrap.innerHTML = lines.map(([k, t], i) => `<span class="gl ${k}" style="animation-delay:${i * 0.35}s">${t}</span>`).join("") + (g.total ? `<b class="gt" style="animation-delay:${lines.length * 0.35}s">= +${g.total}</b>` : "");
+  box.appendChild(wrap); setTimeout(() => wrap.remove(), 6500);
+}
 function renderTop() {
   const S = st.S, nl = nowLine(S);
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;

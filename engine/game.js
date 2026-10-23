@@ -185,16 +185,25 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
 }
 export function playOne(game, a, b, key, hooks = {}) { return finishMatch(game, beginMatch(game, a, b, key, hooks), [null, null], hooks); }
 
-// Income after a matchday, from table position (lowest earns the most).
-export function payIncome(game, table) {
-  const P = game.P, N = game.teams.length;
+// Income after a matchday: a base for everyone, a catch-up share by table position (lowest earns the most), and a
+// bonus for a win or a draw. `day` = [{a, b, ga, gb}]. incomeBreakdown works it out, applyIncome pays it (the server
+// pays after the full-time screen so the money does not spoil the result).
+export function incomeBreakdown(game, table, day = []) {
+  const P = game.P, M = P.money, N = game.teams.length, out = new Map();
+  const result = new Map();
+  for (const m of day) { const d = Math.sign(m.ga - m.gb); result.set(m.a, d > 0 ? "W" : d < 0 ? "L" : "D"); result.set(m.b, d > 0 ? "L" : d < 0 ? "W" : "D"); }
   table.forEach((row, rank) => {
-    const t = game.teams[row.i];
-    const inc = Math.round(P.money.incomePerMatch * (1 + P.money.incomeCatchUp * (rank / (N - 1))));
-    t.coins += inc; t.income += inc;
+    const base = M.incomePerMatch, catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
+    const res = result.get(row.i) || null, bonus = res === "W" ? M.winBonus : res === "D" ? M.drawBonus : 0;
+    out.set(row.i, { base, catchup, bonus, result: res, total: base + catchup + bonus });
   });
-  for (const p of Object.values(game.players)) if (p.user) p.coins = (p.coins || 0) + P.player.income;
+  return out;
 }
+export function applyIncome(game, bd) {
+  for (const [ti, b] of bd) { const t = game.teams[ti]; t.coins += b.total; t.income += b.total; }
+  for (const p of Object.values(game.players)) if (p.user) p.coins = (p.coins || 0) + game.P.player.income;
+}
+export function payIncome(game, table, day = []) { applyIncome(game, incomeBreakdown(game, table, day)); }
 
 // ---- a season ----
 export function playSeason(game, hooks = {}) {
@@ -210,7 +219,7 @@ export function playSeason(game, hooks = {}) {
     });
     for (const m of dayRes) results.push(m);
     const table = standingsOf(results, N);
-    payIncome(game, table);
+    payIncome(game, table, dayRes);
     tickSuspensions(game);
     hooks.afterDay?.(d, dayRes, table);
   });

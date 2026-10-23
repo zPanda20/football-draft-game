@@ -6,7 +6,8 @@ export function marketValue(p, P) {
   const age = Math.max(m.mvAgeMin, 1 - m.mvAgePerYear * Math.max(0, p.age - m.mvAgeFrom));
   return Math.max(10, Math.round((m.mvBase * Math.exp(m.mvPerOvr * (p.ovr - 81)) * age) / 5) * 5);
 }
-export const feeFor = (p, len, P) => Math.round(marketValue(p, P) * P.money.lenMult[len]);
+// own = re-signing a player who is already yours (loyalty discount).
+export const feeFor = (p, len, P, own = false) => Math.round(marketValue(p, P) * P.money.lenMult[len] * (own ? P.money.resignMult ?? 1 : 1));
 
 // Lottery weight before any extra coins: weaker rosters (lower total market value) get better odds.
 export function catchUpWeights(game, P) {

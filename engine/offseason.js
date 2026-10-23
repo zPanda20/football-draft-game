@@ -70,7 +70,7 @@ export const expiring = (game, ti) => game.teams[ti].players.filter((id) => game
 export function resign(game, ti, id, len) {
   const t = game.teams[ti], p = game.players[id];
   if (!p || p.user || p.team !== ti || p.contract > 0 || !(len >= 1 && len <= 3)) return false;
-  const fee = feeFor(p, len, game.P);
+  const fee = feeFor(p, len, game.P, true);
   if (t.coins < fee) return false;
   t.coins -= fee; p.contract = len; return fee;
 }
@@ -92,8 +92,8 @@ export function botResign(game, ti) {
   for (const p of ids) {
     if (!top.has(p.id) && p.ovr < 84) continue;
     const len = p.age >= 32 ? 1 : p.age >= 29 ? 2 : p.ovr >= 88 ? 3 : 2;
-    const fee = feeFor(p, len, P);
-    if (fee > coins * 0.7) { const f1 = feeFor(p, 1, P); if (f1 > coins * 0.7) continue; picks.push({ id: p.id, len: 1 }); coins -= f1; continue; }
+    const fee = feeFor(p, len, P, true);
+    if (fee > coins * 0.7) { const f1 = feeFor(p, 1, P, true); if (f1 > coins * 0.7) continue; picks.push({ id: p.id, len: 1 }); coins -= f1; continue; }
     picks.push({ id: p.id, len }); coins -= fee;
   }
   return picks;

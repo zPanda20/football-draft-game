@@ -220,3 +220,12 @@ table.tb td,table.tb th{padding:5px 4px}.tb .tchip .n{max-width:112px}
 .resrow .fscore{font-weight:900;font-size:24px;font-variant-numeric:tabular-nums;min-width:74px;text-align:center}
 .fixture{cursor:pointer}.fixture.focus{box-shadow:0 0 0 1px var(--acc) inset;border-radius:8px}
 .bootn{display:flex;align-items:center;gap:6px}
+
+/* money paid after a match */
+#gains{position:fixed;top:50px;right:104px;z-index:60;pointer-events:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.gain{display:flex;flex-direction:column;align-items:flex-end;gap:3px;animation:gainfade 6.5s forwards}
+.gain .gl,.gain .gt{opacity:0;transform:translateY(-8px);animation:gainin .45s forwards;font-weight:800;font-size:13px;padding:3px 10px;border-radius:99px;background:rgba(10,16,14,.92);border:1px solid var(--line);color:var(--acc2);font-variant-numeric:tabular-nums;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.gain .gl.cu{color:#8fd3ff}.gain .gl.win{color:#04140b;background:var(--good);border-color:var(--good)}.gain .gl.draw{color:#1a1400;background:var(--acc2);border-color:var(--acc2)}
+.gain .gt{color:var(--text);font-size:15px}
+@keyframes gainin{to{opacity:1;transform:none}}
+@keyframes gainfade{0%,78%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}

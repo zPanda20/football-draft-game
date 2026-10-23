@@ -15,6 +15,7 @@ Open the page, create a game, share the 4-letter code. `/screen?room=CODE` is th
 
 - **Lobby**: up to 30 people. Each one either manages a club or plays as a footballer. Computer clubs fill the league to the minimum (always an even number; 17 to 19 become 20).
 - **Pack draft**: 8 packs of 5, simultaneous picks, no overlapping hands, a headliner in every first pack, a dial that helps weaker rosters, a keeper guarantee.
+- **Money**: 650 start coins, 45 base income per matchday plus a catch-up share for teams low in the table and +10 for a win or +5 for a draw (shown as a small animation after full time). Draft contracts run 3/3/2/2/2/1/1/1 years by pack round; re-signing your own player costs 75% of the normal fee.
 - **Market**: a market-value lottery for free agents and items (offer at least market value times the contract multiplier, extra coins raise your tickets, only the winner pays).
 - **Season**: round-robin, 3-1-0 table. Each match is two simulated halves with a half-time window for substitutions, formation and items. Live momentum and possession graphs, a results screen with every scorer and minute, a Golden Boot table, and an item store that is open between matches (with rare Steroids, and Ice Baths for post-match stamina).
 - **Off-season**: retirements, ageing, re-signing, a one-round rookie draft (worst team first), a trade window, then free agency.
