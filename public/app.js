@@ -3,6 +3,7 @@ import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, 
 import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
+import { storeCard } from "./store.js";
 import { pmHandlers, pmPanel, seekersCard, modeCard, creator } from "./pm.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 
@@ -31,6 +32,7 @@ function connect(first) {
       history.replaceState(null, "", (st.watch ? "/screen" : "/") + "?room=" + m.room);
     } else if (m.t === "state") {
       st.S = m.s; st.off = m.s.now - Date.now();
+      { const ns = m.s.notices || [], top = ns.length ? ns[ns.length - 1].id : 0; if (st.ui.noticeSeen === undefined) st.ui.noticeSeen = top; else for (const n of ns) if (n.id > st.ui.noticeSeen) { toast(n.text); st.ui.noticeSeen = n.id; } }
       const nt = m.s.speed && m.s.speed.note;
       if (nt && nt.id !== st.ui.paceNoteId) { if (st.ui.paceNoteId !== undefined) toast(nt.text); st.ui.paceNoteId = nt.id; } else if (st.ui.paceNoteId === undefined) st.ui.paceNoteId = 0;
       render();
@@ -254,7 +256,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { if (S.pm) main = pmPanel(S) + main; if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); }
+  if (S.step !== "lobby") { if (S.pm) main = pmPanel(S) + main; if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);

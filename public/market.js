@@ -68,7 +68,7 @@ function bidPanel(S) {
 }
 
 function itemShop(S) {
-  const ord = st.cat.items.filter((i) => i.supply == null), fin = st.cat.items.filter((i) => i.supply != null);
+  const ord = st.cat.items.filter((i) => i.supply == null && !i.storeOnly), fin = st.cat.items.filter((i) => i.supply != null);
   const owned = S.me.items || {};
   return `<div class="mt"><h3>Buy now</h3><div class="hand" style="justify-content:flex-start">${ord.map((i) => `<div class="col" style="gap:6px;width:170px">${itemCard(i)}<button class="btn sm" data-act="buyItem" data-id="${i.id}" ${S.me.coins < i.price ? "disabled" : ""}>Buy · ${i.price}${owned[i.id] ? ` (have ${owned[i.id]})` : ""}</button></div>`).join("")}</div>
     <h3 class="mt2">Limited — goes to a draw</h3><div class="hand" style="justify-content:flex-start">${fin.map((i) => {
@@ -95,7 +95,7 @@ export function marketView(S, ctx) {
     if (!me) main = `<div class="card c"><h3>Market round ${S.market.round + 1}</h3><p style="font-size:22px;font-weight:800">${S.market.locked.length} bids locked in</p></div>`;
     else {
       const tab = ui().mkTab;
-      main = `<div class="card"><div class="row wrap"><h3 style="margin:0">Free-agent market · round ${S.market.round + 1}/${S.market.total}</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><span class="pill">${S.teams[me.teamId].players.length}/${st.cat.rules.rosterMax} players</span></div>
+      main = `<div class="card"><div class="row wrap"><h3 style="margin:0">Free-agent market · round ${S.market.round + 1}/${S.market.total}</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><span class="pill">${S.teams[me.teamId].players.length}/${S.teams[me.teamId].cap} players</span></div>
         <p class="small mute mt">Every target has a market value. Offer at least that (more for a longer contract) to enter the draw. Teams with weaker squads get better odds, and extra coins buy extra tickets. Only the winner pays.</p>
         <div class="row mt" style="gap:6px"><button class="btn sm ${tab === "players" ? "on" : ""}" data-act="mkTab" data-tab="players">Players</button><button class="btn sm ${tab === "items" ? "on" : ""}" data-act="mkTab" data-tab="items">Items</button></div>
         ${tab === "players" ? poolList(S) : itemShop(S)}</div>${bidPanel(S)}`;
@@ -108,6 +108,6 @@ export function marketView(S, ctx) {
 function squadCardWithContracts(S) {
   const me = S.me; if (!me) return "";
   const t = team(me.teamId), items = Object.entries(me.items || {});
-  return `<div class="card"><h3>Your squad (${t.players.length}/${st.cat.rules.rosterMax})</h3><div class="col" style="gap:5px">${t.players.map((id) => { const p = pl(id); return miniPlayer(id, `<span class="mute tiny">${p.contract}y</span>`); }).join("") || `<span class="mute small">Nobody yet.</span>`}</div>
+  return `<div class="card"><h3>Your squad (${t.players.length}/${t.cap})</h3><div class="col" style="gap:5px">${t.players.map((id) => { const p = pl(id); return miniPlayer(id, `<span class="mute tiny">${p.contract}y</span>`); }).join("") || `<span class="mute small">Nobody yet.</span>`}</div>
     ${items.length ? `<h3 class="mt">Items</h3><div class="col" style="gap:4px">${items.map(([id, n]) => `<div class="small"><b>${esc(st.items[id].name)}</b> <span class="mute">${n} use${n > 1 ? "s" : ""}</span></div>`).join("")}</div>` : ""}</div>`;
 }

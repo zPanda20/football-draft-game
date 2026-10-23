@@ -41,6 +41,11 @@ function choose(kind, val) {
   const slot = kind === "slot" ? val : sel.val, pid = kind === "slot" ? sel.val : val;
   st.ui.mSel = null; sendLineup(place(lineupOf(S), slot, pid));
 }
+// The items a manager has switched on (the CPU rule's pick until he changes it). Banned items are never in the default.
+function activeNow(S) {
+  const owned = Object.keys(S.me.items).filter((id) => S.me.items[id] > 0);
+  return S.me.active ?? owned.map((id) => st.items[id]).filter((i) => !i.banned).sort((x, y) => y.price - x.price).slice(0, st.cat.rules.activeCap).map((i) => i.id);
+}
 export const matchHandlers = {
   cont() { send({ t: "continue" }); },
   mslot(a) { choose("slot", +a.i); },
@@ -49,11 +54,16 @@ export const matchHandlers = {
   mbest() { st.ui.mSel = null; send({ t: "lineupAuto", formation: null }); },
   mready() { send({ t: "ready", on: !st.S.teams[st.S.me.teamId].ready }); },
   mitem(a) {
-    const S = st.S, owned = Object.keys(S.me.items).filter((id) => S.me.items[id] > 0);
-    let act = S.me.active ?? owned.map((id) => st.items[id]).sort((x, y) => y.price - x.price).slice(0, st.cat.rules.activeCap).map((i) => i.id);
+    let act = activeNow(st.S);
     act = act.includes(a.id) ? act.filter((x) => x !== a.id) : [...act, a.id].slice(0, st.cat.rules.activeCap);
-    send({ t: "items", ids: act });
+    send({ t: "items", ids: act, equip: st.S.me.equip || {} });
   },
+  mwear(a) {
+    const eq = { ...(st.S.me.equip || {}) };
+    if (a.value === "") delete eq[a.id]; else eq[a.id] = +a.value;
+    send({ t: "items", ids: activeNow(st.S), equip: eq });
+  },
+  mgift(a) { send({ t: "gift", id: a.id, pid: +a.pid }); },
 };
 
 // ---------- league table ----------
@@ -86,15 +96,22 @@ function lineupEditor(S, half) {
   const stamOf = half ? (id) => me.match.halftime.stamina[id] ?? 100 : (id) => pl(id).stam;
   const onPitch = new Set([l.gk, ...l.out]);
   const sel = st.ui.mSel;
-  const roster = t.players.map((id) => pl(id)).sort((a, b) => b.ovr - a.ovr);
-  const row = (p) => `<div class="benchrow ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : ""}" data-act="mplayer" data-id="${p.id}">
+  const roster = t.players.map((id) => pl(id)).sort((a, b) => (a.susp ? 1 : 0) - (b.susp ? 1 : 0) || b.ovr - a.ovr);
+  const row = (p) => p.susp ? `<div class="benchrow dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span></div>` : `<div class="benchrow ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : ""}" data-act="mplayer" data-id="${p.id}">
     <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}</span></span>
     <span class="tiny mute">${Math.round(stamOf(p.id))}%</span>${onPitch.has(p.id) ? `<span class="pill tiny">on</span>` : `<span class="pill tiny acc">bench</span>`}</div>`;
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");
   const owned = Object.keys(me.items || {}).filter((id) => me.items[id] > 0);
-  const auto = me.active ?? owned.map((id) => st.items[id]).sort((x, y) => y.price - x.price).slice(0, st.cat.rules.activeCap).map((i) => i.id);
-  const items = !half && owned.length ? `<div class="card"><h3>Items for this match (max ${st.cat.rules.activeCap})</h3><div class="col" style="gap:6px">${owned.map((id) => `<label class="row small" style="cursor:pointer"><input type="checkbox" ${auto.includes(id) ? "checked" : ""} data-change="mitem" data-id="${id}"> <b>${esc(st.items[id].name)}</b><span class="mute">${me.items[id]} left · ${esc(st.items[id].text)}</span></label>`).join("")}</div></div>` : "";
+  const auto = activeNow(S), equip = me.equip || {};
+  const fit = roster.filter((p) => !p.susp), users = roster.filter((p) => p.user);
+  const itemRow = (id) => {
+    const it = st.items[id], on = auto.includes(id), wear = it.scope === "player" && on;
+    const sel = wear ? `<select data-change="mwear" data-id="${id}" style="max-width:190px"><option value="">${it.banned ? "Choose who takes it…" : "Auto (best attacker)"}</option>${fit.map((p) => `<option value="${p.id}" ${equip[id] === p.id ? "selected" : ""}>${esc(p.name)} (${p.pos})</option>`).join("")}</select>` : "";
+    const gift = it.scope === "player" ? users.map((u) => `<button class="btn sm" data-act="mgift" data-id="${id}" data-pid="${u.id}">Give 1 to ${esc(u.name)}</button>`).join("") : "";
+    return `<div class="row wrap small" style="gap:8px"><label class="row" style="cursor:pointer;gap:6px"><input type="checkbox" ${on ? "checked" : ""} data-change="mitem" data-id="${id}"> <b>${esc(it.name)}</b>${it.banned ? ` <span class="pill bad tiny">banned</span>` : ""}</label><span class="mute">${me.items[id]} left · ${esc(it.text)}</span>${sel}${gift}</div>`;
+  };
+  const items = !half && owned.length ? `<div class="card"><h3>Items for this match (max ${st.cat.rules.activeCap})</h3><div class="col" style="gap:8px">${owned.map(itemRow).join("")}</div></div>` : "";
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half; subs recover while they rest.</p>` : "";
   return `<div class="card"><div class="row wrap"><h3 style="margin:0">${half ? "Half-time changes" : "Line-up"}</h3><div class="grow"></div>
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>

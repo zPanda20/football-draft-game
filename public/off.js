@@ -120,7 +120,7 @@ export function offView(S, ctx) {
   let squad = "";
   if (S.me) {
     const t = team(S.me.teamId);
-    squad = `<div class="card"><h3>Your squad (${t.players.length}/${st.cat.rules.rosterMax})</h3><div class="col" style="gap:5px">${t.players.map((id) => { const p = pl(id); return miniPlayer(id, `<span class="mute tiny">${p.contract}y</span>`); }).join("") || `<span class="mute small">Nobody.</span>`}</div></div>`;
+    squad = `<div class="card"><h3>Your squad (${t.players.length}/${t.cap})</h3><div class="col" style="gap:5px">${t.players.map((id) => { const p = pl(id); return miniPlayer(id, `<span class="mute tiny">${p.contract}y</span>`); }).join("") || `<span class="mute small">Nobody.</span>`}</div></div>`;
   }
   return { main, side: squad + ctx.teamsList(S) + ctx.chatCard(S) };
 }

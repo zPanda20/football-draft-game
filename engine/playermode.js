@@ -40,7 +40,7 @@ export function createUserPlayer(game, { token, name, pos, nums, ovr, assign, na
   const p = {
     id, slug: "user-" + id, name: String(name || "Player").slice(0, 22), gender: "X", age: 21, nat: nat || "", club: "Free Agent", pos,
     ovr, pac: 0, sho: 0, pas: 0, dri: 0, def: 0, phy: 0, sta: 80, tier: ovr >= 90 ? "ruby" : ovr >= 85 ? "gold" : "silver",
-    stam: 100, team: null, contract: 0, user: true, owner: token, ovrf: ovr, career: { pending: [], log: [], n: 0 },
+    stam: 100, team: null, contract: 0, user: true, owner: token, ovrf: ovr, career: { pending: [], log: [], n: 0 }, coins: P.player.startCoins, items: {}, equip: [],
   };
   STAT_KEYS.forEach((k, i) => { p[k] = nums[a[i]]; });
   game.players[p.id] = rate(p, P);
@@ -114,6 +114,24 @@ function grow(game, p, eff) {
 }
 // An unanswered card is forgotten at season end.
 export function lapseCards(game, p) { const c = p.career; for (const x of c.pending) c.log.push({ n: x.n, id: x.id, title: x.title, lapsed: true, season: game.season }); c.pending = []; }
+
+// ---------- a created player's own wallet and items ----------
+export function buyForUser(game, p, itemId, { store = false } = {}) {
+  const it = game.items.find((i) => i.id === itemId);
+  if (!it || it.scope !== "player" || it.supply != null || (it.storeOnly && !store) || p.coins < it.price) return false;
+  p.coins -= it.price; p.items[it.id] = (p.items[it.id] || 0) + it.uses; return true;
+}
+export function setEquip(game, p, ids) {
+  const ok = (Array.isArray(ids) ? ids : []).filter((id, i, a) => a.indexOf(id) === i && (p.items[id] || 0) > 0 && game.items.find((x) => x.id === id && x.scope === "player"));
+  p.equip = ok.slice(0, game.P.player.itemCap);
+}
+// A manager hands one use of a player item to the created player on his roster.
+export function giftItem(game, ti, pid, itemId) {
+  const t = game.teams[ti], p = game.players[pid], it = game.items.find((i) => i.id === itemId);
+  if (!t || !p || !p.user || p.team !== ti || !it || it.scope !== "player" || !((t.items[itemId] || 0) > 0)) return false;
+  t.items[itemId]--; if (t.items[itemId] <= 0) delete t.items[itemId];
+  p.items[itemId] = (p.items[itemId] || 0) + 1; return true;
+}
 
 // ---------- teams and offers ----------
 export const unsigned = (game) => (game.userPool || []).map((id) => game.players[id]).filter((p) => p && !p.retired && p.team == null);

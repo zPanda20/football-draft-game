@@ -172,3 +172,8 @@ table.tb td,table.tb th{padding:5px 4px}.tb .tchip .n{max-width:112px}
 .statrow.sel{outline:2px solid var(--acc2,var(--acc));background:color-mix(in srgb,var(--acc) 16%,var(--panel2))}
 .ovrb.big{font-size:28px;min-width:60px;padding:8px 12px}
 .pmp{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 6%,var(--panel))}
+
+/* ---- store, banned items ---- */
+.icard.rare{border-color:#d33;background:linear-gradient(160deg,#2a0d10,#14080a);box-shadow:0 0 0 1px #d334,0 6px 20px #d3333a}
+.btn.bad{border-color:#d33;color:#ff9b9b}.btn.bad:hover:not(:disabled){background:#d3333a}
+.benchrow.dim{opacity:.55;cursor:default}

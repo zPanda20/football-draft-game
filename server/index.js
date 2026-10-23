@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -172,7 +172,9 @@ function handle(ws, m) {
     case "tradeOffer": room.tradeOffer(t, m.to, m.give, m.get); break;
     case "tradeRespond": room.tradeRespond(t, m.id | 0, !!m.accept); break;
     case "tradeCancel": room.tradeCancel(t, m.id | 0); break;
-    case "items": room.setActiveItems(t, m.ids); break;
+    case "items": room.setActiveItems(t, m.ids, m.equip); break;
+    case "gift": room.gift(t, m.id, m.pid | 0); break;
+    case "equipSelf": room.equipSelf(t, m.ids); break;
     case "ready": room.setReady(t, m.on !== false); break;
     case "auto": room.setAuto(t, !!m.on); break;
     case "chat": room.addChat(t, m.text); break;

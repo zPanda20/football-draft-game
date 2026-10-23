@@ -116,7 +116,7 @@ export function runRookieDraft(game, worstFirst, pickFor = null) {
   const P = game.P, res = [];
   for (const ti of worstFirst) {
     const t = game.teams[ti], avail = game.rookies.filter((id) => game.players[id].team == null && !game.players[id].drafted);
-    if (!avail.length || t.players.length >= P.money.rosterMax) { res.push({ team: ti, id: null }); continue; }
+    if (!avail.length || t.players.length >= (t.cap ?? P.money.rosterMax)) { res.push({ team: ti, id: null }); continue; }
     let id = pickFor ? pickFor(ti, avail) : null;
     if (id == null || !avail.includes(id)) id = botRookiePick(game, avail);
     takeRookie(game, ti, id); res.push({ team: ti, id });

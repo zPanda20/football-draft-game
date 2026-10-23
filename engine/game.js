@@ -68,27 +68,81 @@ export function autoFill(game) {
 }
 
 // ---- items in a match ----
-function activeFx(team, lineup, game) {
-  const P = game.P, fx = { team: {}, player: {}, used: [] };
+// Team items come from the team's stock (a manager's own pick in team.active, or the CPU rule). Player items go to
+// one wearer: the manager's choice in team.equip, else the best attacker. Banned items (steroids) never go to anyone
+// unless a wearer was chosen. Created players can also wear items from their own wallet (p.equip).
+export function activeFx(team, lineup, game) {
+  const P = game.P, fx = { team: {}, player: {}, used: [], usedPlayer: [], doped: [] };
+  const inLine = new Set([lineup.gk, ...lineup.out].filter((x) => x != null));
   const has = (i) => (team.items[i.id] || 0) > 0;
-  // a manager's own pick (team.active) wins; otherwise the CPU rule: the dearest items, up to the cap
   const owned = Array.isArray(team.active)
     ? team.active.map((id) => game.items.find((i) => i.id === id)).filter((i) => i && has(i)).slice(0, P.items.activeCap)
-    : game.items.filter(has).sort((a, b) => b.price - a.price).slice(0, P.items.activeCap);
+    : game.items.filter((i) => has(i) && !i.banned).sort((a, b) => b.price - a.price).slice(0, P.items.activeCap);
   const outfield = lineup.out.map((id, i) => ({ id, w: id == null ? 0 : SLOT_W[FORMATIONS[lineup.formation][i]][0] })).filter((x) => x.id != null).sort((a, b) => b.w - a.w);
+  const addP = (id, it) => { const o = (fx.player[id] = fx.player[id] || {}); for (const [k, v] of Object.entries(it.fx)) o[k] = (o[k] || 0) + v; };
   let boot = 0;
   for (const it of owned) {
-    fx.used.push(it.id);
-    if (it.scope === "team") for (const [k, v] of Object.entries(it.fx)) fx.team[k] = (fx.team[k] || 0) + v;
-    else if (outfield[boot]) { const id = outfield[boot++].id; fx.player[id] = { off: (fx.player[id]?.off || 0) + (it.fx.off || 0) }; }
+    if (it.scope === "team") { fx.used.push(it.id); for (const [k, v] of Object.entries(it.fx)) fx.team[k] = (fx.team[k] || 0) + v; continue; }
+    const want = team.equip ? team.equip[it.id] : null;
+    let id = null;
+    if (want != null) { if (inLine.has(+want) && !(game.players[+want] && game.players[+want].susp > 0)) id = +want; }
+    else if (!it.banned && outfield[boot]) id = outfield[boot++].id;
+    if (id == null) continue;
+    fx.used.push(it.id); addP(id, it); if (it.banned) fx.doped.push(id);
+  }
+  for (const id of inLine) {
+    const p = game.players[id]; if (!p || !p.user || !p.equip || !p.equip.length) continue;
+    let n = 0;
+    for (const iid of p.equip) {
+      const it = game.items.find((i) => i.id === iid);
+      if (!it || it.scope !== "player" || !((p.items || {})[iid] > 0) || n >= P.player.itemCap) continue;
+      n++; addP(id, it); fx.usedPlayer.push({ pid: id, id: iid }); if (it.banned) fx.doped.push(id);
+    }
   }
   return fx;
+}
+
+// ---- suspensions, roster caps ----
+// Caught using a banned item: out for the longer of `ban` games and the rest of the season. If that outlasts his
+// contract, the suspension stays with him and his team loses a roster spot the season after the contract ends.
+export function suspend(game, pid) {
+  const P = game.P, p = game.players[pid], md = game.md || { day: 0, total: 0 };
+  const left = Math.max(0, md.total - (md.day + 1)), games = Math.max(P.steroids.ban, left);
+  p.susp = games; p.suspFresh = true;
+  let penalty = null;
+  if (p.team != null && md.total > 0) {
+    const inContract = left + Math.max(0, p.contract - 1) * md.total;
+    if (games > inContract) {
+      const t = game.teams[p.team], season = game.season + Math.max(1, p.contract);
+      t.slotLoss = { ...(t.slotLoss || {}) }; t.slotLoss[season] = (t.slotLoss[season] || 0) + 1;
+      penalty = { team: t.id, season };
+    }
+  }
+  return { pid, team: p.team, games, penalty };
+}
+// End of a matchday: one game served (a ban handed out today starts tomorrow).
+export function tickSuspensions(game) {
+  for (const p of Object.values(game.players)) if (p.susp > 0) { if (p.suspFresh) p.suspFresh = false; else p.susp -= 1; }
+}
+export function applyCaps(game, season) { for (const t of game.teams) t.cap = game.P.money.rosterMax - ((t.slotLoss || {})[season] || 0); }
+// A roster over its cap lets its cheapest players go (never the only keeper, never a created player).
+export function enforceCap(game) {
+  const out = [], P = game.P;
+  for (const t of game.teams) {
+    while (t.players.length > (t.cap ?? P.money.rosterMax)) {
+      const ps = t.players.map((id) => game.players[id]), gks = ps.filter((p) => p.pos === "GK").length;
+      const c = ps.filter((p) => !p.user && !(p.pos === "GK" && gks <= 1)).sort((a, b) => marketValue(a, P) - marketValue(b, P))[0];
+      if (!c) break;
+      t.players = t.players.filter((id) => id !== c.id); c.team = null; game.pool.push(c.id); out.push({ id: c.id, team: t.id });
+    }
+  }
+  return out;
 }
 
 // ---- one match: begin (to half-time) and finish (second half) are separate so the server can open a half-time window ----
 export function beginMatch(game, a, b, key, hooks = {}) {
   const P = game.P, sides = [a, b].map((ti) => game.teams[ti]);
-  const recs = sides.map((t) => rosterOf(game, t));
+  const recs = sides.map((t) => rosterOf(game, t).filter((p) => !(p.susp > 0)));
   const lineups = recs.map((r, i) => hooks.lineup?.(sides[i], r) || bestLineup(r, P));
   const fx = sides.map((t, i) => activeFx(t, lineups[i], game));
   const gen = matchSteps({
@@ -110,8 +164,14 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     const next = [0, 1].map((i) => changes[i] || hooks.halftime?.(m.sides[i], halftimeRecs(m, i), i) || bestLineup(halftimeRecs(m, i), P));
     res = m.gen.next({ home: next[0], away: next[1], effort: [hooks.effort?.(m.sides[0]) || null, hooks.effort?.(m.sides[1]) || null] }).value;
   }
+  res.dope = [];
   m.sides.forEach((t, i) => {
     for (const id of m.fx[i].used) { t.items[id]--; if (t.items[id] <= 0) delete t.items[id]; }
+    for (const u of m.fx[i].usedPlayer) { const p = game.players[u.pid]; p.items[u.id]--; if (p.items[u.id] <= 0) delete p.items[u.id]; }
+    for (const pid of m.fx[i].doped) {
+      const rr = makeRng(game.seed, "dope", game.season, m.key, pid);
+      if (rr() < P.steroids.catchChance) res.dope.push(suspend(game, pid));
+    }
     const played = new Set(res.played[i]);
     for (const p of m.recs[i]) {
       const s = res.stamina[i][p.id] ?? p.stam;
@@ -131,6 +191,7 @@ export function payIncome(game, table) {
     const inc = Math.round(P.money.incomePerMatch * (1 + P.money.incomeCatchUp * (rank / (N - 1))));
     t.coins += inc; t.income += inc;
   });
+  for (const p of Object.values(game.players)) if (p.user) p.coins = (p.coins || 0) + P.player.income;
 }
 
 // ---- a season ----
@@ -139,6 +200,7 @@ export function playSeason(game, hooks = {}) {
   const days = schedule(N, game.seed + game.season);
   const results = [];
   days.forEach((day, d) => {
+    game.md = { day: d, total: days.length };
     const dayRes = day.map(([a, b]) => {
       const res = playOne(game, a, b, `${d}-${a}-${b}`, hooks);
       return { day: d, a, b, ga: res.score[0], gb: res.score[1], res };
@@ -146,6 +208,7 @@ export function playSeason(game, hooks = {}) {
     for (const m of dayRes) results.push(m);
     const table = standingsOf(results, N);
     payIncome(game, table);
+    tickSuspensions(game);
     hooks.afterDay?.(d, dayRes, table);
   });
   const table = standingsOf(results, N);
@@ -159,7 +222,7 @@ export function runWholeSeason(game) {
 }
 
 // ---- save / restore (checkpoints). Player records carry everything that can change; the rest comes from the data files. ----
-const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot"];
+const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot", "susp"];
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
@@ -182,6 +245,7 @@ export function restoreGame(D, snap) {
 // ---- the whole off-season, straight through with CPU managers (the server runs the same pieces step by step) ----
 export function runOffseason(game, D, hooks = {}) {
   const N = game.teams.length;
+  applyCaps(game, game.season + 1);
   const worstFirst = (hooks.table || standingsOf(game.lastResults || [], N)).map((r) => r.i).reverse();
   const out = { retired: runRetirements(game) };
   out.moves = ageAll(game);
@@ -191,7 +255,8 @@ export function runOffseason(game, D, hooks = {}) {
   out.draft = runRookieDraft(game, worstFirst, hooks.rookiePick);
   rookiesToPool(game);
   game.season += 1;
-  for (const t of game.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.marketDone = false; }
+  for (const t of game.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.equip = undefined; t.marketDone = false; }
   runMarket(game, "fa" + game.season);
+  out.cut = enforceCap(game);
   return out;
 }

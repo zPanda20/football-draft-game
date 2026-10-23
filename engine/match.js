@@ -39,7 +39,7 @@ export function teamNow(side, stamOf, P, fx = {}) {
     who.push({ p, slot, off: sa * off });
   });
   const g = side.byId.get(side.lineup.gk) || GHOST;
-  const gk = (g.r.gk * (g.pos === "GK" ? 1 : P.fit.outfieldInGoal) + (t.gk || 0)) * fatigue(stamOf(g), P);
+  const gk = ((g.r.gk + (pl[g.id]?.all || 0)) * (g.pos === "GK" ? 1 : P.fit.outfieldInGoal) + (t.gk || 0)) * fatigue(stamOf(g), P);
   return {
     atk: effective(a / wa + (t.atk || 0), P), ctl: effective(c / wc + (t.ctl || 0), P),
     def: effective(d / wd + (t.def || 0), P), gk: effective(gk, P), who, gkP: g,

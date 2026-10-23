@@ -3,12 +3,13 @@ import { standingsOf } from "../engine/fixtures.js";
 import { runRetirements, ageAll, botResign, resign, releaseExpired, expiring, introduceRookies, botRookiePick, availableRookies, takeRookie, rookiesToPool } from "../engine/offseason.js";
 import { validateOffer, executeOffer, botVerdict } from "../engine/trade.js";
 import { feeFor } from "../engine/market.js";
+import { applyCaps } from "../engine/game.js";
 
 export const offseasonMethods = {
   // ---------- entering ----------
   startOffseason() {
     const g = this.game, N = g.teams.length;
-    this.phase = "offseason"; this.trade = null; this.ready = new Set();
+    this.phase = "offseason"; this.trade = null; this.ready = new Set(); applyCaps(g, g.season + 1);
     this.worstFirst = standingsOf(this.results, N).map((r) => r.i).reverse();
     this.retired = runRetirements(g);
     this.setReveal({ kind: "retire", season: g.season, list: this.retired });
@@ -68,7 +69,7 @@ export const offseasonMethods = {
     const g = this.game;
     while (this.rIdx < this.worstFirst.length) {
       const ti = this.worstFirst[this.rIdx], t = g.teams[ti], avail = availableRookies(g), p = this.playerOfTeam(ti);
-      if (!avail.length || t.players.length >= g.P.money.rosterMax) { this.rookiePicks.push({ team: ti, id: null }); this.rIdx++; continue; }
+      if (!avail.length || t.players.length >= (t.cap ?? g.P.money.rosterMax)) { this.rookiePicks.push({ team: ti, id: null }); this.rIdx++; continue; }
       if (!t.human || !p || !p.connected || p.auto) {
         const id = botRookiePick(g, avail); takeRookie(g, ti, id); this.rookiePicks.push({ team: ti, id }); this.rIdx++;
         this.step = "off.rookie.turn"; this.changed();

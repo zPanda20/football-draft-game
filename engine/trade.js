@@ -23,8 +23,10 @@ export function validateOffer(game, o) {
   const g = side(o.from, o.give), r = side(o.to, o.get);
   if (typeof g === "string") return g; if (typeof r === "string") return r;
   const a = game.teams[o.from], b = game.teams[o.to];
-  if (a.players.length - g.players + r.players > P.money.rosterMax) return `${a.name} would have more than ${P.money.rosterMax} players.`;
-  if (b.players.length - r.players + g.players > P.money.rosterMax) return `${b.name} would have more than ${P.money.rosterMax} players.`;
+  const ca = a.cap ?? P.money.rosterMax, cb = b.cap ?? P.money.rosterMax;
+  const na = a.players.length - g.players + r.players, nb = b.players.length - r.players + g.players;
+  if (na > ca && na > a.players.length) return `${a.name} would have more than ${ca} players.`;
+  if (nb > cb && nb > b.players.length) return `${b.name} would have more than ${cb} players.`;
   return null;
 }
 export function executeOffer(game, o) {

@@ -83,7 +83,7 @@ export function dealRound(game, round, P) {
   if (wantItems) {
     const taken = new Set();
     for (const ti of order) {
-      const opts = game.items.filter((it) => (it.supply == null || (game.supply[it.id] ?? it.supply) > 0) && (it.supply == null || !taken.has(it.id)));
+      const opts = game.items.filter((it) => !it.storeOnly && (it.supply == null || (game.supply[it.id] ?? it.supply) > 0) && (it.supply == null || !taken.has(it.id)));
       const pickFrom = shuffle(opts, r);
       for (const it of pickFrom.slice(0, wantItems)) { hands[ti].push({ t: "i", id: it.id }); if (it.supply != null) taken.add(it.id); }
     }

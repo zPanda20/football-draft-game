@@ -15,7 +15,8 @@ export function catchUpWeights(game, P) {
   return vals.map((v) => 1 / (1 + P.money.catchUp * (v / mean)));
 }
 
-export const rosterRoom = (team, P) => P.money.rosterMax - team.players.length;
+export const capOf = (team, P) => team.cap ?? P.money.rosterMax;
+export const rosterRoom = (team, P) => capOf(team, P) - team.players.length;
 
 // One lottery round. bids = [{ team: index, kind: "p"|"i", id, len, extra }]. One bid per team per round.
 // Contested targets are drawn by tickets = catch-up weight * (1 + extra / minimum offer); only the winner pays.
@@ -59,9 +60,9 @@ export function resolveMarketRound(game, bids, P, label) {
 }
 
 // Ordinary items have a fixed price and unlimited supply.
-export function buyItem(game, teamIdx, itemId) {
+export function buyItem(game, teamIdx, itemId, { store = false } = {}) {
   const team = game.teams[teamIdx], it = game.items.find((i) => i.id === itemId);
-  if (!it || it.supply != null || team.coins < it.price) return false;
+  if (!it || it.supply != null || (it.storeOnly && !store) || team.coins < it.price) return false;
   team.coins -= it.price; team.items[it.id] = (team.items[it.id] || 0) + it.uses;
   return true;
 }

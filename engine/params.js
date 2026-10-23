@@ -76,11 +76,15 @@ export const DEFAULT_PARAMS = {
     conserve: { bonus: -0.5, drain: 0.6 },
     offersPerMarket: 3,                             // CPU teams that make an offer when a market opens
     maxOpenOffers: 3,                               // per manager
+    startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
+    itemCap: 2,                                     // items a created player can wear in one match
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },
 
   // ---- items ----
   items: { activeCap: 3 },
+  // Steroids: store-only, shows up now and then. Caught means a suspension of max(ban, games left this season).
+  steroids: { chance: 0.22, stock: 1, price: 300, catchChance: 0.51, ban: 10 },
 };
 
 export function withParams(over = {}) {

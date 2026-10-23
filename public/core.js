@@ -24,9 +24,9 @@ export function pl(id) {
   let b = st.idx[id];
   if (!b && d && d.u) b = { id, name: d.u.name, nat: d.u.nat, club: d.u.club || "Free Agent", pos: d.u.pos, ovr: d.o, age: d.a, st: d.st || [0, 0, 0, 0, 0, 0, 0], user: true };
   if (!b) return null;
-  if (!d) return { ...b, stam: 100, contract: 0, mv: 0, team: null };
+  if (!d) return { ...b, stam: 100, contract: 0, mv: 0, team: null, susp: 0 };
   const s = d.st || b.st;
-  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot };
+  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot, susp: d.sp || 0 };
 }
 
 // ---------- flags, badges, cards ----------
@@ -61,11 +61,11 @@ export function card(id, opts = {}) {
     <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 16 : 20)}</div></div>
     <div class="cface"><span class="init">${esc(initials(p.name).toUpperCase())}</span></div>
     <div class="cname">${esc(p.name)}</div>
-    ${stats}${opts.tag ? `<div class="ctag">${opts.tag}</div>` : ""}</div>`;
+    ${stats}${opts.tag || p.susp ? `<div class="ctag">${p.susp ? `Suspended · ${p.susp} games` : opts.tag}</div>` : ""}</div>`;
 }
 export function miniPlayer(id, extra = "") {
   const p = pl(id); if (!p) return "";
-  return `<span class="mini ${tierOf(p.ovr)}"><i>${p.ovr}</i><b>${esc(p.pos)}</b><span class="nm">${esc(p.name)}</span>${extra}</span>`;
+  return `<span class="mini ${tierOf(p.ovr)}"><i>${p.ovr}</i><b>${esc(p.pos)}</b><span class="nm">${esc(p.name)}</span>${p.susp ? `<span class="pill bad tiny" title="Suspended">SUSP ${p.susp}</span>` : ""}${extra}</span>`;
 }
 export function itemCard(it, opts = {}) {
   const i = typeof it === "string" ? st.items[it] : it; if (!i) return "";

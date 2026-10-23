@@ -10,7 +10,9 @@ import { resolveMarketRound, feeFor } from "../engine/market.js";
 import { runRetirements, ageAll, retireChance, resign, expiring, releaseExpired } from "../engine/offseason.js";
 import { validateOffer, executeOffer } from "../engine/trade.js";
 import { rollNumbers, createUserPlayer, defaultAssign, dealCard, answerCard, signUser, cpuTakes, unsigned } from "../engine/playermode.js";
-import { runOffseason, beginMatch, finishMatch } from "../engine/game.js";
+import { runOffseason, beginMatch, finishMatch, activeFx, suspend, tickSuspensions, applyCaps, enforceCap, playOne } from "../engine/game.js";
+import { buyItem } from "../engine/market.js";
+import { buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
 
@@ -142,5 +144,57 @@ t("half-time effort changes the second half but never the first, and the draws s
   const n = run(null), push = run("push"), cons = run("conserve");
   assert.equal(n.first, push.first);
   assert.ok(push.stam <= n.stam && cons.stam >= n.stam);
+});
+
+t("steroids: store only, never in packs, bots never buy them, nobody wears them without being chosen", () => {
+  const g = createGame({ D, N: 10, seed: 8 });
+  for (let r = 1; r <= 8; r++) { g.round = r; const hands = dealRound(g, r, g.P); assert.ok(!hands.flat().some((c) => c.t === "i" && c.id === "steroids")); applyPicks(g, hands, hands.map(() => 0), g.P); }
+  assert.equal(buyItem(g, 0, "steroids"), false);
+  g.teams[0].coins = 1000; assert.ok(buyItem(g, 0, "steroids", { store: true })); assert.equal(g.teams[0].items.steroids, 1);
+  const lineup = bestLineup(rosterOf(g, g.teams[0]), g.P);
+  g.teams[0].active = undefined; assert.deepEqual(activeFx(g.teams[0], lineup, g).doped, []);                 // auto rule skips banned items
+  g.teams[0].active = ["steroids"]; assert.deepEqual(activeFx(g.teams[0], lineup, g).doped, []);               // no wearer chosen
+  g.teams[0].equip = { steroids: lineup.out[0] };
+  const fx = activeFx(g.teams[0], lineup, g); assert.deepEqual(fx.doped, [lineup.out[0]]); assert.equal(fx.player[lineup.out[0]].all, 5);
+  g.teams[0].equip = { steroids: 999999 }; assert.deepEqual(activeFx(g.teams[0], lineup, g).doped, []);        // wearer not in the line-up
+});
+t("steroids: caught about 51% of the time, ban is the longer of 10 games and the rest of the season", () => {
+  const g = fresh(10, 9), tm = g.teams[0]; tm.items.steroids = 1000; tm.active = ["steroids"];
+  g.md = { day: 0, total: 18 };
+  let caught = 0, N = 400;
+  for (let k = 0; k < N; k++) {
+    const l = bestLineup(rosterOf(g, tm), g.P), pid = l.out[0]; tm.equip = { steroids: pid };
+    g.players[pid].susp = 0; g.season = 50 + k;                                                              // fresh randomness each time
+    const m = beginMatch(g, 0, 1, "d" + k, { lineup: () => l }); const res = finishMatch(g, m);
+    if (res.dope.length) { caught++; assert.equal(res.dope[0].games, 17); }
+  }
+  assert.ok(caught / N > 0.43 && caught / N < 0.59, "caught " + caught / N);
+  const p = g.players[tm.players[0]];
+  g.md = { day: 2, total: 18 }; p.contract = 1; assert.equal(suspend(g, p.id).games, 15); assert.equal(suspend(g, p.id).penalty, null);   // 15 games left, 15 in the contract
+  g.md = { day: 12, total: 18 }; const r2 = suspend(g, p.id); assert.equal(r2.games, 10); assert.ok(r2.penalty && r2.penalty.season === g.season + 1);
+  p.contract = 2; g.teams[p.team].slotLoss = {}; assert.equal(suspend(g, p.id).penalty, null);                                                    // still inside a two-year deal
+  p.susp = 2; p.suspFresh = true; tickSuspensions(g); assert.equal(p.susp, 2); tickSuspensions(g); assert.equal(p.susp, 1);
+  const recs = beginMatch(g, 0, 1, "z").recs[0]; assert.ok(!recs.some((q) => q.susp > 0));
+});
+t("roster cap: a lost slot shrinks next season's roster and the cheapest player goes", () => {
+  const g = fresh(10, 12), t0 = g.teams[0];
+  while (t0.players.length < 10) { const id = g.pool.pop(); g.players[id].team = 0; g.players[id].contract = 1; t0.players.push(id); }
+  t0.slotLoss = { [g.season + 1]: 1 }; applyCaps(g, g.season + 1);
+  assert.equal(t0.cap, 9); const cut = enforceCap(g); assert.equal(cut.length, 1); assert.equal(t0.players.length, 9);
+  assert.ok(g.teams.slice(1).every((x) => x.cap === 10));
+});
+t("created players: own wallet, items worn from it, gifts from the team", () => {
+  const g = fresh(10, 13), r = rollNumbers(g.P, "R", "w", 0);
+  const p = createUserPlayer(g, { token: "w", name: "W", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") });
+  assert.equal(p.coins, g.P.player.startCoins);
+  assert.equal(buyForUser(g, p, "electrolytes"), false);                      // team items are not for players
+  assert.ok(buyForUser(g, p, "boots-mizuno-low")); assert.equal(p.coins, g.P.player.startCoins - 50); assert.equal(p.items["boots-mizuno-low"], 3);
+  assert.equal(buyForUser(g, p, "steroids"), false); p.coins = 500; assert.equal(buyForUser(g, p, "steroids"), false); assert.ok(buyForUser(g, p, "steroids", { store: true }));
+  setEquip(g, p, ["boots-mizuno-low", "steroids", "boots-mizuno-low", "nope"]); assert.deepEqual(p.equip, ["boots-mizuno-low", "steroids"]);
+  signUser(g, p, 0, 1, true);
+  const l = { formation: "2-2-1", gk: g.teams[0].players.find((id) => g.players[id].pos === "GK" && id !== p.id) ?? null, out: [p.id, ...g.teams[0].players.filter((id) => id !== p.id).slice(0, 4)] };
+  const fx = activeFx(g.teams[0], l, g); assert.equal(fx.player[p.id].all, 5); assert.equal(fx.player[p.id].off, 2); assert.deepEqual(fx.doped, [p.id]); assert.equal(fx.usedPlayer.length, 2);
+  g.teams[0].items["boots-mizuno-mid"] = 3; assert.ok(giftItem(g, 0, p.id, "boots-mizuno-mid")); assert.equal(g.teams[0].items["boots-mizuno-mid"], 2); assert.equal(p.items["boots-mizuno-mid"], 1);
+  assert.equal(giftItem(g, 0, g.teams[0].players.find((id) => id !== p.id), "boots-mizuno-mid"), false);   // only created players can be given items
 });
 console.log(`\n${n} tests passed`);

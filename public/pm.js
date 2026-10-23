@@ -23,6 +23,11 @@ export const pmHandlers = {
   offerYes(a) { send({ t: "offerRespond", id: +a.id, accept: true }); },
   offerNo(a) { send({ t: "offerRespond", id: +a.id, accept: false }); },
   cardPick(a) { send({ t: "card", n: +a.n, opt: +a.opt }); },
+  pmEquip(a) {
+    const pm = st.S.pm, cap = st.cat.rules.playerItemCap ?? 2; let ids = pm.equip.slice();
+    ids = ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...ids, a.id].slice(0, cap);
+    send({ t: "equipSelf", ids });
+  },
   effort(a) { send({ t: "effort", mode: a.mode === (st.S.pm && st.S.pm.effort) ? null : a.mode }); },
 };
 
@@ -62,8 +67,11 @@ export function pmPanel(S) {
   const status = t ? `Playing for ${chip(t, 18, true)} · ${pm.contract} season${pm.contract === 1 ? "" : "s"} left` : `<b>No team yet.</b> ${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}`;
   const last = pm.last ? `<div class="pill ${pm.last.ok ? "good" : "bad"}" style="margin-top:8px">${pm.last.ok ? "✓" : "✗"} ${esc(pm.last.title)}: ${esc(pm.last.choice)}${pm.last.ovr ? ` (${pm.last.ovr > 0 ? "+" : ""}${pm.last.ovr} OVR)` : ""}</div>` : "";
   const open = pm.offers.filter((o) => o.status === "open" || o.status === "accepted");
+  const inv = Object.keys(pm.items || {}).filter((id) => pm.items[id] > 0 && st.items[id]);
+  const wallet = `<div class="mt"><div class="row wrap" style="gap:10px"><b>Your kit</b><span class="pill">${coins(pm.coins)}</span><span class="small mute">Wear up to ${st.cat.rules.playerItemCap ?? 2} items in the next match.</span></div>${inv.length ? `<div class="col mt" style="gap:6px">${inv.map((id) => { const it = st.items[id]; return `<label class="row small" style="cursor:pointer;gap:8px"><input type="checkbox" ${pm.equip.includes(id) ? "checked" : ""} data-change="pmEquip" data-id="${id}"> <b>${esc(it.name)}</b>${it.banned ? ` <span class="pill bad tiny">banned</span>` : ""} <span class="mute">${pm.items[id]} left · ${esc(it.text)}</span></label>`; }).join("")}</div>` : `<p class="small mute mt">Nothing yet. Buy gear in the item store between matches, or ask your manager.</p>`}</div>`;
+  const ban = pm.susp ? `<div class="pill bad" style="margin-top:8px">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</div>` : "";
   const eff = pm.onPitch ? `<div class="mt"><b>Half-time</b><div class="row mt" style="gap:8px"><button class="btn ${pm.effort === "push" ? "pri" : ""}" data-act="effort" data-mode="push">Push</button><button class="btn ${pm.effort === "conserve" ? "pri" : ""}" data-act="effort" data-mode="conserve">Conserve</button></div><p class="small mute mt">Push: a little sharper, tires you faster. Conserve: save your legs for later.</p></div>` : "";
-  return `<div class="card pmp"><div class="row wrap" style="gap:16px;align-items:flex-start">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div>${last}</div></div>
+  return `<div class="card pmp"><div class="row wrap" style="gap:16px;align-items:flex-start">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div>${ban}${last}</div></div>${wallet}
     ${pm.pending.length ? `<div class="col mt" style="gap:8px"><b>Career</b>${pm.pending.map(cardBox).join("")}</div>` : ""}
     ${open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "")}${eff}</div>`;
 }
@@ -71,7 +79,7 @@ export function pmPanel(S) {
 // ---------- manager's view of players looking for a club ----------
 export function seekersCard(S) {
   const sk = S.seekers, me = S.me; if (!sk || !sk.length || !me) return "";
-  const t = team(me.teamId), full = t.players.length >= st.cat.rules.rosterMax;
+  const t = team(me.teamId), full = t.players.length >= t.cap;
   const mine = me.offers || [];
   return `<div class="card"><h3>Footballers looking for a club</h3><p class="small mute">Each of these is controlled by a person. Make an offer instead of bidding: the player chooses. You pay the fee only if he signs.</p>
     <div class="col mt" style="gap:10px">${sk.map((s) => { const p = pl(s.id); return `<div class="row wrap" style="gap:10px;align-items:center">${miniPlayer(s.id)}<span class="mute small">${esc(s.owner)} · ${p.age}y</span><div class="grow"></div>${s.fees.map((f, i) => `<button class="btn sm ${s.mine.includes(i + 1) ? "pri" : ""}" data-act="offerMake" data-pid="${s.id}" data-len="${i + 1}" ${full || me.coins < f ? "disabled" : ""}>${i + 1}y · ${f}</button>`).join("")}</div>`; }).join("")}</div>
