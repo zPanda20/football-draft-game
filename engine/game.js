@@ -18,7 +18,7 @@ export function createGame({ D, N = 20, seed = 1, params = {}, bots = null }) {
     id: i, name: "Team " + (i + 1), bot: bots?.[i] || pickArchetype(r), human: false,
     players: [], items: {}, coins: P.money.startCoins, picks: [], income: 0,
   }));
-  const game = { P, seed, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], log: [] };
+  const game = { P, params, seed, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], log: [] };
   game.pool = makePool(D.players, N, P);
   return game;
 }
@@ -69,7 +69,11 @@ export function autoFill(game) {
 // ---- items in a match ----
 function activeFx(team, lineup, game) {
   const P = game.P, fx = { team: {}, player: {}, used: [] };
-  const owned = game.items.filter((i) => (team.items[i.id] || 0) > 0).sort((a, b) => b.price - a.price).slice(0, P.items.activeCap);
+  const has = (i) => (team.items[i.id] || 0) > 0;
+  // a manager's own pick (team.active) wins; otherwise the CPU rule: the dearest items, up to the cap
+  const owned = Array.isArray(team.active)
+    ? team.active.map((id) => game.items.find((i) => i.id === id)).filter((i) => i && has(i)).slice(0, P.items.activeCap)
+    : game.items.filter(has).sort((a, b) => b.price - a.price).slice(0, P.items.activeCap);
   const outfield = lineup.out.map((id, i) => ({ id, w: id == null ? 0 : SLOT_W[FORMATIONS[lineup.formation][i]][0] })).filter((x) => x.id != null).sort((a, b) => b.w - a.w);
   let boot = 0;
   for (const it of owned) {
@@ -80,8 +84,8 @@ function activeFx(team, lineup, game) {
   return fx;
 }
 
-// ---- one match: bots set the lineup, re-pick at half-time with the stamina they now have ----
-export function playOne(game, a, b, key, hooks = {}) {
+// ---- one match: begin (to half-time) and finish (second half) are separate so the server can open a half-time window ----
+export function beginMatch(game, a, b, key, hooks = {}) {
   const P = game.P, sides = [a, b].map((ti) => game.teams[ti]);
   const recs = sides.map((t) => rosterOf(game, t));
   const lineups = recs.map((r, i) => hooks.lineup?.(sides[i], r) || bestLineup(r, P));
@@ -91,30 +95,41 @@ export function playOne(game, a, b, key, hooks = {}) {
     home: { id: a, name: sides[0].name, players: recs[0], lineup: lineups[0], fx: fx[0] },
     away: { id: b, name: sides[1].name, players: recs[1], lineup: lineups[1], fx: fx[1] },
   });
-  let st = gen.next();
-  if (!st.done) {
-    const ht = st.value;
-    const next = recs.map((r, i) => {
-      const view = r.map((p) => ({ ...p, stam: ht.stamina[i][p.id] ?? p.stam }));
-      return hooks.halftime?.(sides[i], view, i) || bestLineup(view, P);
-    });
-    st = gen.next({ home: next[0], away: next[1] });
+  const st = gen.next();
+  return { a, b, key, sides, recs, fx, gen, ht: st.done ? null : st.value, res: st.done ? st.value : null, lineups };
+}
+// Players with their half-time stamina, for the lineup chooser.
+export const halftimeRecs = (m, i) => m.recs[i].map((p) => ({ ...p, stam: m.ht.stamina[i][p.id] ?? p.stam }));
+
+// changes = [lineupOrNullForHome, lineupOrNullForAway]; null means the CPU picks (bots) via hooks.halftime
+export function finishMatch(game, m, changes = [null, null], hooks = {}) {
+  const P = game.P;
+  let res = m.res;
+  if (!res) {
+    const next = [0, 1].map((i) => changes[i] || hooks.halftime?.(m.sides[i], halftimeRecs(m, i), i) || bestLineup(halftimeRecs(m, i), P));
+    res = m.gen.next({ home: next[0], away: next[1] }).value;
   }
-  const res = st.value;
-  sides.forEach((t, i) => {
-    const used = fx[i].used;
-    for (const id of used) { t.items[id]--; if (t.items[id] <= 0) delete t.items[id]; }
-  });
-  // stamina carries over: what was left, plus recovery (more for those who sat out)
-  sides.forEach((t, i) => {
+  m.sides.forEach((t, i) => {
+    for (const id of m.fx[i].used) { t.items[id]--; if (t.items[id] <= 0) delete t.items[id]; }
     const played = new Set(res.played[i]);
-    for (const p of recs[i]) {
+    for (const p of m.recs[i]) {
       const s = res.stamina[i][p.id] ?? p.stam;
       const rec = (played.has(p.id) ? P.stamina.recoverPlayed : P.stamina.recoverRest) + P.stamina.staRecoverK * (p.sta - 70);
       game.players[p.id].stam = Math.max(0, Math.min(100, s + rec));
     }
   });
   return res;
+}
+export function playOne(game, a, b, key, hooks = {}) { return finishMatch(game, beginMatch(game, a, b, key, hooks), [null, null], hooks); }
+
+// Income after a matchday, from table position (lowest earns the most).
+export function payIncome(game, table) {
+  const P = game.P, N = game.teams.length;
+  table.forEach((row, rank) => {
+    const t = game.teams[row.i];
+    const inc = Math.round(P.money.incomePerMatch * (1 + P.money.incomeCatchUp * (rank / (N - 1))));
+    t.coins += inc; t.income += inc;
+  });
 }
 
 // ---- a season ----
@@ -129,11 +144,7 @@ export function playSeason(game, hooks = {}) {
     });
     for (const m of dayRes) results.push(m);
     const table = standingsOf(results, N);
-    table.forEach((row, rank) => {
-      const t = game.teams[row.i];
-      const inc = Math.round(P.money.incomePerMatch * (1 + P.money.incomeCatchUp * (rank / (N - 1))));
-      t.coins += inc; t.income += inc;
-    });
+    payIncome(game, table);
     hooks.afterDay?.(d, dayRes, table);
   });
   const table = standingsOf(results, N);
@@ -143,4 +154,21 @@ export function playSeason(game, hooks = {}) {
 // Convenience for tests: draft + pre-season market + season.
 export function runWholeSeason(game) {
   runDraft(game); runMarket(game); return playSeason(game);
+}
+
+// ---- save / restore (checkpoints). Player records carry everything that can change; the rest comes from the data files. ----
+const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos"];
+export function serializeGame(game) {
+  return {
+    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool,
+    players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
+    teams: game.teams.map((t) => ({ ...t })),
+  };
+}
+export function restoreGame(D, snap) {
+  const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool;
+  for (const [id, f] of Object.entries(snap.players)) { Object.assign(g.players[id], f); rate(g.players[id], g.P); }
+  g.teams = snap.teams.map((t) => ({ ...t }));
+  return g;
 }

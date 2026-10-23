@@ -1,0 +1,212 @@
+[
+ {
+  "slug": "harbour-city",
+  "name": "Harbour City",
+  "short": "HAR",
+  "c1": "#0b5d9e",
+  "c2": "#f2f2f2"
+ },
+ {
+  "slug": "northgate-rovers",
+  "name": "Northgate Rovers",
+  "short": "NOR",
+  "c1": "#b3202a",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "riverside-united",
+  "name": "Riverside United",
+  "short": "RIV",
+  "c1": "#1d7a46",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "castle-athletic",
+  "name": "Castle Athletic",
+  "short": "CAS",
+  "c1": "#222222",
+  "c2": "#e8b21a"
+ },
+ {
+  "slug": "silverstone-town",
+  "name": "Silverstone Town",
+  "short": "SIL",
+  "c1": "#7a8591",
+  "c2": "#101820"
+ },
+ {
+  "slug": "eastfield-wanderers",
+  "name": "Eastfield Wanderers",
+  "short": "EAS",
+  "c1": "#6a2c91",
+  "c2": "#f5d142"
+ },
+ {
+  "slug": "brightwater-fc",
+  "name": "Brightwater FC",
+  "short": "BRI",
+  "c1": "#00a3c4",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "ironbridge-albion",
+  "name": "Ironbridge Albion",
+  "short": "IRO",
+  "c1": "#8c1c13",
+  "c2": "#f0e4cf"
+ },
+ {
+  "slug": "stonebridge",
+  "name": "Stonebridge",
+  "short": "STO",
+  "c1": "#4a4a4a",
+  "c2": "#e04e39"
+ },
+ {
+  "slug": "lakeside-rangers",
+  "name": "Lakeside Rangers",
+  "short": "LAK",
+  "c1": "#143d8f",
+  "c2": "#e8392b"
+ },
+ {
+  "slug": "oakhill-dynamos",
+  "name": "Oakhill Dynamos",
+  "short": "OAK",
+  "c1": "#2e6b2f",
+  "c2": "#f7d51d"
+ },
+ {
+  "slug": "redmoor-city",
+  "name": "Redmoor City",
+  "short": "RED",
+  "c1": "#d0312d",
+  "c2": "#1a1a1a"
+ },
+ {
+  "slug": "westbury-celtic",
+  "name": "Westbury Celtic",
+  "short": "WES",
+  "c1": "#0e6b3a",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "kingsway-fc",
+  "name": "Kingsway FC",
+  "short": "KIN",
+  "c1": "#f2b705",
+  "c2": "#0b3d91"
+ },
+ {
+  "slug": "marlow-park",
+  "name": "Marlow Park",
+  "short": "MAR",
+  "c1": "#e45f2b",
+  "c2": "#14213d"
+ },
+ {
+  "slug": "thornton-villa",
+  "name": "Thornton Villa",
+  "short": "THO",
+  "c1": "#7b1e3a",
+  "c2": "#9bc1e0"
+ },
+ {
+  "slug": "sandhurst-albion",
+  "name": "Sandhurst Albion",
+  "short": "SAN",
+  "c1": "#c9a227",
+  "c2": "#2b2d42"
+ },
+ {
+  "slug": "fairhaven-argyle",
+  "name": "Fairhaven Argyle",
+  "short": "FAI",
+  "c1": "#1b998b",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "crownfield",
+  "name": "Crownfield",
+  "short": "CRO",
+  "c1": "#5c2a7e",
+  "c2": "#ffffff"
+ },
+ {
+  "slug": "hollowell-athletic",
+  "name": "Hollowell Athletic",
+  "short": "HOL",
+  "c1": "#2d3142",
+  "c2": "#ef8354"
+ },
+ {
+  "slug": "blackrock-united",
+  "name": "Blackrock United",
+  "short": "BLA",
+  "c1": "#111111",
+  "c2": "#d7263d"
+ },
+ {
+  "slug": "pinewood-forest",
+  "name": "Pinewood Forest",
+  "short": "PIN",
+  "c1": "#165b33",
+  "c2": "#e0e0e0"
+ },
+ {
+  "slug": "ashford-town",
+  "name": "Ashford Town",
+  "short": "ASH",
+  "c1": "#a4161a",
+  "c2": "#f5f3f4"
+ },
+ {
+  "slug": "coldharbour",
+  "name": "Coldharbour",
+  "short": "COL",
+  "c1": "#3a86ff",
+  "c2": "#0b132b"
+ },
+ {
+  "slug": "granton-wanderers",
+  "name": "Granton Wanderers",
+  "short": "GRA",
+  "c1": "#ff7f11",
+  "c2": "#1d1d1d"
+ },
+ {
+  "slug": "elmstead",
+  "name": "Elmstead",
+  "short": "ELM",
+  "c1": "#6d9f71",
+  "c2": "#2c2c2c"
+ },
+ {
+  "slug": "dunmore-rovers",
+  "name": "Dunmore Rovers",
+  "short": "DUN",
+  "c1": "#264653",
+  "c2": "#e9c46a"
+ },
+ {
+  "slug": "fallow-heath",
+  "name": "Fallow Heath",
+  "short": "FAL",
+  "c1": "#8d99ae",
+  "c2": "#d90429"
+ },
+ {
+  "slug": "wexcombe-city",
+  "name": "Wexcombe City",
+  "short": "WEX",
+  "c1": "#0077b6",
+  "c2": "#ffd60a"
+ },
+ {
+  "slug": "quarry-lane",
+  "name": "Quarry Lane",
+  "short": "QUA",
+  "c1": "#9d0208",
+  "c2": "#ffba08"
+ }
+]
