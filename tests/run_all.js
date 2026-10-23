@@ -15,7 +15,7 @@ import { buyItem } from "../engine/market.js";
 import { topScorers, incomeBreakdown, applyIncome } from "../engine/game.js";
 import { buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
-let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
+let n = 0; const pending = []; const t = (name, fn) => { const r = fn(); if (r && r.then) pending.push(r.then(() => { n++; console.log("ok  " + name); })); else { n++; console.log("ok  " + name); } };
 
 t("team counts", () => {
   assert.deepEqual([3, 10, 11, 12, 17, 18, 19, 20, 25, 30, 31].map(teamsFor), [10, 10, 12, 12, 20, 20, 20, 20, 26, 30, 30]);
@@ -232,4 +232,19 @@ t("money: staggered draft contracts, loyalty discount, win/draw bonus, catch-up 
   assert.ok(bd.get(9).catchup > bd.get(0).catchup && bd.get(9).total > bd.get(0).total - 10 + 0);      // last place, even losing, out-earns the leader minus the win bonus
   const before = g.teams[0].coins; applyIncome(g, bd); assert.equal(g.teams[0].coins, before + 55);
 });
+t("clubs: unique slugs, colours, variants point at a main club, art files are picked up, player-card club names map", async () => {
+  const { clubsWithArt } = await import("../server/describe.js");
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path");
+  const cl = D.clubs; assert.ok(cl.length >= 40);
+  assert.equal(new Set(cl.map((c) => c.slug)).size, cl.length); assert.equal(new Set(cl.map((c) => c.name)).size, cl.length);
+  for (const c of cl) { assert.match(c.c1, /^#[0-9a-f]{6}$/i); assert.match(c.c2, /^#[0-9a-f]{6}$/i); assert.ok(["main", "throwback", "alt"].includes(c.kind)); if (c.kind !== "main") assert.equal(cl.find((x) => x.slug === c.base)?.kind, "main"); }
+  const dir = mkdtempSync(join(tmpdir(), "art-")); mkdirSync(join(dir, "assets", "teams", "juventus"), { recursive: true });
+  writeFileSync(join(dir, "assets", "teams", "juventus", "badge.svg"), "<svg/>"); writeFileSync(join(dir, "assets", "teams", "juventus", "Kit-Home.PNG"), "x");
+  const art = clubsWithArt(cl, dir).find((c) => c.slug === "juventus").art; assert.match(art.badge, /\/assets\/teams\/juventus\/badge\.svg\?v=/); assert.ok(art.kitHome); assert.equal(art.wallpaper, undefined);
+  const names = new Set(D.players.map((p) => p.club)); const norm = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const alias = new Map(); for (const c of cl) if (c.kind === "main") for (const n of [c.name, ...(c.aliases || [])]) alias.set(norm(n), c.slug);
+  for (const n of ["Real Madrid", "FC Barcelona", "FC Bayern München", "Paris Saint-Germain", "Lombardia FC (Inter Milan)", "Milano FC (AC Milan)", "Atlético de Madrid", "Manchester United", "Racing Louisville FC", "ACF Fiorentina", "Portland Thorns", "Inter Miami CF"]) { assert.ok(names.has(n), n); assert.ok(alias.has(norm(n)), "no crest for " + n); }
+  assert.ok(!alias.has(norm("Paris FC")));
+});
+await Promise.all(pending);
 console.log(`\n${n} tests passed`);

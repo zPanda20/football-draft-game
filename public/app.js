@@ -1,5 +1,5 @@
 // App shell: connection, landing, lobby, top bar, and routing to the draft / market / match views.
-import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, crest, team, myTeam, remaining, fmtClock, coins } from "./core.js";
+import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, crest, crestOfClub, kitImg, team, myTeam, remaining, fmtClock, coins } from "./core.js";
 import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
@@ -216,20 +216,25 @@ function chatCard(S) {
   if (st.watch) return "";
   return `<div class="card chat"><h3>Chat</h3><div class="log" id="chatlog">${S.chat.map((c) => `<div><b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join("") || `<span class="mute small">Say something to the room.</span>`}</div><div class="row"><input id="chatin" class="grow" maxlength="160" placeholder="Message"><button class="btn sm" data-act="chatSend">Send</button></div></div>`;
 }
+function clubPreview(you) {
+  const c = you && you.club ? st.clubBy[you.club] : null; if (!c) return "";
+  const kits = [["kitHome", "Home"], ["kitAway", "Away"], ["kitThird", "Third"]].map(([k, l]) => kitImg(c, k, 84) ? `<figure class="kitf">${kitImg(c, k, 84)}<figcaption>${l}</figcaption></figure>` : "").join("");
+  return `<div class="clubprev mt"><span class="swatch" style="background:${c.c1}"></span><span class="swatch" style="background:${c.c2}"></span>${crestOfClub(c, 56)}<div class="grow"><b>${esc(c.name)}</b>${c.kind !== "main" ? ` <span class="pill tiny">${c.kind}</span>` : ""}</div>${kits}</div>`;
+}
 function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
   const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, S.settings.minTeams - humans);
   const clubs = st.cat.clubs.map((c) => {
     const owner = taken.get(c.slug), sel = you && you.club === c.slug;
-    return `<button class="club ${sel ? "sel" : ""} ${owner && !sel ? "taken" : ""}" data-act="club" data-slug="${c.slug}"><span class="crest" style="--s:26px;--a:${c.c1};--b:${c.c2}"></span><span class="grow"><b>${esc(c.name)}</b>${owner && !sel ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></button>`;
+    return `<button class="club ${sel ? "sel" : ""} ${owner && !sel ? "taken" : ""}" data-act="club" data-slug="${c.slug}">${crestOfClub(c, 28)}<span class="grow"><b>${esc(c.name)}</b>${c.kind !== "main" ? `<div class="tiny mute">${c.kind}</div>` : ""}${owner && !sel ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></button>`;
   }).join("");
   const s = S.settings, hostOnly = S.host ? "" : "disabled";
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
     ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
-    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its colours and default name. You can rename it.</p><div class="clubgrid mt">${clubs}</div></div>`;
+    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}<div class="clubgrid mt">${clubs}</div></div>`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
     <div class="card"><h3>Game settings ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="set">

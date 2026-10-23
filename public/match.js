@@ -1,5 +1,5 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, pl, tierOf, flag, miniPlayer, remaining, card } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, pl, tierOf, flag, miniPlayer, remaining, card } from "./core.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
@@ -154,7 +154,7 @@ function lineupEditor(S, half) {
   };
   const items = !half && owned.length ? `<div class="card"><h3>Items for this match (max ${st.cat.rules.activeCap})</h3><div class="col" style="gap:8px">${owned.map(itemRow).join("")}</div></div>` : "";
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
-  return `<div class="card"><div class="row wrap"><h3 style="margin:0">${half ? "Half-time changes" : "Line-up"}</h3><div class="grow"></div>
+  return `<div class="card"><div class="row wrap">${half ? "" : kitImg(club(t), "kitHome", 40)}<h3 style="margin:0">${half ? "Half-time changes" : "Line-up"}</h3><div class="grow"></div>
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
       <button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button></div>
     ${head}<div class="forms mt">${forms}</div>
@@ -278,7 +278,7 @@ function playbackView(S) {
   const mine = focusK(S);
   const m = R.matches[mine] || null;
   const big = m ? `<div class="card"><div class="row"><h3 style="margin:0">${S.step === "md.half1" || S.step === "md.half" ? "First half" : "Second half"}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${mine}"></span></div>
-    <div class="bigmatch"><div class="tm">${crest(team(m.a), 44)}${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm">${crest(team(m.b), 44)}${esc(team(m.b).name)}</div></div>
+    <div class="bigmatch"><div class="tm">${crest(team(m.a), 44)}${esc(team(m.a).name)}${kitImg(club(team(m.a)), "kitHome", 56)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm">${crest(team(m.b), 44)}${esc(team(m.b).name)}${kitImg(club(team(m.b)), "kitAway", 56)}</div></div>
     <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
 }

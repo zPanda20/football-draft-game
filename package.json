@@ -11,7 +11,8 @@
     "sim": "node tests/smoke.js",
     "e2e": "node tests/e2e.js && node tests/pm_e2e.js",
     "tank": "node tests/tank.js",
-    "titles": "node tests/t1_titles.js"
+    "titles": "node tests/t1_titles.js",
+    "assets": "node tools/asset_check.mjs"
   },
   "license": "UNLICENSED",
   "dependencies": {

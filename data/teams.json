@@ -1,212 +1,557 @@
 [
  {
-  "slug": "harbour-city",
-  "name": "Harbour City",
-  "short": "HAR",
-  "c1": "#0b5d9e",
-  "c2": "#f2f2f2"
- },
- {
-  "slug": "northgate-rovers",
-  "name": "Northgate Rovers",
-  "short": "NOR",
-  "c1": "#b3202a",
-  "c2": "#ffffff"
- },
- {
-  "slug": "riverside-united",
-  "name": "Riverside United",
-  "short": "RIV",
-  "c1": "#1d7a46",
-  "c2": "#ffffff"
- },
- {
-  "slug": "castle-athletic",
-  "name": "Castle Athletic",
-  "short": "CAS",
-  "c1": "#222222",
-  "c2": "#e8b21a"
- },
- {
-  "slug": "silverstone-town",
-  "name": "Silverstone Town",
-  "short": "SIL",
-  "c1": "#7a8591",
-  "c2": "#101820"
- },
- {
-  "slug": "eastfield-wanderers",
-  "name": "Eastfield Wanderers",
-  "short": "EAS",
-  "c1": "#6a2c91",
-  "c2": "#f5d142"
- },
- {
-  "slug": "brightwater-fc",
-  "name": "Brightwater FC",
-  "short": "BRI",
-  "c1": "#00a3c4",
-  "c2": "#ffffff"
- },
- {
-  "slug": "ironbridge-albion",
-  "name": "Ironbridge Albion",
-  "short": "IRO",
-  "c1": "#8c1c13",
-  "c2": "#f0e4cf"
- },
- {
-  "slug": "stonebridge",
-  "name": "Stonebridge",
-  "short": "STO",
-  "c1": "#4a4a4a",
-  "c2": "#e04e39"
- },
- {
-  "slug": "lakeside-rangers",
-  "name": "Lakeside Rangers",
-  "short": "LAK",
-  "c1": "#143d8f",
-  "c2": "#e8392b"
- },
- {
-  "slug": "oakhill-dynamos",
-  "name": "Oakhill Dynamos",
-  "short": "OAK",
-  "c1": "#2e6b2f",
-  "c2": "#f7d51d"
- },
- {
-  "slug": "redmoor-city",
-  "name": "Redmoor City",
-  "short": "RED",
-  "c1": "#d0312d",
-  "c2": "#1a1a1a"
- },
- {
-  "slug": "westbury-celtic",
-  "name": "Westbury Celtic",
-  "short": "WES",
-  "c1": "#0e6b3a",
-  "c2": "#ffffff"
- },
- {
-  "slug": "kingsway-fc",
-  "name": "Kingsway FC",
-  "short": "KIN",
-  "c1": "#f2b705",
-  "c2": "#0b3d91"
- },
- {
-  "slug": "marlow-park",
-  "name": "Marlow Park",
-  "short": "MAR",
-  "c1": "#e45f2b",
-  "c2": "#14213d"
- },
- {
-  "slug": "thornton-villa",
-  "name": "Thornton Villa",
-  "short": "THO",
-  "c1": "#7b1e3a",
-  "c2": "#9bc1e0"
- },
- {
-  "slug": "sandhurst-albion",
-  "name": "Sandhurst Albion",
-  "short": "SAN",
-  "c1": "#c9a227",
-  "c2": "#2b2d42"
- },
- {
-  "slug": "fairhaven-argyle",
-  "name": "Fairhaven Argyle",
-  "short": "FAI",
-  "c1": "#1b998b",
-  "c2": "#ffffff"
- },
- {
-  "slug": "crownfield",
-  "name": "Crownfield",
-  "short": "CRO",
-  "c1": "#5c2a7e",
-  "c2": "#ffffff"
- },
- {
-  "slug": "hollowell-athletic",
-  "name": "Hollowell Athletic",
-  "short": "HOL",
-  "c1": "#2d3142",
-  "c2": "#ef8354"
- },
- {
-  "slug": "blackrock-united",
-  "name": "Blackrock United",
-  "short": "BLA",
+  "slug": "juventus",
+  "name": "Juventus",
+  "short": "JUV",
   "c1": "#111111",
-  "c2": "#d7263d"
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Juventus"
+  ]
  },
  {
-  "slug": "pinewood-forest",
-  "name": "Pinewood Forest",
-  "short": "PIN",
-  "c1": "#165b33",
-  "c2": "#e0e0e0"
+  "slug": "juventus-throwback",
+  "name": "Juventus Throwback",
+  "short": "JUT",
+  "c1": "#1a1a1a",
+  "c2": "#f2e6b8",
+  "kind": "throwback",
+  "base": "juventus"
  },
  {
-  "slug": "ashford-town",
-  "name": "Ashford Town",
-  "short": "ASH",
-  "c1": "#a4161a",
-  "c2": "#f5f3f4"
+  "slug": "inter",
+  "name": "Inter",
+  "short": "INT",
+  "c1": "#0a3d91",
+  "c2": "#101010",
+  "kind": "main",
+  "aliases": [
+   "Inter",
+   "Inter Milan",
+   "Lombardia FC (Inter Milan)"
+  ]
  },
  {
-  "slug": "coldharbour",
-  "name": "Coldharbour",
-  "short": "COL",
-  "c1": "#3a86ff",
-  "c2": "#0b132b"
+  "slug": "inter-throwback",
+  "name": "Inter Throwback",
+  "short": "INT",
+  "c1": "#101010",
+  "c2": "#0a3d91",
+  "kind": "throwback",
+  "base": "inter"
  },
  {
-  "slug": "granton-wanderers",
-  "name": "Granton Wanderers",
-  "short": "GRA",
-  "c1": "#ff7f11",
-  "c2": "#1d1d1d"
+  "slug": "real-madrid",
+  "name": "Real Madrid",
+  "short": "RMA",
+  "c1": "#ffffff",
+  "c2": "#febe10",
+  "kind": "main",
+  "aliases": [
+   "Real Madrid",
+   "Real Madrid CF"
+  ]
  },
  {
-  "slug": "elmstead",
-  "name": "Elmstead",
-  "short": "ELM",
-  "c1": "#6d9f71",
-  "c2": "#2c2c2c"
+  "slug": "barcelona",
+  "name": "Barcelona",
+  "short": "BAR",
+  "c1": "#a50044",
+  "c2": "#004d98",
+  "kind": "main",
+  "aliases": [
+   "Barcelona",
+   "FC Barcelona"
+  ]
  },
  {
-  "slug": "dunmore-rovers",
-  "name": "Dunmore Rovers",
-  "short": "DUN",
-  "c1": "#264653",
-  "c2": "#e9c46a"
+  "slug": "lille",
+  "name": "Lille",
+  "short": "LIL",
+  "c1": "#e01e13",
+  "c2": "#1b2a5c",
+  "kind": "main",
+  "aliases": [
+   "Lille",
+   "LOSC Lille"
+  ]
  },
  {
-  "slug": "fallow-heath",
-  "name": "Fallow Heath",
-  "short": "FAL",
-  "c1": "#8d99ae",
-  "c2": "#d90429"
+  "slug": "psg",
+  "name": "PSG",
+  "short": "PSG",
+  "c1": "#004170",
+  "c2": "#da291c",
+  "kind": "main",
+  "aliases": [
+   "PSG",
+   "Paris Saint-Germain"
+  ]
  },
  {
-  "slug": "wexcombe-city",
-  "name": "Wexcombe City",
-  "short": "WEX",
-  "c1": "#0077b6",
-  "c2": "#ffd60a"
+  "slug": "psg-twd",
+  "name": "PSG (TWD)",
+  "short": "PST",
+  "c1": "#1a1a17",
+  "c2": "#9d1c1c",
+  "kind": "alt",
+  "base": "psg"
  },
  {
-  "slug": "quarry-lane",
-  "name": "Quarry Lane",
-  "short": "QUA",
-  "c1": "#9d0208",
-  "c2": "#ffba08"
+  "slug": "london-city",
+  "name": "London City",
+  "short": "LCL",
+  "c1": "#0b1f4b",
+  "c2": "#c9a227",
+  "kind": "main",
+  "aliases": [
+   "London City",
+   "London City Lionesses"
+  ]
+ },
+ {
+  "slug": "chelsea",
+  "name": "Chelsea",
+  "short": "CHE",
+  "c1": "#034694",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Chelsea"
+  ]
+ },
+ {
+  "slug": "man-utd",
+  "name": "Man Utd",
+  "short": "MUN",
+  "c1": "#da291c",
+  "c2": "#fbe122",
+  "kind": "main",
+  "aliases": [
+   "Man Utd",
+   "Manchester United"
+  ]
+ },
+ {
+  "slug": "washington-spirit",
+  "name": "Washington Spirit",
+  "short": "WAS",
+  "c1": "#0d1b3e",
+  "c2": "#c8102e",
+  "kind": "main",
+  "aliases": [
+   "Washington Spirit"
+  ]
+ },
+ {
+  "slug": "louisville",
+  "name": "Louisville",
+  "short": "LOU",
+  "c1": "#3b1e6d",
+  "c2": "#c3b0e6",
+  "kind": "main",
+  "aliases": [
+   "Louisville",
+   "Racing Louisville FC"
+  ]
+ },
+ {
+  "slug": "portland",
+  "name": "Portland",
+  "short": "POR",
+  "c1": "#a6192e",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Portland",
+   "Portland Thorns"
+  ]
+ },
+ {
+  "slug": "gotham",
+  "name": "Gotham FC",
+  "short": "GOT",
+  "c1": "#74c4e6",
+  "c2": "#101820",
+  "kind": "main",
+  "aliases": [
+   "Gotham FC",
+   "Gotham"
+  ]
+ },
+ {
+  "slug": "parma",
+  "name": "Parma",
+  "short": "PAR",
+  "c1": "#fcd116",
+  "c2": "#0b3d91",
+  "kind": "main",
+  "aliases": [
+   "Parma"
+  ]
+ },
+ {
+  "slug": "venezia",
+  "name": "Venezia",
+  "short": "VEN",
+  "c1": "#f07f13",
+  "c2": "#0b4d2b",
+  "kind": "main",
+  "aliases": [
+   "Venezia"
+  ]
+ },
+ {
+  "slug": "flamengo",
+  "name": "Flamengo",
+  "short": "FLA",
+  "c1": "#c8102e",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Flamengo"
+  ]
+ },
+ {
+  "slug": "petro-atletico",
+  "name": "Petro Atlético",
+  "short": "PET",
+  "c1": "#f2c200",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Petro Atlético",
+   "Petro de Luanda"
+  ]
+ },
+ {
+  "slug": "santos",
+  "name": "Santos",
+  "short": "SAN",
+  "c1": "#ffffff",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Santos"
+  ]
+ },
+ {
+  "slug": "corinthians",
+  "name": "Corinthians",
+  "short": "COR",
+  "c1": "#111111",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Corinthians"
+  ]
+ },
+ {
+  "slug": "malaga",
+  "name": "Málaga",
+  "short": "MAL",
+  "c1": "#1e73be",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Málaga",
+   "Málaga CF",
+   "Malaga"
+  ]
+ },
+ {
+  "slug": "bayern",
+  "name": "Bayern",
+  "short": "BAY",
+  "c1": "#dc052d",
+  "c2": "#0066b2",
+  "kind": "main",
+  "aliases": [
+   "Bayern",
+   "FC Bayern München",
+   "Bayern Munich"
+  ]
+ },
+ {
+  "slug": "dortmund",
+  "name": "Dortmund",
+  "short": "DOR",
+  "c1": "#fde100",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Dortmund",
+   "Borussia Dortmund"
+  ]
+ },
+ {
+  "slug": "bodo-glimt",
+  "name": "Bodø/Glimt",
+  "short": "BOD",
+  "c1": "#ffd800",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Bodø/Glimt",
+   "Bodo Glimt"
+  ]
+ },
+ {
+  "slug": "porto",
+  "name": "Porto",
+  "short": "PTO",
+  "c1": "#003c8f",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Porto",
+   "FC Porto"
+  ]
+ },
+ {
+  "slug": "sporting",
+  "name": "Sporting",
+  "short": "SCP",
+  "c1": "#00804a",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Sporting",
+   "Sporting CP"
+  ]
+ },
+ {
+  "slug": "as-monaco",
+  "name": "AS Monaco",
+  "short": "MON",
+  "c1": "#e30613",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "AS Monaco",
+   "Monaco"
+  ]
+ },
+ {
+  "slug": "ogc-nice",
+  "name": "OGC Nice",
+  "short": "NIC",
+  "c1": "#c8102e",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "OGC Nice",
+   "Nice"
+  ]
+ },
+ {
+  "slug": "monza",
+  "name": "Monza",
+  "short": "MNZ",
+  "c1": "#d6001c",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Monza",
+   "AC Monza"
+  ]
+ },
+ {
+  "slug": "fiorentina",
+  "name": "Fiorentina",
+  "short": "FIO",
+  "c1": "#5b2a86",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Fiorentina",
+   "ACF Fiorentina"
+  ]
+ },
+ {
+  "slug": "fiorentina-throwback",
+  "name": "Fiorentina Throwback",
+  "short": "FIT",
+  "c1": "#6a2c91",
+  "c2": "#f4e9c9",
+  "kind": "throwback",
+  "base": "fiorentina"
+ },
+ {
+  "slug": "atletico-madrid",
+  "name": "Atlético Madrid",
+  "short": "ATM",
+  "c1": "#cb3524",
+  "c2": "#272e61",
+  "kind": "main",
+  "aliases": [
+   "Atlético Madrid",
+   "Atlético de Madrid",
+   "Atletico Madrid"
+  ]
+ },
+ {
+  "slug": "aston-villa",
+  "name": "Aston Villa",
+  "short": "AVL",
+  "c1": "#670e36",
+  "c2": "#95bfe5",
+  "kind": "main",
+  "aliases": [
+   "Aston Villa"
+  ]
+ },
+ {
+  "slug": "inter-miami",
+  "name": "Inter Miami",
+  "short": "MIA",
+  "c1": "#f7b5cd",
+  "c2": "#231f20",
+  "kind": "main",
+  "aliases": [
+   "Inter Miami",
+   "Inter Miami CF"
+  ]
+ },
+ {
+  "slug": "philadelphia-union",
+  "name": "Philadelphia Union",
+  "short": "PHI",
+  "c1": "#071b2c",
+  "c2": "#b19b69",
+  "kind": "main",
+  "aliases": [
+   "Philadelphia Union",
+   "Philly Union"
+  ]
+ },
+ {
+  "slug": "dc-united",
+  "name": "DC United",
+  "short": "DCU",
+  "c1": "#111111",
+  "c2": "#ef3e42",
+  "kind": "main",
+  "aliases": [
+   "DC United",
+   "D.C. United"
+  ]
+ },
+ {
+  "slug": "ac-milan",
+  "name": "AC Milan",
+  "short": "MIL",
+  "c1": "#fb090b",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "AC Milan",
+   "Milan",
+   "Milano FC (AC Milan)"
+  ]
+ },
+ {
+  "slug": "ac-milan-alt",
+  "name": "AC Milan Alt",
+  "short": "MIA",
+  "c1": "#f5f5f5",
+  "c2": "#fb090b",
+  "kind": "alt",
+  "base": "ac-milan"
+ },
+ {
+  "slug": "como",
+  "name": "Como",
+  "short": "COM",
+  "c1": "#0f4c9c",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Como",
+   "Como 1907"
+  ]
+ },
+ {
+  "slug": "wrexham",
+  "name": "Wrexham",
+  "short": "WRE",
+  "c1": "#c8102e",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Wrexham",
+   "Wrexham AFC"
+  ]
+ },
+ {
+  "slug": "zamalek",
+  "name": "Zamalek",
+  "short": "ZAM",
+  "c1": "#ffffff",
+  "c2": "#c8102e",
+  "kind": "main",
+  "aliases": [
+   "Zamalek",
+   "Zamalek SC"
+  ]
+ },
+ {
+  "slug": "al-ahly",
+  "name": "Al Ahly",
+  "short": "AHL",
+  "c1": "#c8102e",
+  "c2": "#ffffff",
+  "kind": "main",
+  "aliases": [
+   "Al Ahly",
+   "Al Ahly SC"
+  ]
+ },
+ {
+  "slug": "cape-town-fc",
+  "name": "Cape Town FC",
+  "short": "CPT",
+  "c1": "#2ea6e0",
+  "c2": "#0b2a4a",
+  "kind": "main",
+  "aliases": [
+   "Cape Town FC",
+   "Cape Town City"
+  ]
+ },
+ {
+  "slug": "young-boys",
+  "name": "Young Boys",
+  "short": "YB",
+  "c1": "#ffd100",
+  "c2": "#111111",
+  "kind": "main",
+  "aliases": [
+   "Young Boys",
+   "BSC Young Boys"
+  ]
+ },
+ {
+  "slug": "fc-tokyo",
+  "name": "FC Tokyo",
+  "short": "TOK",
+  "c1": "#0b3d91",
+  "c2": "#d6001c",
+  "kind": "main",
+  "aliases": [
+   "FC Tokyo"
+  ]
+ },
+ {
+  "slug": "cerezo-osaka",
+  "name": "Cerezo Osaka",
+  "short": "CER",
+  "c1": "#e6007e",
+  "c2": "#0b2a6b",
+  "kind": "main",
+  "aliases": [
+   "Cerezo Osaka"
+  ]
  }
 ]

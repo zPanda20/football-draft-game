@@ -34,6 +34,8 @@ tests/     invariants (run_all.js), end-to-end over WebSockets (e2e.js, pm_e2e.j
 tools/     build_players.py (spreadsheet to players.json), gen_placeholder_rookies.py
 ```
 
+Team art (badge, wallpaper, home/away/third kits) is dropped into `public/assets/teams/<club>/`; see the README there, and `npm run assets` for what is missing.
+
 All tunable numbers live in `engine/params.js`. Balance tests change those, never the code.
 
 ## Tests and balance checks

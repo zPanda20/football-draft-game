@@ -13,6 +13,16 @@ export function buildIndex() {
   st.idx = {}; for (const p of st.cat.players) st.idx[p.id] = p;
   st.items = Object.fromEntries(st.cat.items.map((i) => [i.id, i]));
   st.clubBy = Object.fromEntries(st.cat.clubs.map((c) => [c.slug, c]));
+  // the real-world club names on player cards -> the game's club (so cards can show its badge)
+  st.clubAlias = {};
+  for (const c of st.cat.clubs) if (c.kind === "main") for (const n of [c.name, ...(c.aliases || [])]) st.clubAlias[norm(n)] = c.slug;
+}
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+export const clubByName = (name) => (st.clubAlias && st.clubBy[st.clubAlias[norm(name)]]) || null;
+// A piece of team art (badge, wallpaper, kitHome...). Badges and wallpapers fall back to the main club for a throwback or alt.
+export function art(c, kind) {
+  for (let x = c, n = 0; x && n < 3; x = x.base && (kind === "badge" || kind === "wallpaper") ? st.clubBy[x.base] : null, n++) if (x.art && x.art[kind]) return x.art[kind];
+  return null;
 }
 export const team = (id) => (st.S && st.S.teams ? st.S.teams[id] : null);
 export const myTeam = () => (st.S && st.S.me ? team(st.S.me.teamId) : null);
@@ -38,10 +48,21 @@ export function flag(nat) {
 }
 const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 export const initials = (n) => { const w = String(n).split(/\s+/).filter(Boolean); return ((w[0] || "")[0] || "") + (w.length > 1 ? w[w.length - 1][0] : (w[0] || "")[1] || ""); };
-export const clubBadge = (name, size = 22) => `<span class="cbadge" style="--s:${size}px;--h:${hue(name)}" title="${esc(name)}">${esc(initials(name).toUpperCase())}</span>`;
-export function crest(t, size = 24) {
-  const c = club(t); const a = c ? c.c1 : "#555", b = c ? c.c2 : "#ddd";
+export function clubBadge(name, size = 22) {
+  const c = clubByName(name), img = c && art(c, "badge");
+  if (img) return `<img class="cbadge img" src="${esc(img)}" alt="${esc(name)}" title="${esc(name)}" style="--s:${size}px" loading="lazy">`;
+  if (c) return `<span class="cbadge tc" style="--s:${size}px;--a:${c.c1};--b:${c.c2}" title="${esc(name)}">${esc(c.short.slice(0, 3))}</span>`;
+  return `<span class="cbadge" style="--s:${size}px;--h:${hue(name)}" title="${esc(name)}">${esc(initials(name).toUpperCase())}</span>`;
+}
+export function crestOfClub(c, size = 24) {
+  const img = c && art(c, "badge");
+  if (img) return `<img class="crest img" src="${esc(img)}" alt="" style="--s:${size}px" loading="lazy">`;
+  const a = c ? c.c1 : "#555", b = c ? c.c2 : "#ddd";
   return `<span class="crest" style="--s:${size}px;--a:${a};--b:${b}"></span>`;
+}
+export const crest = (t, size = 24) => crestOfClub(club(t), size);
+export function kitImg(c, kind, h = 70) {
+  const u = c && art(c, kind); return u ? `<img class="kit" src="${esc(u)}" alt="" style="height:${h}px" loading="lazy">` : "";
 }
 export function chip(t, size = 22, owner = false) {
   if (!t) return "";
@@ -58,7 +79,7 @@ export function card(id, opts = {}) {
   const t = tierOf(p.ovr), size = opts.size || "md";
   const stats = size === "sm" ? "" : `<div class="cstats">${labels.map((l, i) => `<span><b>${p.st[i]}</b>${l}</span>`).join("")}</div>`;
   return `<div class="pcard ${t} ${size} ${opts.cls || ""}" data-pid="${id}">
-    <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 16 : 20)}</div></div>
+    <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 18 : size === "lg" ? 28 : 22)}</div></div>
     <div class="cface"><span class="init">${esc(initials(p.name).toUpperCase())}</span></div>
     <div class="cname">${esc(p.name)}</div>
     ${stats}${opts.tag || p.susp ? `<div class="ctag">${p.susp ? `Suspended · ${p.susp} games` : opts.tag}</div>` : ""}</div>`;
@@ -75,9 +96,17 @@ export function itemCard(it, opts = {}) {
 export function remaining() { const S = st.S; if (!S || S.paused || !S.deadline) return null; return Math.max(0, S.deadline - now()); }
 export function fmtClock(ms) { const s = Math.ceil(ms / 1000); return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : String(s); }
 export const coins = (n) => `<span class="coin">${Math.round(n)}<i></i></span>`;
+// The club whose colours, wallpaper and kits the page wears: your team, or the one you are choosing in the lobby.
+export function myClub() {
+  const S = st.S, t = myTeam(); if (t) return club(t);
+  const you = S && S.players && S.players.find((p) => p.you);
+  return you && you.club ? st.clubBy[you.club] || null : null;
+}
 export function applyTheme() {
-  const t = myTeam(), c = club(t), r = document.documentElement.style;
+  const c = myClub(), r = document.documentElement.style;
   r.setProperty("--acc", c ? lift(c.c1, c.c2) : "#3ddc84");
+  const w = c && art(c, "wallpaper"), bg = document.getElementById("bg");
+  if (bg) { bg.style.setProperty("--wall", w ? `url("${w}")` : "none"); bg.classList.toggle("wall", !!w); }
 }
 // the club's main colour if it shows on the dark interface, otherwise its second colour
 function lift(a, b) {
