@@ -2,7 +2,7 @@
 export const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "LM", "RM", "CAM", "LW", "RW", "ST"];
 
 // Where each position sits on the pitch: [depth from own goal, width -1 left .. +1 right].
-const XY = { GK: [0, 0], CB: [1, 0], LB: [1.5, -1], RB: [1.5, 1], CDM: [2, 0], CM: [3, 0], LM: [3, -1], RM: [3, 1], CAM: [4, 0], LW: [4.5, -1], RW: [4.5, 1], ST: [5, 0] };
+export const XY = { GK: [0, 0], CB: [1, 0], LB: [1.5, -1], RB: [1.5, 1], CDM: [2, 0], CM: [3, 0], LM: [3, -1], RM: [3, 1], CAM: [4, 0], LW: [4.5, -1], RW: [4.5, 1], ST: [5, 0] };
 
 // How much each slot role cares about [attack, defence, control].
 export const SLOT_W = {

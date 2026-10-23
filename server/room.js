@@ -5,7 +5,7 @@ import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
-import { bestLineup, FORMATION_NAMES, FORMATIONS } from "../engine/roster.js";
+import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
@@ -347,6 +347,19 @@ export class Room {
     if (this.step === "md.lineup") t.lineup = sanitizeLineup(l, recs, this.game.P);
     else if (this.step === "md.half") t.htLineup = sanitizeLineup(l, recs, this.game.P);
     else return;
+    this.changed();
+  }
+  // "Best XI" or a new formation: the engine picks the best players for it (using half-time stamina in the break).
+  lineupAuto(token, formation) {
+    const p = this.players.get(token); if (!p || p.teamId == null) return;
+    const g = this.game, t = g.teams[p.teamId];
+    let recs;
+    if (this.step === "md.lineup") recs = rosterOf(g, t);
+    else if (this.step === "md.half" && this.live) { const m = this.live.find((x) => x.a === t.id || x.b === t.id); if (!m) return; recs = halftimeRecs(m, m.a === t.id ? 0 : 1); }
+    else return;
+    const l = formation && FORMATIONS[formation] ? chooseForFormation(recs, formation, g.P) : bestLineup(recs, g.P);
+    const clean = { formation: l.formation, gk: l.gk, out: l.out, bench: l.bench };
+    if (this.step === "md.lineup") t.lineup = clean; else t.htLineup = clean;
     this.changed();
   }
   setActiveItems(token, ids) {

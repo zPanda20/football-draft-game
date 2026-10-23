@@ -1,5 +1,5 @@
 // The static catalogue sent to every browser once: players, items, clubs and the position map.
-import { POSITIONS, SLOT_W } from "../engine/roster.js";
+import { POSITIONS, SLOT_W, XY } from "../engine/roster.js";
 
 export function buildCatalog(D, P) {
   return {
@@ -7,7 +7,7 @@ export function buildCatalog(D, P) {
     items: D.items,
     clubs: D.clubs,
     positions: POSITIONS,
-    slotWeights: SLOT_W,
+    slotWeights: SLOT_W, xy: XY, fit: P.fit,
     rules: { rosterMax: P.money.rosterMax, rosterMin: P.money.rosterMin, activeCap: P.items.activeCap, lenMult: P.money.lenMult, extraCap: P.money.extraCap, moments: P.match.moments, packs: P.packs.rounds },
   };
 }

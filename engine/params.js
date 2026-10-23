@@ -51,6 +51,20 @@ export const DEFAULT_PARAMS = {
     rosterMax: 10, rosterMin: 6,
   },
 
+  // ---- ageing, retirement, rookies ----
+  age: {
+    retire: { 36: 0.20, 37: 0.40, 38: 0.60, 39: 0.80, 40: 1.0 }, // chance by the age a player turns that off-season (40+ = certain)
+    gkShift: 5,                                     // keepers are judged 5 years younger
+    guaranteed: ["lionel-messi", "luka-modric", "cristiano-ronaldo", "marta"], // retire after the first season
+    drift: { 21: 2.5, 22: 2.0, 23: 1.5, 24: 1.0, 25: 0.5, 28: 0, 29: -0.3, 30: -0.8, 31: -1.2, 32: -1.6, 33: -2.0, 34: -2.4, 35: -3.0 }, // mean OVR change at that age (linear between points)
+    noise: 0.9,                                     // season-to-season randomness (OVR points)
+    paceDecline: 1.4, phyDecline: 1.0, staAfter: 28, staPerYear: 0.8, // stat shape of decline
+    potential: { low: 0.55, med: 1.0, high: 1.5 },  // multiplies the growth of a young player
+  },
+  rookies: { classSize: 34, placeholder: true },
+  seasons: 4,                                       // default length of a game (needs one rookie class per off-season)
+  trade: { maxAssets: 6, botMargin: 1.10 },
+
   // ---- items ----
   items: { activeCap: 3 },
 };

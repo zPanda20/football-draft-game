@@ -60,7 +60,9 @@ export function botMarketBid(game, ti, P, round) {
     const len = a.len === 1 || p.age >= 33 ? 1 : p.age <= 28 && p.ovr >= 84 ? 2 : a.len;
     const fee = feeFor(p, len, P);
     if (fee > team.coins) continue;
-    let v = want(game, team, p, a, P) - fee / 40 + gauss(r) * a.noise * 0.5;
+    // short-handed teams care about price; everyone adds noise so the whole league does not chase the same few names
+    const short = team.players.length < P.money.rosterMin + 1;
+    let v = want(game, team, p, a, P) - fee / (short ? 18 : 40) + gauss(r) * (2 + a.noise);
     if (p.pos === "GK" && !hasGk) v += 15; // a team with no keeper must find one
     if (p.pos === "GK" && hasGk) v -= 8;
     if (v > bestV) { bestV = v; best = { team: ti, kind: "p", id: p.id, len, extra: 0, fee }; }

@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "items", "ready", "auto", "continue"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "ready", "auto", "continue"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -158,6 +158,7 @@ function handle(ws, m) {
     case "pass": room.marketPass(t); break;
     case "buy": room.buy(t, m.id); break;
     case "lineup": room.setLineup(t, m.lineup); break;
+    case "lineupAuto": room.lineupAuto(t, m.formation); break;
     case "items": room.setActiveItems(t, m.ids); break;
     case "ready": room.setReady(t, m.on !== false); break;
     case "auto": room.setAuto(t, !!m.on); break;

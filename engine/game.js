@@ -8,6 +8,7 @@ import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
 import { resolveMarketRound, buyItem, marketValue } from "./market.js";
 import { pickArchetype, botDraftPick, botMarketBid, botItemBuys } from "./bots.js";
+import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool } from "./offseason.js";
 
 export function createGame({ D, N = 20, seed = 1, params = {}, bots = null }) {
   const P = withParams(params);
@@ -148,6 +149,7 @@ export function playSeason(game, hooks = {}) {
     hooks.afterDay?.(d, dayRes, table);
   });
   const table = standingsOf(results, N);
+  game.lastResults = results;
   return { days: days.length, results, table, champion: game.teams[table[0].i] };
 }
 
@@ -171,4 +173,21 @@ export function restoreGame(D, snap) {
   for (const [id, f] of Object.entries(snap.players)) { Object.assign(g.players[id], f); rate(g.players[id], g.P); }
   g.teams = snap.teams.map((t) => ({ ...t }));
   return g;
+}
+
+// ---- the whole off-season, straight through with CPU managers (the server runs the same pieces step by step) ----
+export function runOffseason(game, D, hooks = {}) {
+  const N = game.teams.length;
+  const worstFirst = (hooks.table || standingsOf(game.lastResults || [], N)).map((r) => r.i).reverse();
+  const out = { retired: runRetirements(game) };
+  out.moves = ageAll(game);
+  game.teams.forEach((t, ti) => { for (const pk of botResign(game, ti)) resign(game, ti, pk.id, pk.len); });
+  out.released = releaseExpired(game);
+  out.rookies = introduceRookies(game, game.season, D);
+  out.draft = runRookieDraft(game, worstFirst, hooks.rookiePick);
+  rookiesToPool(game);
+  game.season += 1;
+  for (const t of game.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.marketDone = false; }
+  runMarket(game, "fa" + game.season);
+  return out;
 }
