@@ -24,7 +24,7 @@ export function pl(id) {
   const d = st.S && st.S.pd && st.S.pd[id];
   if (!d) return { ...b, stam: 100, contract: 0, mv: 0, team: null };
   const s = d.st || b.st;
-  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s };
+  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot };
 }
 
 // ---------- flags, badges, cards ----------

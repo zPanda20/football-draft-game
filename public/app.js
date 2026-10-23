@@ -2,6 +2,7 @@
 import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, crest, team, myTeam, remaining, fmtClock, coins } from "./core.js";
 import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
+import { offView, offHandlers } from "./off.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 
 const app = $("#app");
@@ -69,7 +70,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -101,16 +102,24 @@ function phaseLabel(S) {
     case "draft.intro": return "Pack draft · get ready";
     case "draft.pick": return `Pack draft · pack ${S.draft.round}/${S.draft.total}`;
     case "draft.reveal": return `Pack draft · pack ${S.draft.round}/${S.draft.total} results`;
-    case "market.bid": return `Market · round ${S.market.round + 1}`;
-    case "market.reveal": return `Market · round ${S.market.round + 1} results`;
+    case "market.bid": return `${S.phase === "offseason" ? "Free agency" : "Market"} · round ${S.market.round + 1}`;
+    case "market.reveal": return `${S.phase === "offseason" ? "Free agency" : "Market"} · round ${S.market.round + 1} results`;
     case "market.done": return "Squads set";
     case "season.intro": return `Season ${S.seasonNo}`;
-    case "season.end": return `Season ${S.seasonNo} complete`;
+    case "season.end": return S.final ? "Final table" : `Season ${S.seasonNo} complete`;
+    case "off.retire": return "Off-season · retirements";
+    case "off.age": return "Off-season · development";
+    case "off.resign": return "Off-season · re-signing";
+    case "off.resign.reveal": return "Off-season · re-signing results";
+    case "off.rookie.turn": return "Off-season · rookie draft";
+    case "off.rookie.reveal": return "Off-season · rookie results";
+    case "off.trade": return "Off-season · trade window";
     default: return S.step.startsWith("md.") ? `Season ${S.seasonNo} · matchday ${S.season.day + 1}/${S.season.total}` : S.step;
   }
 }
 function stepper(S) {
   if (S.step === "lobby") return "";
+  if (S.phase === "offseason") { const order = ["off.retire", "off.age", "off.resign", "off.resign.reveal", "off.rookie.turn", "off.rookie.reveal", "off.trade", "market.bid", "market.reveal", "market.done"], at = order.indexOf(S.step); const seg = [["Retire", 0, 1], ["Re-sign", 2, 3], ["Rookies", 4, 5], ["Trades", 6, 6], ["Free agency", 7, 9]]; return `<nav class="stepper">${seg.map(([l, a, b], i) => `${i ? "<s>›</s>" : ""}<span class="sg ${at > b ? "done" : at >= a ? "on" : ""}"><i>${at > b ? "✓" : i + 1}</i><b>${l}</b></span>`).join("")}</nav>`; }
   const ph = S.phase, g = (n, label, state) => `<span class="sg ${state}"><i>${state === "done" ? "✓" : n}</i><b>${label}</b></span>`;
   const idx = { draft: 0, market: 1, season: 2 }[ph];
   return `<nav class="stepper">${g(1, "Packs", idx > 0 ? "done" : "on")}<s>›</s>${g(2, "Market", idx > 1 ? "done" : idx === 1 ? "on" : "")}<s>›</s>${g(3, "Season", idx === 2 ? "on" : "")}</nav>`;
@@ -142,11 +151,26 @@ function nowLine(S) {
     case "md.half": return me ? (S.teams[me.teamId].ready || me.auto ? { kind: "wait", text: "Half-time changes in. Waiting for the others." } : { kind: "you", text: "Half-time: swap tired players, change formation, then press Ready." }) : { kind: "info", text: "Half-time." };
     case "md.half2": return { kind: "info", text: "Second half." };
     case "md.result": return { kind: "info", text: "Full time." };
-    case "season.end": return { kind: "info", text: `Season ${S.seasonNo} is over. The off-season is the next build.` };
+    case "season.end": return { kind: "info", text: S.final ? "That was the final season." : S.host ? "Season over. Press Continue when everyone has had a look." : "Season over. The host moves the room on to the off-season." };
+    case "off.retire": return { kind: "info", text: "Retirements: players in their late thirties may hang up their boots." };
+    case "off.age": return { kind: "info", text: "Everyone gets a year older. Young players tend to improve, veterans to fade." };
+    case "off.resign": {
+      if (!me) return { kind: "info", text: "Managers are re-signing players." };
+      if (!(me.resign || []).length) return { kind: "wait", text: "No contracts of yours expire. Waiting for the others." };
+      return S.teams[me.teamId].ready ? { kind: "wait", text: "Done. Waiting for the others." } : { kind: "you", text: "Contracts have run out. Re-sign who you want to keep, then press Done." };
+    }
+    case "off.resign.reveal": return { kind: "info", text: "Re-signing results. Released players go to free agency." };
+    case "off.rookie.turn": {
+      const RK = S.rookies, cur = RK && team(RK.order[RK.idx]);
+      if (me && me.myTurn) return { kind: "you", text: "Your pick: choose a rookie and press Draft." };
+      return { kind: "info", text: cur ? `${cur.owner || cur.name} is on the clock. The weakest team picks first.` : "Rookie draft." };
+    }
+    case "off.rookie.reveal": return { kind: "info", text: "Rookie draft results." };
+    case "off.trade": return me ? (S.teams[me.teamId].ready ? { kind: "wait", text: "You are done trading. Waiting for the others." } : { kind: "you", text: "Trade window: swap players, items and coins with other managers. Press Done when finished." }) : { kind: "info", text: "Managers are trading." };
   }
   return null;
 }
-const CLOCK_STEPS = ["draft.pick", "market.bid", "md.lineup", "md.half"];
+const CLOCK_STEPS = ["draft.pick", "market.bid", "md.lineup", "md.half", "off.resign", "off.rookie.turn", "off.trade"];
 function renderTop() {
   const S = st.S, nl = nowLine(S);
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;
@@ -193,7 +217,11 @@ function lobby(S) {
       <span class="small">Pack pick timer</span>${sel("draftSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}
       <span class="small">Market round timer</span>${sel("marketSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}
       <span class="small">Line-up timer</span>${sel("lineupSec", [[10, "10 s"], [20, "20 s"], [30, "30 s"], [45, "45 s"]])}
-      <span class="small">Half-time timer</span>${sel("halfSec", [[10, "10 s"], [15, "15 s"], [20, "20 s"], [30, "30 s"]])}</div>
+      <span class="small">Half-time timer</span>${sel("halfSec", [[10, "10 s"], [15, "15 s"], [20, "20 s"], [30, "30 s"]])}
+      <span class="small">Seasons</span>${sel("seasons", [1, 2, 3, 4, 5].map((n) => [n, n]))}
+      <span class="small">Re-sign timer</span>${sel("resignSec", [[20, "20 s"], [40, "40 s"], [60, "60 s"]])}
+      <span class="small">Rookie pick timer</span>${sel("rookieSec", [[15, "15 s"], [25, "25 s"], [40, "40 s"]])}
+      <span class="small">Trade window</span>${sel("tradeSec", [[60, "1 min"], [120, "2 min"], [180, "3 min"], [300, "5 min"]])}</div>
       ${S.host ? `<button class="btn pri big mt2" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute mt">Waiting for the host to start.</p>`}</div>
     ${chatCard(S)}`;
   return { main, side };
@@ -215,8 +243,9 @@ function render() {
   let main = "", side = "";
   const ctx = { chatCard, teamsList };
   if (S.step === "lobby") ({ main, side } = lobby(S));
-  else if (S.phase === "draft") ({ main, side } = draftView(S, ctx));
-  else if (S.phase === "market") ({ main, side } = marketView(S, ctx));
+  else if (S.step.startsWith("draft.")) ({ main, side } = draftView(S, ctx));
+  else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
+  else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");

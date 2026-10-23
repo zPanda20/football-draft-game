@@ -159,18 +159,21 @@ export function runWholeSeason(game) {
 }
 
 // ---- save / restore (checkpoints). Player records carry everything that can change; the rest comes from the data files. ----
-const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos"];
+const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot"];
 export function serializeGame(game) {
   return {
-    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool,
-    players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
+    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
+    players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool;
-  for (const [id, f] of Object.entries(snap.players)) { Object.assign(g.players[id], f); rate(g.players[id], g.P); }
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  for (const [id, f] of Object.entries(snap.players)) {
+    if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
+    rate(g.players[id], g.P);
+  }
   g.teams = snap.teams.map((t) => ({ ...t }));
   return g;
 }

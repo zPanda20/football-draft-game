@@ -112,12 +112,11 @@ export function introduceRookies(game, classNo, D) {
 // One round, worst team first. pickFor(teamIdx, availableIds) -> id|null for humans; bots take the best ovr/potential mix.
 export function runRookieDraft(game, worstFirst, pickFor = null) {
   const P = game.P, res = [];
-  const potBonus = { low: 0, med: 1.5, high: 3 };
   for (const ti of worstFirst) {
     const t = game.teams[ti], avail = game.rookies.filter((id) => game.players[id].team == null && !game.players[id].drafted);
     if (!avail.length || t.players.length >= P.money.rosterMax) { res.push({ team: ti, id: null }); continue; }
     let id = pickFor ? pickFor(ti, avail) : null;
-    if (id == null || !avail.includes(id)) id = avail.map((x) => game.players[x]).sort((a, b) => b.ovr + (potBonus[b.pot] || 0) - (a.ovr + (potBonus[a.pot] || 0)))[0].id;
+    if (id == null || !avail.includes(id)) id = botRookiePick(game, avail);
     takeRookie(game, ti, id); res.push({ team: ti, id });
   }
   return res;
@@ -128,3 +127,10 @@ export function takeRookie(game, ti, id) {
 }
 // Undrafted rookies join the free-agent pool.
 export function rookiesToPool(game) { for (const id of game.rookies || []) { const p = game.players[id]; if (p.team == null && !game.pool.includes(id)) game.pool.push(id); } game.rookies = []; }
+
+// CPU choice: the best mix of rating now and potential.
+export function botRookiePick(game, avail) {
+  const potBonus = { low: 0, med: 1.5, high: 3 };
+  return avail.map((x) => game.players[x]).sort((a, b) => b.ovr + (potBonus[b.pot] || 0) - (a.ovr + (potBonus[a.pot] || 0)) || a.id - b.id)[0].id;
+}
+export const availableRookies = (game) => (game.rookies || []).filter((id) => game.players[id].team == null && !game.players[id].drafted);

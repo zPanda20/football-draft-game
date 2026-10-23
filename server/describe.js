@@ -3,7 +3,7 @@ import { POSITIONS, SLOT_W, XY } from "../engine/roster.js";
 
 export function buildCatalog(D, P) {
   return {
-    players: D.players.map((p) => ({ id: p.id, slug: p.slug, name: p.name, nat: p.nat, club: p.club, pos: p.pos, tier: p.tier, age: p.age, ovr: p.ovr, st: [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta] })),
+    players: [...D.players, ...(D.rookies || []).flatMap((c) => c.players)].map((p) => ({ id: p.id, slug: p.slug, name: p.name, nat: p.nat, club: p.club, pos: p.pos, tier: p.tier, age: p.age, ovr: p.ovr, st: [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta], rookie: !!p.pot })),
     items: D.items,
     clubs: D.clubs,
     positions: POSITIONS,

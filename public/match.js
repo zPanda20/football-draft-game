@@ -42,6 +42,7 @@ function choose(kind, val) {
   st.ui.mSel = null; sendLineup(place(lineupOf(S), slot, pid));
 }
 export const matchHandlers = {
+  cont() { send({ t: "continue" }); },
   mslot(a) { choose("slot", +a.i); },
   mplayer(a) { choose("p", +a.id); },
   mform(a) { st.ui.mSel = null; send({ t: "lineupAuto", formation: a.value || a.f }); },
@@ -184,12 +185,17 @@ export function matchView(S, ctx) {
     case "md.result": main = playbackView(S); break;
     case "season.end": {
       const R = S.reveal, champ = team(R.champion);
-      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(champ.name)}</div><div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p><p class="mute small mt">The off-season (re-signing, retirements, rookies, free agency) is the next part of the build.</p></div>`;
+      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(champ.name)}</div><div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${R.final ? finalCard(S) : ""}`;
       break;
     }
     default: main = `<div class="card">…</div>`;
   }
   return { main, side };
+}
+function finalCard(S) {
+  const h = S.history || [], wins = new Map();
+  for (const x of h) wins.set(x.champion, (wins.get(x.champion) || 0) + 1);
+  return `<div class="card"><h3>Hall of champions</h3><table class="tb"><tr><th>Season</th><th>Champion</th><th class="n">Points</th></tr>${h.map((x) => `<tr><td>${x.season}</td><td>${chip(team(x.champion), 18, true)}</td><td class="n">${x.pts}</td></tr>`).join("")}</table><p class="mute small mt">That was the last season of this game.</p></div>`;
 }
 function fixturesPreview(S) {
   const fx = S.season.fixtures || [], me = S.me ? S.me.teamId : -1;

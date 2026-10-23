@@ -7,9 +7,11 @@ import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
+import { expiring, availableRookies } from "../engine/offseason.js";
+import { offseasonMethods } from "./offseason.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
-const DEFAULTS = { minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 20, halfSec: 15 };
+const DEFAULTS = { minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 20, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
 const KEEP_FEED = 40;
 const IDLE_MS = 6000;   // how long the room waits for idle players once nobody else is left to act
 const MARKET_ROUNDS = 8;
@@ -28,6 +30,7 @@ export class Room {
     this.reveal = null; this.revealSeq = 0; this.feed = []; this.chat = [];
     this.picks = new Map(); this.bids = new Map(); this.ready = new Set();
     this.mdIdx = -1; this.results = []; this.shownTable = null; this.live = null;
+    this.baseOf = new Map([...D.players, ...(D.rookies || []).flatMap((c) => c.players)].map((p) => [p.id, p]));
   }
 
   // ---------- timing ----------
@@ -46,6 +49,7 @@ export class Room {
   kick() {
     if (!this.restored) return; this.restored = false;
     if (this.step === "market.done") this.after(15000, () => this.beginSeason());
+    else if (this.step === "season.end" && !this.final) this.after(60000, () => this.startOffseason());
     this.changed();
   }
   pause() { if (this.paused) return; this.paused = true; if (this.timer) { clearTimeout(this.timer); this.timer = null; this.remaining = Math.max(0, this.deadline - Date.now()); this.deadline = null; } this.changed(); }
@@ -70,6 +74,9 @@ export class Room {
         case "draft.pick": { const h = this.picks.get(t.id); if (!(h && h.locked)) add(p); break; }
         case "market.bid": { const b = this.bids.get(t.id); if (!t.marketDone && !(b && b.locked)) add(p); break; }
         case "md.lineup": case "md.half": if (!this.ready.has(t.id) && !p.auto) add(p); break;
+        case "off.resign": if (expiring(this.game, t.id).length && !this.ready.has(t.id)) add(p); break;
+        case "off.trade": if (!this.ready.has(t.id)) add(p); break;
+        case "off.rookie.turn": if (this.worstFirst[this.rIdx] === t.id && !p.auto) add(p); break;
       }
     }
     return out;
@@ -124,7 +131,8 @@ export class Room {
     if (!this.isHost(token) || this.phase !== "lobby") return;
     const num = (k, lo, hi) => { if (s[k] != null && isFinite(+s[k])) this.settings[k] = Math.max(lo, Math.min(hi, +s[k])); };
     if (s.pace != null) this.settings.pace = this.nearestPace(+s.pace);
-    num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60);
+    num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60); num("resignSec", 10, 120); num("rookieSec", 10, 90); num("tradeSec", 30, 600);
+    if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
   }
   nearestPace(v) { return PACES.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b), PACES[1]); }
   setPace(token, v) {
@@ -230,9 +238,10 @@ export class Room {
   }
 
   // ---------- pre-season market (market-value lottery) ----------
-  startMarket() {
+  startMarket(kind = "pre") {
     const g = this.game;
-    g.round = 0; this.phase = "market"; this.marketRound = -1; this.quiet = 0;
+    this.marketKind = kind;
+    g.round = 0; this.phase = kind === "pre" ? "market" : "offseason"; this.marketRound = -1; this.quiet = 0;
     for (const t of g.teams) t.marketDone = false;
     this.nextMarketRound();
   }
@@ -305,8 +314,9 @@ export class Room {
     const g = this.game;
     g.teams.forEach((t, ti) => { if (!t.human) for (const id of botItemBuys(g, ti, g.P)) buyItem(g, ti, id); });
     autoFill(g);
+    if (this.marketKind === "fa") { g.season += 1; for (const t of g.teams) { t.marketDone = false; t.filled = 0; } }
     this.step = "market.done";
-    this.setReveal({ kind: "squads" });
+    this.setReveal({ kind: "squads", fa: this.marketKind === "fa" });
     this.save("preseason");
     this.after(this.p(14000), () => this.beginSeason());
     this.changed();
@@ -370,9 +380,10 @@ export class Room {
   }
   markReady(teamId, on = true) {
     if (on) this.ready.add(teamId); else this.ready.delete(teamId);
-    if (on && (this.step === "md.lineup" || this.step === "md.half")) {
-      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto);
-      if (!open) this.after(900, () => (this.step === "md.lineup" ? this.firstHalf() : this.secondHalf()));
+    const next = { "md.lineup": () => this.firstHalf(), "md.half": () => this.secondHalf(), "off.resign": () => this.finishResign(), "off.trade": () => this.endTrade() }[this.step];
+    if (on && next) {
+      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto && (this.step !== "off.resign" || expiring(this.game, t.id).length));
+      if (!open) { const st0 = this.step; this.after(900, () => { if (this.step === st0) next(); }); }
     }
     this.changed();
   }
@@ -425,11 +436,17 @@ export class Room {
   endSeason() {
     const g = this.game, table = standingsOf(this.results, g.teams.length);
     this.step = "season.end"; this.phase = "season";
-    this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table });
+    g.history = g.history || []; g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i) });
+    this.final = g.season >= this.settings.seasons;
+    this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final });
     this.save("seasonEnd");
+    if (!this.final) this.after(120000, () => this.startOffseason());
     this.changed();
   }
-  continueGame(token) { if (this.isHost(token) && this.step !== "season.end") this.skip(); }
+  continueGame(token) {
+    if (!this.isHost(token)) return;
+    if (this.step === "season.end" && !this.final) this.startOffseason(); else this.skip();
+  }
 
   // ---------- reveals, feed, persistence ----------
   setReveal(r) { this.revealSeq++; this.reveal = { seq: this.revealSeq, ...r }; }
@@ -451,7 +468,7 @@ export class Room {
     for (const sp of snap.players) room.players.set(sp.token, { ...sp, connected: false });
     room.results = snap.results || []; room.days = snap.days || [];
     room.shownTable = standingsOf(room.results, room.game.teams.length);
-    if (snap.kind === "seasonEnd") { room.phase = "season"; room.step = "season.end"; room.mdIdx = room.days.length; room.setReveal({ kind: "season", season: room.game.season, champion: room.shownTable[0].i, table: room.shownTable }); }
+    if (snap.kind === "seasonEnd") { room.phase = "season"; room.step = "season.end"; room.mdIdx = room.days.length; room.final = room.game.season >= room.settings.seasons; room.setReveal({ kind: "season", season: room.game.season, champion: room.shownTable[0].i, table: room.shownTable, final: room.final }); }
     else { room.phase = "market"; room.step = "market.done"; room.setReveal({ kind: "squads" }); }
     room.restored = true;
     return room;
@@ -460,14 +477,15 @@ export class Room {
   // ---------- views ----------
   teamPub(t) {
     const p = this.playerOfTeam(t.id);
-    return { id: t.id, name: t.name, owner: p ? p.name : null, club: t.club, human: !!t.human, connected: t.human ? !!(p && p.connected) : true, idle: !!(p && p.idle), auto: !!(p && p.auto), players: t.players, ready: this.ready.has(t.id), done: !!t.marketDone };
+    return { id: t.id, name: t.name, owner: p ? p.name : null, club: t.club, human: !!t.human, connected: t.human ? !!(p && p.connected) : true, idle: !!(p && p.idle), auto: !!(p && p.auto), players: t.players, ready: this.ready.has(t.id), done: !!t.marketDone, items: this.step === "off.trade" ? t.items : undefined };
   }
   // The live record for a player: only what differs from the data file is sent beyond the basics.
   pdyn(id) {
-    const p = this.game.players[id], b = this.D.players[id];
+    const p = this.game.players[id], b = this.baseOf.get(id) || p;
     const o = { o: p.ovr, a: p.age, s: Math.round(p.stam), c: p.contract, t: p.team, mv: marketValue(p, this.game.P) };
     if (p.ovr !== b.ovr || p.pac !== b.pac || p.sho !== b.sho || p.pas !== b.pas || p.dri !== b.dri || p.def !== b.def || p.phy !== b.phy || p.sta !== b.sta) o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta];
     if (p.pos !== b.pos) o.pos = p.pos;
+    if (p.pot) o.pot = p.pot;
     return o;
   }
 
@@ -489,21 +507,26 @@ export class Room {
     v.table = this.shownTable || [];
     // live player records for everyone who is on a team (compact)
     const ids = new Set(); for (const t of g.teams) for (const id of t.players) ids.add(id);
-    if (this.phase === "market") for (const id of g.pool) ids.add(id);
+    if (this.step.startsWith("market.")) for (const id of g.pool) ids.add(id);
+    if (this.step.startsWith("off.rookie") && g.rookies) for (const id of g.rookies) ids.add(id);
     if (this.step === "draft.pick" && me && me.teamId != null) for (const c of this.hands[me.teamId]) if (c.t === "p") ids.add(c.id);
+    if (this.reveal && this.reveal.kind === "resign") for (const x of this.reveal.released) ids.add(x.id);
     if (this.reveal && this.reveal.kind === "draft") for (const pk of this.reveal.picks) if (pk.card && pk.card.t === "p") ids.add(pk.card.id);
     v.pd = Object.fromEntries([...ids].map((id) => [id, this.pdyn(id)]));
     if (this.phase === "draft" && this.draftRound) v.draft = { round: this.draftRound, total: g.P.packs.rounds, locked: [...this.picks].filter(([, h]) => h.locked).map(([id]) => id), humans: this.humanTeams().map((t) => t.id) };
-    if (this.phase === "market") {
+    if (this.step.startsWith("market.")) {
       const w = catchUpWeights(g, g.P);
       v.market = { round: this.marketRound, total: MARKET_ROUNDS, pool: g.pool, supply: g.supply, locked: [...this.bids].filter(([, b]) => b.locked).map(([id]) => id), odds: w.map((x) => +x.toFixed(3)) };
     }
+    if (this.phase === "offseason" && this.step.startsWith("off.rookie")) v.rookies = { avail: availableRookies(g), order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks };
+    if (this.phase === "offseason" && this.step === "off.trade" && !me) v.tradeLog = this.trade ? this.trade.log.slice(-10) : [];
+    v.history = g.history || []; v.final = !!this.final;
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
       const t = g.teams[me.teamId];
       const mv = { teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, idle: !!me.idle, active: t.active ?? null, income: t.income };
       if (this.step === "draft.pick") { mv.hand = this.hands[t.id]; const h = this.picks.get(t.id); mv.pick = h ? { idx: h.idx, locked: h.locked } : null; }
-      if (this.phase === "market") {
+      if (this.step.startsWith("market.")) {
         const b = this.bids.get(t.id); mv.bid = b || null; mv.done = !!t.marketDone;
         mv.rosterRoom = g.P.money.rosterMax - t.players.length;
       }
@@ -517,9 +540,16 @@ export class Room {
           }
         }
       }
+      if (this.phase === "offseason") {
+        if (this.step === "off.resign") mv.resign = expiring(g, t.id).map((id) => { const p = g.players[id]; return { id, fees: [1, 2, 3].map((l) => feeFor(p, l, g.P)) }; });
+        if (this.step === "off.rookie.turn") mv.myTurn = this.worstFirst[this.rIdx] === t.id;
+        if (this.step === "off.trade") mv.trade = this.tradeView(me);
+      }
       v.me = mv;
       v.formations = Object.fromEntries(FORMATION_NAMES.map((f) => [f, FORMATIONS[f]]));
     }
     return v;
   }
 }
+
+Object.assign(Room.prototype, offseasonMethods);

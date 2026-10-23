@@ -32,6 +32,9 @@ function client(name, host) {
       } else if (!me.bid) send({ t: "pass" });
     }
     if ((s.step === "md.lineup" || s.step === "md.half") && !s.teams[me.teamId].ready) send({ t: "ready" });
+    if (s.step === "off.resign" && !s.teams[me.teamId].ready) { for (const r of me.resign || []) if (me.coins >= r.fees[0]) send({ t: "resign", id: r.id, len: 1 }); send({ t: "ready" }); }
+    if (s.step === "off.rookie.turn" && me.myTurn && s.rookies.avail.length) send({ t: "rookie", id: s.rookies.avail[0] });
+    if (s.step === "off.trade" && !s.teams[me.teamId].ready) send({ t: "ready" });
   });
   return c;
 }
@@ -39,16 +42,18 @@ const host = client("Ana", true);
 await new Promise((r) => setTimeout(r, 400));
 const others = ["Bo", "Cy"].map((n) => { const c = client(n, false); c.room = host.room; return c; });
 await new Promise((r) => setTimeout(r, 500));
+host.send({ t: "settings", s: { seasons: 2 } });
+await new Promise((r) => setTimeout(r, 200));
 host.send({ t: "start" });
 const t0 = Date.now();
-while (Date.now() - t0 < 120000) {
+while (Date.now() - t0 < 240000) {
   await new Promise((r) => setTimeout(r, 300));
-  if (host.s && host.s.step === "season.end") break;
+  if (host.s && host.s.step === "season.end") { if (host.s.final) break; if (!host.s.contSent || host.s.contSent !== host.s.seasonNo) { host.send({ t: "continue" }); host.s.contSent = host.s.seasonNo; await new Promise((r) => setTimeout(r, 400)); } }
 }
 const s = host.s;
-const ok = s && s.step === "season.end";
+const ok = s && s.step === "season.end" && s.final && s.seasonNo === 2;
 console.log("steps seen:", [...seen].join(", "));
-console.log("final step:", s && s.step, "| teams:", s && s.N, "| matchdays:", s && s.season.total);
+console.log("final step:", s && s.step, "| season:", s && s.seasonNo, "| teams:", s && s.N, "| matchdays:", s && s.season.total, "| history:", s && s.history.length);
 if (s) console.log("champion:", s.teams[s.reveal.champion].name, "| my coins:", s.me.coins, "| my roster:", s.teams[s.me.teamId].players.length);
 if (log.length) console.log(log.join("\n"));
 srv.kill();
