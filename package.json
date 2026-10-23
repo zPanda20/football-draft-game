@@ -1,0 +1,20 @@
+{
+  "name": "football-draft-game",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Multiplayer 6-a-side football draft game: authoritative Node server + browser client",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node tests/run_all.js",
+    "sim": "node tests/smoke.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

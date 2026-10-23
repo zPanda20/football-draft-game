@@ -1,0 +1,20 @@
+[
+  { "id": "electrolytes", "name": "Electrolytes", "uses": 3, "scope": "team", "fx": { "drain": -0.20 }, "price": 60, "text": "All players tire 20% slower for one match." },
+  { "id": "cold-therapy", "name": "Cold Therapy", "uses": 1, "scope": "team", "fx": { "recover": 25 }, "price": 70, "text": "Every player starts the match with +25 stamina." },
+  { "id": "psychologist", "name": "Sports Psychologist Session", "uses": 1, "scope": "team", "fx": { "ctl": 4, "formSigma": -0.35 }, "price": 90, "text": "More control and a steadier performance for one match." },
+  { "id": "tactics-board", "name": "Tactics Board", "uses": 3, "scope": "team", "fx": { "ctl": 4 }, "price": 70, "text": "+4 control for one match." },
+  { "id": "finishing-drill", "name": "Finishing Drill", "uses": 3, "scope": "team", "fx": { "atk": 4 }, "price": 70, "text": "+4 attack for one match." },
+  { "id": "defensive-masterclass", "name": "Defensive Masterclass", "uses": 3, "scope": "team", "fx": { "def": 4 }, "price": 70, "text": "+4 defence for one match." },
+  { "id": "keeper-gloves", "name": "Keeper Gloves", "uses": 3, "scope": "team", "fx": { "gk": 5 }, "price": 60, "text": "+5 goalkeeping for one match." },
+
+  { "id": "boots-nike-low", "name": "Nike Boots (low)", "brand": "Nike", "tier": "low", "uses": 3, "scope": "player", "fx": { "off": 2 }, "price": 50, "text": "+2 attacking for the player who wears them." },
+  { "id": "boots-nike-mid", "name": "Nike Boots (mid)", "brand": "Nike", "tier": "mid", "uses": 3, "scope": "player", "fx": { "off": 4 }, "price": 110, "text": "+4 attacking for the player who wears them." },
+  { "id": "boots-nike-top", "name": "Nike Boots (top)", "brand": "Nike", "tier": "top", "uses": 3, "scope": "player", "fx": { "off": 7 }, "price": 250, "supply": 1, "text": "+7 attacking. Only one pair exists in the lobby." },
+  { "id": "boots-adidas-low", "name": "Adidas Boots (low)", "brand": "Adidas", "tier": "low", "uses": 3, "scope": "player", "fx": { "off": 2 }, "price": 50, "text": "+2 attacking for the player who wears them." },
+  { "id": "boots-adidas-mid", "name": "Adidas Boots (mid)", "brand": "Adidas", "tier": "mid", "uses": 3, "scope": "player", "fx": { "off": 4 }, "price": 110, "text": "+4 attacking for the player who wears them." },
+  { "id": "boots-adidas-top", "name": "Adidas Boots (top)", "brand": "Adidas", "tier": "top", "uses": 3, "scope": "player", "fx": { "off": 7 }, "price": 250, "supply": 1, "text": "+7 attacking. Only one pair exists in the lobby." },
+  { "id": "boots-puma-mid", "name": "Puma Boots (mid)", "brand": "Puma", "tier": "mid", "uses": 3, "scope": "player", "fx": { "off": 4 }, "price": 110, "text": "+4 attacking for the player who wears them." },
+  { "id": "boots-puma-top", "name": "Puma Boots (top)", "brand": "Puma", "tier": "top", "uses": 3, "scope": "player", "fx": { "off": 7 }, "price": 250, "supply": 1, "text": "+7 attacking. Only one pair exists in the lobby." },
+  { "id": "boots-mizuno-low", "name": "Mizuno Boots (low)", "brand": "Mizuno", "tier": "low", "uses": 3, "scope": "player", "fx": { "off": 2 }, "price": 50, "text": "+2 attacking for the player who wears them." },
+  { "id": "boots-mizuno-mid", "name": "Mizuno Boots (mid)", "brand": "Mizuno", "tier": "mid", "uses": 3, "scope": "player", "fx": { "off": 4 }, "price": 110, "text": "+4 attacking for the player who wears them." }
+]
