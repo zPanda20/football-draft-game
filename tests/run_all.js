@@ -4,7 +4,8 @@ import { D, createGame, runDraft, runMarket, playSeason, rosterOf } from "./lib.
 import { teamsFor, legsFor, matchesPerTeam, schedule } from "../engine/fixtures.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { matchSteps, playMatch } from "../engine/match.js";
-import { bestLineup, rate } from "../engine/roster.js";
+import { bestLineup, rate, FORMATIONS } from "../engine/roster.js";
+const FORMATIONS_OF = (f) => FORMATIONS[f];
 import { withParams } from "../engine/params.js";
 import { resolveMarketRound, feeFor } from "../engine/market.js";
 import { runRetirements, ageAll, retireChance, resign, expiring, releaseExpired } from "../engine/offseason.js";
@@ -245,6 +246,46 @@ t("clubs: unique slugs, colours, variants point at a main club, art files are pi
   const alias = new Map(); for (const c of cl) if (c.kind === "main") for (const n of [c.name, ...(c.aliases || [])]) alias.set(norm(n), c.slug);
   for (const n of ["Real Madrid", "FC Barcelona", "FC Bayern München", "Paris Saint-Germain", "Lombardia FC (Inter Milan)", "Milano FC (AC Milan)", "Atlético de Madrid", "Manchester United", "Racing Louisville FC", "ACF Fiorentina", "Portland Thorns", "Inter Miami CF"]) { assert.ok(names.has(n), n); assert.ok(alias.has(norm(n)), "no crest for " + n); }
   assert.ok(!alias.has(norm("Paris FC")));
+});
+t("formations: each shape has its own identity, counter-play is symmetric, stamina follows the role, matches stay deterministic", async () => {
+  const { chooseForFormation, FORMATION_NAMES } = await import("../engine/roster.js");
+  const { shapeAdjust, breakChance, teamNow } = await import("../engine/match.js");
+  const g = createGame({ D, N: 10, seed: 31 }); runDraft(g); runMarket(g);
+  const squads = g.teams.map((t) => rosterOf(g, t).map((p) => ({ ...p, stam: 100 }))).filter((r) => r.length >= 8).slice(0, 6), P = g.P;
+  const agg = Object.fromEntries(FORMATION_NAMES.map((f) => [f, { sf: 0, sa: 0, poss: 0, m: 0, ev: 0 }]));
+  let k = 0;
+  for (const pl of squads) {
+    const L = Object.fromEntries(FORMATION_NAMES.map((f) => [f, chooseForFormation(pl, f, P)]));
+    for (const a of FORMATION_NAMES) for (const b of FORMATION_NAMES) for (let i = 0; i < 12; i++) {
+      const r = playMatch({ seed: ++k, matchKey: "t" + k, P, home: { id: 0, name: "A", players: pl, lineup: L[a], fx: {} }, away: { id: 1, name: "B", players: pl, lineup: L[b], fx: {} } });
+      const ph = r.flow.reduce((x, f) => x + f.ph, 0) / r.flow.length;
+      for (const [f, sf, sa, po] of [[a, r.shots[0], r.shots[1], ph], [b, r.shots[1], r.shots[0], 1 - ph]]) { const x = agg[f]; x.sf += sf; x.sa += sa; x.poss += po; x.m++; x.ev += sf + sa; }
+    }
+  }
+  const per = (f, key) => agg[f][key] / agg[f].m;
+  assert.ok(per("1-2-2", "ev") > per("2-2-1", "ev") && per("1-2-2", "ev") > per("3-1-1", "ev"), "the all-out attack is the high-event shape");
+  assert.ok(per("3-1-1", "sa") < per("1-2-2", "sa") && per("3-1-1", "sa") < per("2-1-2", "sa"), "the block concedes the fewest shots");
+  assert.ok(FORMATION_NAMES.every((f) => f === "2-2-1" || per("2-2-1", "poss") > per(f, "poss") - 0.004), "the possession core holds the ball most");
+  assert.ok(per("2-1-2", "poss") < 0.5, "the direct strike gives up possession");
+  // equal squads: nobody is a free pick (average share of shots stays in a band)
+  for (const f of FORMATION_NAMES) assert.ok(per(f, "sf") / per(f, "ev") > 0.4 && per(f, "sf") / per(f, "ev") < 0.6, f);
+  // counter-play: both sides see the mirror image
+  const mk = (f) => ({ formation: f, g: { back: { pac: 78, def: 78, phy: 78 }, mid: { pac: 78, pas: 78, dri: 78, def: 78 }, fwd: { pac: 78, phy: 78 } } });
+  const a1 = shapeAdjust(mk("1-3-1"), mk("2-1-2"), P), a2 = shapeAdjust(mk("2-1-2"), mk("1-3-1"), P);
+  assert.equal(a1.ctl - P.shape.f["1-3-1"].ctl, 2); assert.equal(a2.ctl - P.shape.f["2-1-2"].ctl, -2);
+  // a fast break is likelier against the isolated defender and when the forwards have the legs
+  assert.ok(breakChance(mk("1-2-2"), mk("1-3-1"), P) > breakChance(mk("1-2-2"), mk("3-1-1"), P));
+  const quick = mk("2-2-1"); quick.g = { ...quick.g, fwd: { pac: 95, phy: 78 } };
+  assert.ok(breakChance(quick, mk("1-3-1"), P) > breakChance(mk("2-2-1"), mk("1-3-1"), P));
+  // stamina by role: the same line-up tires its slots more (press midfield, isolated striker) and less (deep defenders) than with flat drain
+  const pl = squads[0], P0 = withParams({ shape: { f: Object.fromEntries(FORMATION_NAMES.map((f) => [f, { drain: Object.fromEntries(["LB", "CB", "RB", "LM", "CM", "RM", "ST"].map((x) => [x, 1])) }])) } });
+  const run = (l, PP = P) => playMatch({ seed: 5, matchKey: "s", P: PP, home: { id: 0, name: "A", players: pl, lineup: l, fx: {} }, away: { id: 1, name: "B", players: pl, lineup: l, fx: {} } });
+  const lp = chooseForFormation(pl, "1-3-1", P), lq = chooseForFormation(pl, "3-1-1", P);
+  const lost = (r, l, idx) => idx.reduce((x, i) => x + 100 - r.stamina[0][l.out[i]], 0);
+  assert.ok(lost(run(lp), lp, [1, 2, 3]) > lost(run(lp, P0), lp, [1, 2, 3]), "press midfield tires faster");
+  assert.ok(lost(run(lq), lq, [4]) > lost(run(lq, P0), lq, [4]) && lost(run(lq), lq, [0, 1, 2]) < lost(run(lq, P0), lq, [0, 1, 2]), "isolated striker runs more, deep defenders less");
+  // same seed, same match
+  const x1 = run(lp), x2 = run(lp); assert.deepEqual(x1.score, x2.score); assert.deepEqual(x1.events, x2.events);
 });
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

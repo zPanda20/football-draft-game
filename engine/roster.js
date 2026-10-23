@@ -5,10 +5,14 @@ export const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "LM", "RM", "CAM"
 export const XY = { GK: [0, 0], CB: [1, 0], LB: [1.5, -1], RB: [1.5, 1], CDM: [2, 0], CM: [3, 0], LM: [3, -1], RM: [3, 1], CAM: [4, 0], LW: [4.5, -1], RW: [4.5, 1], ST: [5, 0] };
 
 // How much each slot role cares about [attack, defence, control].
+// Polarised on purpose: a striker adds nothing to defence and a centre-back nothing to attack, so a formation's
+// totals are made by who it puts where (a plain average would pull every shape toward the middle).
 export const SLOT_W = {
-  CB: [0.10, 1.00, 0.30], LB: [0.30, 0.85, 0.40], RB: [0.30, 0.85, 0.40], CDM: [0.25, 0.85, 0.85], CM: [0.55, 0.55, 1.00],
-  LM: [0.70, 0.45, 0.60], RM: [0.70, 0.45, 0.60], CAM: [0.90, 0.30, 0.90], LW: [0.95, 0.25, 0.50], RW: [0.95, 0.25, 0.50], ST: [1.00, 0.15, 0.30],
+  CB: [0.00, 1.50, 0.30], LB: [0.30, 1.10, 0.40], RB: [0.30, 1.10, 0.40], CDM: [0.20, 1.10, 0.90], CM: [0.60, 0.50, 1.20],
+  LM: [0.80, 0.40, 0.70], RM: [0.80, 0.40, 0.70], CAM: [1.10, 0.20, 1.00], LW: [1.30, 0.10, 0.50], RW: [1.30, 0.10, 0.50], ST: [1.50, 0.00, 0.30],
 };
+// Which line of the team a slot belongs to (the stat checks look at whole lines, not single positions).
+export const GROUP = { CB: "back", LB: "back", RB: "back", CDM: "mid", CM: "mid", LM: "mid", RM: "mid", CAM: "mid", LW: "fwd", RW: "fwd", ST: "fwd" };
 
 // Five outfield slots each (the keeper is always the sixth player). A starting list for you to edit.
 export const FORMATIONS = {

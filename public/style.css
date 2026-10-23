@@ -258,3 +258,5 @@ table.tb tr.clickable{cursor:pointer}table.tb tr.clickable:hover td{background:v
 .tmhead{display:flex;align-items:center;justify-content:center;gap:10px}
 .tchip .kit{flex:none;width:auto}
 svg.kit{display:inline-block;flex:none}
+
+.formnote{margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--panel2);font-size:13px;color:var(--mute);line-height:1.4}.formnote b{color:var(--text)}

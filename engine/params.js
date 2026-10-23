@@ -12,9 +12,38 @@ export const DEFAULT_PARAMS = {
     moments: 5,                                     // moments per half (the 52-second match has 2 halves)
     possK: 0.035,                                   // possession swing per control-point difference
     shotBase: 0.9, shotK: 0.028,                    // chance a possession becomes a shot
-    goalBase: -0.35, goalK: 0.030,                  // chance a shot beats the keeper
+    goalBase: -0.62, goalK: 0.030,                  // chance a shot beats the keeper
     formSigma: 3.0,                                 // per-match form noise on every team rating, in effective points
     momentSigma: 3.0,                               // extra noise inside each moment
+  },
+
+  // ---- formation identities (see match.js: shapeAdjust, matchups) ----
+  // All numbers are effective rating points unless noted. `shotFor` / `shotAgainst` shift the shot chance (logit) of
+  // that team's own shots / of the shots it concedes. `counter` / `exposed` set the odds of a fast break when that
+  // team has the ball / when it is the one defending. `drain` multiplies stamina loss by slot. The lens numbers turn
+  // a line's raw stats (relative to `ref`) into rating points.
+  shape: {
+    ref: 78,
+    goalDef: 0.3,                                   // share of the goal check carried by the defence (the keeper has the rest)
+    duelK: 0.3, duelCap: 6,                         // back line PHYSICAL against the forwards' PHYSICAL, points per stat point
+    breakK: 0.05, breakShot: 1.2,                   // fast break: logit per PACE point of gap; shot-chance bonus (defence is bypassed)
+    f: {
+      "2-1-2":      { atk: 1, def: 0, ctl: -1, shotFor: 0.5, shotAgainst: 0, counter: -2.2, exposed: 0, drain: { CM: 1.6 }, feed: 0.2 },
+      "2-2-1":      { atk: -3, def: -2, ctl: 3.5, shotFor: 0, shotAgainst: -0.1, counter: -2.2, exposed: 0, duel: 1.5, retain: 0.2 },
+      "3-1-1":      { atk: 0.5, def: 4, ctl: 0, shotFor: -0.1, shotAgainst: -0.35, counter: -0.3, exposed: -1.5, drain: { LB: 0.85, CB: 0.85, RB: 0.85, ST: 1.4 }, stack: 0.25 },
+      "1-3-1":      { atk: 0, def: -4, ctl: 5, shotFor: 0, shotAgainst: 0, counter: -1.5, exposed: 1.0, drain: { LM: 1.25, CM: 1.25, RM: 1.25 }, press: 0.3 },
+      "1-2-2":      { atk: 5, def: -5, ctl: 0, shotFor: 0.25, shotAgainst: 0.25, counter: -1.2, exposed: 1.3, drain: { CM: 1.15 }, rush: 0.25 },
+      "2-2-1 wide": { atk: 3, def: 0, ctl: 0, shotFor: 0.15, shotAgainst: 0.1, counter: -2.0, exposed: 0.6, drain: { LM: 1.15, RM: 1.15, LB: 1.1, RB: 1.1 }, rush: 0.2 },
+    },
+    // Counter-play: [shape A, shape B, A's bonus, B's bonus]. Small on purpose.
+    vs: [
+      ["1-3-1", "2-1-2", { ctl: 2 }, { ctl: -2 }],             // a three-man midfield starves the lone playmaker
+      ["2-2-1", "2-1-2", { ctl: 1 }, { ctl: -1 }],
+      ["1-3-1", "2-2-1", { ctl: 2 }, { ctl: -2 }],             // the press disrupts the square
+      ["3-1-1", "1-2-2", { def: 3 }, { atk: -3 }],             // three deep defenders against two strikers
+      ["2-2-1 wide", "3-1-1", { atk: 2 }, { def: -2 }],        // width pulls the block apart
+      ["2-2-1 wide", "1-3-1", { atk: 3 }, { def: -3 }],        // width beats a central overload
+    ],
   },
 
   // ---- stamina ----

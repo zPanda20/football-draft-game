@@ -138,6 +138,14 @@ function swapHint(sel) {
   const l = lineupOf(st.S), e = ent(l, sel.kind, sel.val), p = e.pid != null ? pl(e.pid) : null;
   return `<div class="swaphint on">Swapping <b>${p ? esc(p.name) : "an empty spot"}</b>${e.slot == null ? " (bench)" : ""}. Now click who to swap with. <button class="btn sm" data-act="mcancel">Cancel</button></div>`;
 }
+const FORM_INFO = {
+  "2-1-2": ["The Direct Strike", "One playmaker feeds two forwards: more shots, less of the ball. The lone midfielder tires fast. Needs a high-PASS playmaker."],
+  "2-2-1": ["The Possession Core", "Two midfielders keep the ball and the opponent gets fewer shots. Needs PASS and DRIBBLE in midfield and a physical, clinical striker."],
+  "3-1-1": ["The Defensive Block", "Three deep defenders cut the chances you concede; you attack on the counter. Needs strong DEFENCE and PHYSICAL at the back and a pacey striker."],
+  "1-3-1": ["The High Press", "A three-man midfield wins the ball back and controls the game, but tires. A lost tackle exposes the lone defender, so he needs PACE."],
+  "1-2-2": ["The All-Out Attack", "Two strikers, runners behind them: lots of shots at both ends. Needs PACE and DRIBBLE up front and a quick centre-back."],
+  "2-2-1 wide": ["Wide Play", "Fullbacks and wingers stretch the pitch for more shots, but leave gaps to counter. Beats a central overload; the block pulls apart."],
+};
 function lineupEditor(S, half) {
   const me = S.me, t = team(me.teamId);
   const l = half ? me.match.halftime.lineup : me.lineup;
@@ -163,8 +171,8 @@ function lineupEditor(S, half) {
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
   return `<div class="card"><div class="row wrap">${half ? "" : kitImg(club(t), "kitHome", 40)}<h3 style="margin:0">${half ? "Half-time changes" : "Line-up"}</h3><div class="grow"></div>
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
-      <button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button></div>
-    ${head}<div class="forms mt">${forms}</div>
+      ${half ? `<button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button>` : ""}</div>
+    ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
     <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div data-keep="bench" style="max-height:470px;overflow:auto">${roster.map(row).join("")}</div></div></div></div>${items}`;
 }
 
@@ -195,8 +203,8 @@ const nm = (id) => { const p = id != null ? pl(id) : null; return p ? p.name : "
 function evLine(m, e) {
   const tm = team(e.team ? m.b : m.a);
   const clock = `${e.minute}'`;
-  if (e.type === "goal") return `<div class="ev goal"><span class="min">${clock}</span>⚽ <b>${esc(nm(e.player))}</b> scores for ${esc(tm.name)}</div>`;
-  if (e.type === "save") return `<div class="ev"><span class="min">${clock}</span>🧤 ${esc(nm(e.player))} shoots, ${esc(nm(e.keeper))} saves</div>`;
+  if (e.type === "goal") return `<div class="ev goal"><span class="min">${clock}</span>⚽ <b>${esc(nm(e.player))}</b> scores for ${esc(tm.name)}${e.fast ? " on the break" : ""}</div>`;
+  if (e.type === "save") return `<div class="ev"><span class="min">${clock}</span>🧤 ${e.fast ? "Breakaway! " : ""}${esc(nm(e.player))} shoots, ${esc(nm(e.keeper))} saves</div>`;
   return "";
 }
 // ---------- momentum and possession ----------
