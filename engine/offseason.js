@@ -28,6 +28,7 @@ export function retire(game, p, forced) {
   if (was != null) { const t = game.teams[was]; t.players = t.players.filter((id) => id !== p.id); }
   p.retired = true; p.team = null; p.contract = 0;
   game.pool = game.pool.filter((id) => id !== p.id);
+  if (game.userPool) game.userPool = game.userPool.filter((id) => id !== p.id);
   return { id: p.id, team: was, age: p.age + 1, forced };
 }
 
@@ -57,6 +58,7 @@ export function ageAll(game) {
     p.ovr = clamp(Math.round(p.ovr + d), 40, 99);
     p.sta = clamp(Math.round(p.sta + (decl ? d * 0.5 : d * 0.3) - (p.age > P.age.staAfter ? P.age.staPerYear : 0)), 30, 99);
     p.stam = 100; if (p.team != null && p.contract > 0) p.contract -= 1;
+    if (p.user) p.ovrf = p.ovr;
     rate(p, P);
     if (p.ovr !== old) moves.push({ id: p.id, from: old, to: p.ovr });
   }
@@ -64,10 +66,10 @@ export function ageAll(game) {
 }
 
 // ---- contracts ----
-export const expiring = (game, ti) => game.teams[ti].players.filter((id) => game.players[id].contract <= 0);
+export const expiring = (game, ti) => game.teams[ti].players.filter((id) => game.players[id].contract <= 0 && !game.players[id].user);
 export function resign(game, ti, id, len) {
   const t = game.teams[ti], p = game.players[id];
-  if (!p || p.team !== ti || p.contract > 0 || !(len >= 1 && len <= 3)) return false;
+  if (!p || p.user || p.team !== ti || p.contract > 0 || !(len >= 1 && len <= 3)) return false;
   const fee = feeFor(p, len, game.P);
   if (t.coins < fee) return false;
   t.coins -= fee; p.contract = len; return fee;
@@ -77,7 +79,7 @@ export function releaseExpired(game) {
   const out = [];
   for (const t of game.teams) for (const id of t.players.slice()) {
     const p = game.players[id];
-    if (p.contract <= 0) { t.players = t.players.filter((x) => x !== id); p.team = null; game.pool.push(id); out.push({ id, team: t.id }); }
+    if (p.contract <= 0) { t.players = t.players.filter((x) => x !== id); p.team = null; if (p.user) (game.userPool = game.userPool || []).push(id); else game.pool.push(id); out.push({ id, team: t.id }); }
   }
   return out;
 }

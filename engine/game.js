@@ -19,7 +19,7 @@ export function createGame({ D, N = 20, seed = 1, params = {}, bots = null }) {
     id: i, name: "Team " + (i + 1), bot: bots?.[i] || pickArchetype(r), human: false,
     players: [], items: {}, coins: P.money.startCoins, picks: [], income: 0,
   }));
-  const game = { P, params, seed, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], log: [] };
+  const game = { P, params, seed, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], userPool: [], log: [] };
   game.pool = makePool(D.players, N, P);
   return game;
 }
@@ -108,7 +108,7 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
   let res = m.res;
   if (!res) {
     const next = [0, 1].map((i) => changes[i] || hooks.halftime?.(m.sides[i], halftimeRecs(m, i), i) || bestLineup(halftimeRecs(m, i), P));
-    res = m.gen.next({ home: next[0], away: next[1] }).value;
+    res = m.gen.next({ home: next[0], away: next[1], effort: [hooks.effort?.(m.sides[0]) || null, hooks.effort?.(m.sides[1]) || null] }).value;
   }
   m.sides.forEach((t, i) => {
     for (const id of m.fx[i].used) { t.items[id]--; if (t.items[id] <= 0) delete t.items[id]; }
@@ -163,13 +163,14 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
+    userPool: game.userPool || [],
+    players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);

@@ -13,7 +13,7 @@ export function validateOffer(game, o) {
       const key = a.k + (a.id ?? "");
       if (a.k !== "c" && seen.has(key)) return "Duplicate asset.";
       seen.add(key);
-      if (a.k === "p") { if (!t.players.includes(a.id)) return "A player in the deal is no longer on that team."; players++; }
+      if (a.k === "p") { if (!t.players.includes(a.id)) return "A player in the deal is no longer on that team."; if (game.players[a.id].user) return "Created players cannot be traded."; players++; }
       else if (a.k === "i") { if (!(t.items[a.id] > 0)) return "An item in the deal is no longer owned."; }
       else if (a.k === "c") { if (!(a.amt > 0) || a.amt > t.coins || coins) return "Bad coin amount."; coins = a.amt; }
       else return "Unknown asset.";

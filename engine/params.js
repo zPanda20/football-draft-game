@@ -65,6 +65,20 @@ export const DEFAULT_PARAMS = {
   seasons: 4,                                       // default length of a game (needs one rookie class per off-season)
   trade: { maxAssets: 6, botMargin: 1.10 },
 
+  // ---- player mode (a human plays one footballer instead of managing a team) ----
+  player: {
+    start: [81, 86],                                // starting overall of a created player
+    rerolls: 2,                                     // extra rolls of the six numbers
+    spread: [14, 8, 3, -3, -9, -15],                // the six numbers are start + these (plus noise), then the user assigns them
+    cards: 3,                                       // career cards per season
+    maxQueue: 2,                                    // unanswered cards pile up to this many; older ones lapse
+    push: { bonus: 2.5, drain: 1.35 },              // half-time choice: +rating for the second half, faster stamina drain
+    conserve: { bonus: -0.5, drain: 0.6 },
+    offersPerMarket: 3,                             // CPU teams that make an offer when a market opens
+    maxOpenOffers: 3,                               // per manager
+    cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
+  },
+
   // ---- items ----
   items: { activeCap: 3 },
 };

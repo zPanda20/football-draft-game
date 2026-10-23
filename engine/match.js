@@ -33,7 +33,8 @@ export function teamNow(side, stamOf, P, fx = {}) {
   slots.forEach((slot, i) => {
     const p = side.byId.get(side.lineup.out[i]) || GHOST;
     const f = fatigue(stamOf(p), P), fit = fitMult(p.pos, slot, P), [sa, sd, sc] = SLOT_W[slot];
-    const off = (p.r.off + (pl[p.id]?.off || 0)) * fit * f, def = p.r.def * fit * f, ctl = p.r.ctl * fit * f;
+    const ab = pl[p.id]?.all || 0;
+    const off = (p.r.off + (pl[p.id]?.off || 0) + ab) * fit * f, def = (p.r.def + ab) * fit * f, ctl = (p.r.ctl + ab) * fit * f;
     a += sa * off; wa += sa; d += sd * def; wd += sd; c += sc * ctl; wc += sc;
     who.push({ p, slot, off: sa * off });
   });
@@ -73,7 +74,7 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       const now = sides.map((s, i) => (p) => {
         const on = p.id === s.lineup.gk || s.lineup.out.includes(p.id);
         const base = start[i].get(p.id) ?? 100;
-        return on ? Math.max(0, base - t * drainPerHalf(p, P) * (1 + (s.fx.team?.drain || 0))) : base;
+        return on ? Math.max(0, base - t * drainPerHalf(p, P) * (1 + (s.fx.team?.drain || 0)) * (s.drainMul?.get(p.id) ?? 1)) : base;
       });
       const tn = sides.map((s, i) => teamNow(s, now[i], P, s.fx));
       const ctlA = tn[0].ctl + form[0] + d.nA * M.momentSigma, ctlB = tn[1].ctl + form[1] + d.nB * M.momentSigma;
@@ -96,7 +97,7 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       for (const id of [s.lineup.gk, ...s.lineup.out]) {
         if (id == null) continue;
         const p = s.byId.get(id); if (!p) continue;
-        s.stam.set(id, Math.max(0, start[i].get(id) - drainPerHalf(p, P) * (1 + (s.fx.team?.drain || 0))));
+        s.stam.set(id, Math.max(0, start[i].get(id) - drainPerHalf(p, P) * (1 + (s.fx.team?.drain || 0)) * (s.drainMul?.get(id) ?? 1)));
       }
     });
   }
@@ -109,6 +110,14 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
     stamina: sides.map((s) => Object.fromEntries(s.stam)),
   };
   if (change) sides.forEach((s, i) => { const c = i === 0 ? change.home : change.away; if (c) s.lineup = sanitizeLineup(c, s.roster, P); });
+  if (change && change.effort) sides.forEach((s, i) => {
+    const e = change.effort[i]; if (!e) return;
+    s.drainMul = new Map(); s.fx = { ...s.fx, player: { ...(s.fx.player || {}) } };
+    for (const [id, mode] of Object.entries(e)) {
+      const cfg = P.player[mode]; if (!cfg || !s.byId.has(+id)) continue;
+      s.drainMul.set(+id, cfg.drain); s.fx.player[id] = { ...(s.fx.player[id] || {}), all: (s.fx.player[id]?.all || 0) + cfg.bonus };
+    }
+  });
   half(1);
 
   return {

@@ -6,7 +6,11 @@ import { dealRound, applyPicks } from "../engine/packs.js";
 import { matchSteps, playMatch } from "../engine/match.js";
 import { bestLineup, rate } from "../engine/roster.js";
 import { withParams } from "../engine/params.js";
-import { resolveMarketRound } from "../engine/market.js";
+import { resolveMarketRound, feeFor } from "../engine/market.js";
+import { runRetirements, ageAll, retireChance, resign, expiring, releaseExpired } from "../engine/offseason.js";
+import { validateOffer, executeOffer } from "../engine/trade.js";
+import { rollNumbers, createUserPlayer, defaultAssign, dealCard, answerCard, signUser, cpuTakes, unsigned } from "../engine/playermode.js";
+import { runOffseason, beginMatch, finishMatch } from "../engine/game.js";
 
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
 
@@ -70,5 +74,73 @@ t("market lottery: only the winner pays, never overspends", () => {
   const spent = g.teams.map((x, i) => before[i] - x.coins);
   assert.equal(spent.filter((s) => s > 0).length, 1);
   assert.ok(g.teams.every((x) => x.coins >= 0));
+});
+
+const fresh = (N = 10, seed = 11) => { const g = createGame({ D, N, seed }); runDraft(g); runMarket(g); playSeason(g); return g; };
+t("retirement: the four legends go after season 1, nobody under 36 retires, contracts are voided", () => {
+  const g = fresh(), out = runRetirements(g);
+  const slugs = out.map((r) => g.players[r.id].slug);
+  for (const s of ["lionel-messi", "luka-modric", "cristiano-ronaldo", "marta"]) assert.ok(slugs.includes(s), s);
+  for (const r of out) { const p = g.players[r.id]; assert.ok(p.retired && p.team == null && p.contract === 0); assert.ok(r.age >= 36 || r.forced); assert.ok(!g.teams.some((t) => t.players.includes(r.id))); }
+  assert.equal(retireChance({ age: 38, pos: "CM", slug: "x" }, g.P, 2), 0.8);
+  assert.equal(retireChance({ age: 43, pos: "GK", slug: "x" }, g.P, 2), 0.8);   // keepers are judged five years younger
+});
+t("off-season is deterministic and keeps rosters legal", () => {
+  const run = () => { const g = fresh(); runOffseason(g, D, {}); return g; };
+  const a = run(), b = run();
+  assert.deepEqual(a.teams.map((x) => x.players), b.teams.map((x) => x.players));
+  assert.equal(a.season, 2);
+  for (const x of a.teams) { assert.ok(x.players.length <= 10); assert.ok(new Set(x.players).size === x.players.length); for (const id of x.players) assert.ok(!a.players[id].retired && a.players[id].team === x.id); }
+});
+t("re-signing costs the market fee, only for your own expired player", () => {
+  const g = fresh(); ageAll(g);
+  const ti = g.teams.findIndex((x) => expiring(g, x.id).length), id = expiring(g, ti)[0];
+  assert.ok(ti >= 0);
+  g.teams[ti].coins = 5000; const before = g.teams[ti].coins, fee = feeFor(g.players[id], 2, g.P);
+  assert.equal(resign(g, ti, id, 2), fee); assert.equal(g.teams[ti].coins, before - fee); assert.equal(g.players[id].contract, 2);
+  assert.equal(resign(g, ti, id, 2), false);                                     // already has a contract
+  const other = expiring(g, (ti + 1) % g.teams.length)[0];
+  if (other != null) assert.equal(resign(g, ti, other, 1), false);
+});
+t("trades: validation, execution, the six-asset limit, no created players", () => {
+  const g = fresh(); const [a, b] = [g.teams[0], g.teams[1]];
+  const pa = a.players[0], pb = b.players[0], coins = a.coins;
+  const ok = { from: 0, to: 1, give: [{ k: "p", id: pa }, { k: "c", amt: 10 }], get: [{ k: "p", id: pb }] };
+  assert.equal(validateOffer(g, ok), null);
+  assert.ok(validateOffer(g, { ...ok, give: [{ k: "p", id: pb }] }));          // not his player
+  assert.ok(validateOffer(g, { from: 0, to: 0, give: [{ k: "c", amt: 1 }], get: [] }));
+  assert.ok(validateOffer(g, { from: 0, to: 1, give: a.players.slice(0, 7).map((id) => ({ k: "p", id })), get: [] }));
+  executeOffer(g, ok);
+  assert.ok(b.players.includes(pa) && a.players.includes(pb) && g.players[pa].team === 1 && a.coins === coins - 10);
+});
+t("player mode: created player starts 81-86, rolled numbers are reproducible, ids clear of the data", () => {
+  const P = withParams({});
+  for (let k = 0; k < 40; k++) { const r = rollNumbers(P, "R", "tok", k); assert.ok(r.ovr >= 81 && r.ovr <= 86); assert.equal(r.nums.length, 6); assert.deepEqual(r, rollNumbers(P, "R", "tok", k)); }
+  const g = createGame({ D, N: 10, seed: 3 }), r = rollNumbers(g.P, "R", "tok", 0);
+  const p = createUserPlayer(g, { token: "tok", name: "Test", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") });
+  assert.ok(p.id >= 100000 && p.user && g.userPool.includes(p.id) && !g.pool.includes(p.id));
+  assert.ok(p.sho >= p.def, "a striker's biggest numbers go to the stats he needs");
+});
+t("player mode: career cards, signing, computer fallback", () => {
+  const g = fresh(10, 4), r = rollNumbers(g.P, "R", "t", 0);
+  const p = createUserPlayer(g, { token: "t", name: "T", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") });
+  const c = dealCard(g, p, "x"); assert.equal(p.career.pending.length, 1);
+  const safe = c.opts.findIndex((o) => o.p >= 1), before = p.ovr;
+  const res = answerCard(g, p, c.n, safe >= 0 ? safe : 0); assert.ok(res); assert.equal(p.career.pending.length, 0);
+  if (safe >= 0) assert.equal(p.ovr, before);
+  dealCard(g, p, "a"); dealCard(g, p, "b"); dealCard(g, p, "c"); assert.ok(p.career.pending.length <= g.P.player.maxQueue);
+  const t0 = g.teams[0]; t0.players = t0.players.slice(0, 5);
+  const coins = t0.coins, paid = signUser(g, p, 0, 1); assert.ok(paid > 0 && t0.coins === coins - paid && p.team === 0 && !unsigned(g).includes(p));
+  const q = createUserPlayer(g, { token: "u", name: "U", pos: "GK", nums: r.nums, ovr: r.ovr, assign: defaultAssign("GK") });
+  assert.ok(cpuTakes(g, q) && q.team != null && q.contract === g.P.player.cpuContract);
+  assert.equal(validateOffer(g, { from: 0, to: 1, give: [{ k: "p", id: p.id }], get: [] }), "Created players cannot be traded.");
+});
+t("half-time effort changes the second half but never the first, and the draws stay the same", () => {
+  const g = fresh(10, 6), A = g.teams[0], B = g.teams[1];
+  const mk = (effort) => { const m = beginMatch(g, 0, 1, "eff"); const first = JSON.stringify(m.ht.events); const stBefore = m.ht.stamina[0]; const res = finishMatch(g, m, [null, null], { effort: () => effort }); return { first, res }; };
+  const run = (mode) => { const g2 = fresh(10, 6); const m = beginMatch(g2, 0, 1, "eff"); const id = g2.teams[0].players[0]; const res = finishMatch(g2, m, [null, null], { effort: (t) => (t.id === 0 ? { [id]: mode } : null) }); return { first: JSON.stringify(m.ht.events), stam: res.stamina[0][id] }; };
+  const n = run(null), push = run("push"), cons = run("conserve");
+  assert.equal(n.first, push.first);
+  assert.ok(push.stam <= n.stam && cons.stam >= n.stam);
 });
 console.log(`\n${n} tests passed`);

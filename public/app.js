@@ -3,6 +3,7 @@ import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, 
 import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
+import { pmHandlers, pmPanel, seekersCard, modeCard, creator } from "./pm.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 
 const app = $("#app");
@@ -70,7 +71,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -127,6 +128,11 @@ function stepper(S) {
 const names = (S, ids) => { const n = ids.map((id) => { const t = S.teams[id]; return (t && (t.owner || t.name)) || "?"; }); return n.length > 3 ? n.slice(0, 3).join(", ") + ` +${n.length - 3}` : n.join(", "); };
 function nowLine(S) {
   const me = S.me, step = S.step; if (step === "lobby") return null;
+  if (S.pm && step !== "lobby") {
+    if (S.pm.pending.length) return { kind: "you", text: "A career card is waiting for you. Make your choice." };
+    if (S.pm.offers.some((o) => o.status === "open")) return { kind: "you", text: "A team has made you an offer. Accept or decline." };
+    if (step === "md.half" && S.pm.onPitch && !S.pm.effort) return { kind: "you", text: "Half-time: push or conserve?" };
+  }
   if (me && me.idle) return { kind: "wait", text: "You are idle, so the room is moving on without you. Tap anything to jump back in." };
   switch (step) {
     case "draft.intro": return { kind: "info", text: "Get ready: the first pack opens in a moment." };
@@ -199,7 +205,7 @@ function chatCard(S) {
 function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
-  const humans = S.players.length, fill = Math.max(0, S.settings.minTeams - humans);
+  const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, S.settings.minTeams - humans);
   const clubs = st.cat.clubs.map((c) => {
     const owner = taken.get(c.slug), sel = you && you.club === c.slug;
     return `<button class="club ${sel ? "sel" : ""} ${owner && !sel ? "taken" : ""}" data-act="club" data-slug="${c.slug}"><span class="crest" style="--s:26px;--a:${c.c1};--b:${c.c2}"></span><span class="grow"><b>${esc(c.name)}</b>${owner && !sel ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></button>`;
@@ -208,8 +214,9 @@ function lobby(S) {
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    <div class="card"><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its colours and default name. You can rename it.</p><div class="clubgrid mt">${clubs}</div></div>`;
-  const side = `<div class="card"><h3>Managers (${humans})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}<div class="small mute">${esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
+    ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
+    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its colours and default name. You can rename it.</p><div class="clubgrid mt">${clubs}</div></div>`;
+  const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
     <div class="card"><h3>Game settings ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="set">
       <span class="small">Minimum teams</span>${sel("minTeams", [10, 12, 14, 16, 20, 24, 30].map((n) => [n, n]))}
@@ -247,6 +254,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
+  if (S.step !== "lobby") { if (S.pm) main = pmPanel(S) + main; if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);

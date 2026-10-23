@@ -163,3 +163,12 @@ table.tb tr.leader td:first-child{box-shadow:inset 3px 0 0 var(--acc2)}
 .ovrb.ruby{background:var(--ruby);color:#fff}.ovrb.gold{background:var(--gold)}.ovrb.silver{background:var(--silver)}
 table.tb td,table.tb th{padding:5px 4px}.tb .tchip .n{max-width:112px}
 .side .tb{font-size:12.5px}
+
+/* ---- player mode ---- */
+.statrow{display:grid;grid-template-columns:48px 1fr 40px;gap:10px;align-items:center;width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;color:var(--fg);cursor:pointer;font:inherit}
+.statrow b{font-size:12px;letter-spacing:.08em;color:var(--mute);text-align:left}
+.statrow em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.statrow .bar{height:8px;border-radius:4px;background:#0006;overflow:hidden}.statrow .bar i{display:block;height:100%;background:var(--acc);border-radius:4px}
+.statrow.sel{outline:2px solid var(--acc2,var(--acc));background:color-mix(in srgb,var(--acc) 16%,var(--panel2))}
+.ovrb.big{font-size:28px;min-width:60px;padding:8px 12px}
+.pmp{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 6%,var(--panel))}

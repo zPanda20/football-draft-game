@@ -20,8 +20,10 @@ export const club = (t) => (t && st.clubBy[t.club]) || null;
 
 // A player as the room sees him right now: the data-file record plus whatever has changed.
 export function pl(id) {
-  const b = st.idx[id]; if (!b) return null;
   const d = st.S && st.S.pd && st.S.pd[id];
+  let b = st.idx[id];
+  if (!b && d && d.u) b = { id, name: d.u.name, nat: d.u.nat, club: d.u.club || "Free Agent", pos: d.u.pos, ovr: d.o, age: d.a, st: d.st || [0, 0, 0, 0, 0, 0, 0], user: true };
+  if (!b) return null;
   if (!d) return { ...b, stam: 100, contract: 0, mv: 0, team: null };
   const s = d.st || b.st;
   return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot };
