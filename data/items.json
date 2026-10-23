@@ -223,5 +223,16 @@
   "banned": true,
   "tier": "rare",
   "text": "+5 overall for one game. 51% chance of being caught: suspended for 10 games or the rest of the season, whichever is longer."
+ },
+ {
+  "id": "ice-bath",
+  "name": "Ice Bath",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "rec": 20
+  },
+  "price": 60,
+  "text": "Wearer recovers +20 extra stamina after the match. Must be equipped for the match."
  }
 ]

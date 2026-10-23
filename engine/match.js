@@ -62,7 +62,7 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
   const draws = [[], []];
   for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) draws[h].push({ poss: r(), shot: r(), goal: r(), who: r(), nA: gauss(r), nB: gauss(r) });
 
-  const events = [];
+  const events = [], flow = [];
   const minuteOf = (h, m) => Math.round(h * 45 + ((m + 0.5) / M.moments) * 45);
 
   function half(h) {
@@ -78,7 +78,12 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       });
       const tn = sides.map((s, i) => teamNow(s, now[i], P, s.fx));
       const ctlA = tn[0].ctl + form[0] + d.nA * M.momentSigma, ctlB = tn[1].ctl + form[1] + d.nB * M.momentSigma;
-      const homeBall = d.poss < sig(M.possK * (ctlA - ctlB));
+      const pH = sig(M.possK * (ctlA - ctlB));
+      const homeBall = d.poss < pH;
+      { // what the display shows: share of the ball and who is pressing (shot chance weighted by the ball), -1 (away) .. +1 (home)
+        const tH = sig(M.shotBase + M.shotK * (tn[0].atk + form[0] - (tn[1].def + form[1] * 0.5))), tA = sig(M.shotBase + M.shotK * (tn[1].atk + form[1] - (tn[0].def + form[0] * 0.5)));
+        flow.push({ half: h, minute: minuteOf(h, m), ph: +pH.toFixed(3), mom: +Math.max(-1, Math.min(1, (pH * tH - (1 - pH) * tA) / 0.45)).toFixed(3) });
+      }
       const A = homeBall ? 0 : 1, B = 1 - A;
       const atk = tn[A].atk + form[A], def = tn[B].def + form[B] * 0.5;
       const minute = minuteOf(h, m);
@@ -106,7 +111,7 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
   const change = yield {
     type: "halftime",
     score: sides.map((s) => s.goals),
-    events: events.slice(),
+    events: events.slice(), flow: flow.slice(),
     stamina: sides.map((s) => Object.fromEntries(s.stam)),
   };
   if (change) sides.forEach((s, i) => { const c = i === 0 ? change.home : change.away; if (c) s.lineup = sanitizeLineup(c, s.roster, P); });
@@ -121,7 +126,7 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
   half(1);
 
   return {
-    score: sides.map((s) => s.goals), shots: sides.map((s) => s.shots), events,
+    score: sides.map((s) => s.goals), shots: sides.map((s) => s.shots), events, flow,
     scorers: sides.map((s) => s.scorers),
     played: sides.map((s) => [...s.played]),
     stamina: sides.map((s) => Object.fromEntries(s.stam)),

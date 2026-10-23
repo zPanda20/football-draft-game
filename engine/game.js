@@ -165,6 +165,8 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     res = m.gen.next({ home: next[0], away: next[1], effort: [hooks.effort?.(m.sides[0]) || null, hooks.effort?.(m.sides[1]) || null] }).value;
   }
   res.dope = [];
+  game.goals = game.goals || {};
+  res.scorers.forEach((sc, i) => { for (const [pid, n] of Object.entries(sc)) { const e = (game.goals[pid] = game.goals[pid] || { g: 0, team: m.sides[i].id }); e.g += n; e.team = m.sides[i].id; } });
   m.sides.forEach((t, i) => {
     for (const id of m.fx[i].used) { t.items[id]--; if (t.items[id] <= 0) delete t.items[id]; }
     for (const u of m.fx[i].usedPlayer) { const p = game.players[u.pid]; p.items[u.id]--; if (p.items[u.id] <= 0) delete p.items[u.id]; }
@@ -175,7 +177,7 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     const played = new Set(res.played[i]);
     for (const p of m.recs[i]) {
       const s = res.stamina[i][p.id] ?? p.stam;
-      const rec = (played.has(p.id) ? P.stamina.recoverPlayed : P.stamina.recoverRest) + P.stamina.staRecoverK * (p.sta - 70);
+      const rec = (played.has(p.id) ? P.stamina.recoverPlayed : P.stamina.recoverRest) + P.stamina.staRecoverK * (p.sta - 70) + (m.fx[i].player[p.id]?.rec || 0);
       game.players[p.id].stam = Math.max(0, Math.min(100, s + rec));
     }
   });
@@ -199,6 +201,7 @@ export function playSeason(game, hooks = {}) {
   const P = game.P, N = game.teams.length;
   const days = schedule(N, game.seed + game.season);
   const results = [];
+  game.goals = {};
   days.forEach((day, d) => {
     game.md = { day: d, total: days.length };
     const dayRes = day.map(([a, b]) => {
@@ -226,14 +229,14 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    userPool: game.userPool || [],
+    userPool: game.userPool || [], goals: game.goals || {},
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);
@@ -259,4 +262,9 @@ export function runOffseason(game, D, hooks = {}) {
   runMarket(game, "fa" + game.season);
   out.cut = enforceCap(game);
   return out;
+}
+
+// Season scoring table: [{id, g, team}] best first (ties: the lower id, so it is stable).
+export function topScorers(game, n = 10) {
+  return Object.entries(game.goals || {}).map(([id, e]) => ({ id: +id, g: e.g, team: e.team })).sort((a, b) => b.g - a.g || a.id - b.id).slice(0, n);
 }

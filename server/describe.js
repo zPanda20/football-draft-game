@@ -8,6 +8,6 @@ export function buildCatalog(D, P) {
     clubs: D.clubs,
     positions: POSITIONS,
     slotWeights: SLOT_W, xy: XY, fit: P.fit,
-    rules: { playerItemCap: P.player.itemCap, rerolls: P.player.rerolls, rosterMax: P.money.rosterMax, rosterMin: P.money.rosterMin, activeCap: P.items.activeCap, lenMult: P.money.lenMult, extraCap: P.money.extraCap, moments: P.match.moments, packs: P.packs.rounds },
+    rules: { playerItemCap: P.player.itemCap, rerolls: P.player.rerolls, rosterMax: P.money.rosterMax, rosterMin: P.money.rosterMin, activeCap: P.items.activeCap, lenMult: P.money.lenMult, extraCap: P.money.extraCap, moments: P.match.moments, fatigueK: P.stamina.fatigueK, packs: P.packs.rounds },
   };
 }

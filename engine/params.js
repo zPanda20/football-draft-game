@@ -19,10 +19,10 @@ export const DEFAULT_PARAMS = {
 
   // ---- stamina ----
   stamina: {
-    drainPerHalf: 25,                               // at STA 50 -> 25 * (1.5 - STA/100) per half
+    drainPerHalf: 27,                               // at STA 50 -> 27 * (1.5 - STA/100) per half
     gkDrain: 0.5,                                   // keepers tire at half the rate
-    fatigueK: 0.30,                                 // rating multiplier = 1 - fatigueK * (1 - stamina/100)
-    recoverPlayed: 35, recoverRest: 60,             // points regained between matches (more with higher STA)
+    fatigueK: 0.35,                                 // rating multiplier = 1 - fatigueK * (1 - stamina/100)
+    recoverPlayed: 45, recoverRest: 75,             // points regained between matches (more with higher STA)
     staRecoverK: 0.25,                              // +/- per STA point away from 70
     lowStamina: 45,                                 // bots sub a player off below this at half-time
   },

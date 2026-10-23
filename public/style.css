@@ -177,3 +177,46 @@ table.tb td,table.tb th{padding:5px 4px}.tb .tchip .n{max-width:112px}
 .icard.rare{border-color:#d33;background:linear-gradient(160deg,#2a0d10,#14080a);box-shadow:0 0 0 1px #d334,0 6px 20px #d3333a}
 .btn.bad{border-color:#d33;color:#ff9b9b}.btn.bad:hover:not(:disabled){background:#d3333a}
 .benchrow.dim{opacity:.55;cursor:default}
+
+/* draft: the picked card is unmistakable */
+.pickable{cursor:pointer;position:relative;transition:transform .18s,opacity .18s,filter .18s}
+.pickable:hover{transform:translateY(-6px) scale(1.02)}
+.hand:has(.chosen) .pickable:not(.chosen){opacity:.5;filter:saturate(.6)}
+.pickable.chosen{transform:translateY(-12px) scale(1.06);z-index:3}
+.pickable.chosen .pcard,.pickable.chosen .icard{outline:4px solid var(--acc2);outline-offset:3px;box-shadow:0 0 0 8px color-mix(in srgb,var(--acc2) 40%,transparent),0 0 52px 14px var(--acc2),0 16px 34px rgba(0,0,0,.65);animation:pickglow 1.3s ease-in-out infinite}
+.pickable.chosen::after{content:"SELECTED";position:absolute;left:50%;top:-14px;transform:translateX(-50%);background:var(--acc2);color:#1a1400;font-weight:900;font-size:11px;letter-spacing:.12em;padding:3px 10px;border-radius:99px;box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:4}
+.pickable.locked .pcard,.pickable.locked .icard{outline-color:var(--good);box-shadow:0 0 0 8px color-mix(in srgb,var(--good) 40%,transparent),0 0 52px 14px var(--good),0 16px 34px rgba(0,0,0,.65);animation:none}
+.pickable.locked::after{content:"LOCKED IN";background:var(--good);color:#04140b}
+.pickable.dim{opacity:.3;filter:grayscale(.7)}
+@keyframes pickglow{50%{box-shadow:0 0 0 10px color-mix(in srgb,var(--acc2) 55%,transparent),0 0 70px 20px var(--acc2),0 16px 34px rgba(0,0,0,.65)}}
+/* line-up swapping */
+.swaphint{font-size:12.5px;color:var(--mute);padding:7px 10px;border:1px dashed var(--line);border-radius:10px}
+.swaphint.on{color:var(--text);border:1px solid var(--acc2);background:color-mix(in srgb,var(--acc2) 14%,transparent)}
+.swaphint .btn{margin-left:6px}
+.slot{cursor:grab}.slot.dragging,.benchrow.dragging{opacity:.4}
+.slot.dropover .tok{outline:3px solid var(--good);outline-offset:3px;transform:scale(1.15)}
+.slot .tok{position:relative;transition:transform .12s}.slot:hover .tok{transform:scale(1.08)}
+.slot .tok.sel{outline:4px solid var(--acc2);outline-offset:3px;box-shadow:0 0 0 7px color-mix(in srgb,var(--acc2) 40%,transparent),0 0 26px 6px var(--acc2);animation:pickglow 1.3s ease-in-out infinite}
+.slot.swappable .tok{outline:2px dashed rgba(255,255,255,.75);outline-offset:3px}
+.slot .tok .dn{position:absolute;right:-12px;top:-8px;background:var(--bad);color:#fff;font-size:10px;font-weight:900;border-radius:99px;padding:1px 5px;border:1px solid #fff}
+.benchrow{cursor:grab}.benchrow.sel{border-color:var(--acc2);background:color-mix(in srgb,var(--acc2) 22%,transparent);box-shadow:0 0 0 2px var(--acc2),0 0 16px var(--acc2)}
+.benchrow.swappable{border-color:var(--line);border-style:dashed}.benchrow.dropover{border-color:var(--good);background:color-mix(in srgb,var(--good) 18%,transparent)}
+.neg{color:var(--bad);font-weight:800}
+/* momentum, possession */
+.mstat{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.mstat .mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px}
+.mstat .mtitle{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.mstat .lg{display:inline-flex;align-items:center;gap:6px;font-weight:700}.mstat .lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.mstat .num{font-size:18px;font-variant-numeric:tabular-nums}
+.mchart{width:100%;height:auto;color:var(--text);display:block;margin-top:6px;background:color-mix(in srgb,var(--panel2) 70%,transparent);border-radius:8px}
+.mchart.short{margin-top:8px}
+.mstat .axis{display:flex;justify-content:space-between;font-size:10px;color:var(--mute);margin-top:2px}
+.pbar{display:flex;height:10px;border-radius:99px;overflow:hidden;margin-top:6px;background:var(--panel2)}.pbar i{display:block;transition:width .3s}
+/* results */
+.resrow{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:start;padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px}
+.resrow.mine{background:color-mix(in srgb,var(--acc) 12%,transparent)}.resrow.focus{box-shadow:0 0 0 1px var(--acc) inset}
+.resrow .side{display:flex;flex-direction:column;gap:4px;min-width:0}.resrow .side.l{align-items:flex-end;text-align:right}.resrow .side.r{align-items:flex-start}
+.resrow .scs{font-size:12.5px;display:flex;flex-direction:column;gap:2px}
+.resrow .fscore{font-weight:900;font-size:24px;font-variant-numeric:tabular-nums;min-width:74px;text-align:center}
+.fixture{cursor:pointer}.fixture.focus{box-shadow:0 0 0 1px var(--acc) inset;border-radius:8px}
+.bootn{display:flex;align-items:center;gap:6px}

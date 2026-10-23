@@ -12,6 +12,7 @@ import { validateOffer, executeOffer } from "../engine/trade.js";
 import { rollNumbers, createUserPlayer, defaultAssign, dealCard, answerCard, signUser, cpuTakes, unsigned } from "../engine/playermode.js";
 import { runOffseason, beginMatch, finishMatch, activeFx, suspend, tickSuspensions, applyCaps, enforceCap, playOne } from "../engine/game.js";
 import { buyItem } from "../engine/market.js";
+import { topScorers } from "../engine/game.js";
 import { buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 let n = 0; const t = (name, fn) => { fn(); n++; console.log("ok  " + name); };
@@ -196,5 +197,25 @@ t("created players: own wallet, items worn from it, gifts from the team", () => 
   const fx = activeFx(g.teams[0], l, g); assert.equal(fx.player[p.id].all, 5); assert.equal(fx.player[p.id].off, 2); assert.deepEqual(fx.doped, [p.id]); assert.equal(fx.usedPlayer.length, 2);
   g.teams[0].items["boots-mizuno-mid"] = 3; assert.ok(giftItem(g, 0, p.id, "boots-mizuno-mid")); assert.equal(g.teams[0].items["boots-mizuno-mid"], 2); assert.equal(p.items["boots-mizuno-mid"], 1);
   assert.equal(giftItem(g, 0, g.teams[0].players.find((id) => id !== p.id), "boots-mizuno-mid"), false);   // only created players can be given items
+});
+t("ice bath: equipped, the wearer gets 20 extra stamina back after the match; unequipped it does nothing", () => {
+  const run = (equip) => {
+    const g = fresh(10, 14); g.md = { day: 0, total: 18 };
+    const t0 = g.teams[0], recs = rosterOf(g, t0); for (const p of recs) p.stam = 40;
+    const l = bestLineup(recs, g.P), wearer = l.out[0]; t0.items["ice-bath"] = 3; if (equip) { t0.active = ["ice-bath"]; t0.equip = { "ice-bath": wearer }; } else t0.active = [];
+    finishMatch(g, beginMatch(g, 0, 1, "ice", { lineup: (t) => (t === t0 ? l : null) }));
+    return { stam: g.players[wearer].stam, left: t0.items["ice-bath"] || 0 };
+  };
+  const a = run(true), b = run(false);
+  assert.equal(Math.round(a.stam - b.stam), 20); assert.equal(a.left, 2); assert.equal(b.left, 3);
+});
+t("match flow: ten readings, possession is a probability, momentum within -1..1; goals tally to the season table", () => {
+  const g = fresh(10, 15), res = playOne(g, 0, 1, "flow");
+  assert.equal(res.flow.length, 2 * g.P.match.moments);
+  assert.ok(res.flow.every((f) => f.ph > 0 && f.ph < 1 && f.mom >= -1 && f.mom <= 1));
+  const g2 = createGame({ D, N: 10, seed: 16 }); runDraft(g2); runMarket(g2); const s = playSeason(g2);
+  const total = s.results.reduce((x, r) => x + r.ga + r.gb, 0), tally = Object.values(g2.goals).reduce((x, e) => x + e.g, 0);
+  assert.equal(tally, total);
+  const top = topScorers(g2, 5); assert.ok(top.length > 0 && top.every((x, i) => i === 0 || top[i - 1].g >= x.g));
 });
 console.log(`\n${n} tests passed`);

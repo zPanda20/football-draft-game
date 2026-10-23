@@ -1,6 +1,6 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
 import { makeRng, shuffle } from "../engine/rng.js";
-import { createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, payIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
+import { topScorers, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, payIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
@@ -359,7 +359,7 @@ export class Room {
     this.phase = "season"; this.mdIdx = -1; this.results = []; this.days = schedule(g.teams.length, g.seed + g.season);
     this.shownTable = standingsOf([], g.teams.length);
     for (const t of g.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.equip = undefined; }
-    this.mdIdx = -1; this.rollStore();
+    g.goals = {}; this.mdIdx = -1; this.rollStore();
     this.step = "season.intro";
     this.setReveal({ kind: "intro", season: g.season, days: this.days.length });
     this.after(this.p(8000), () => this.nextMatchday());
@@ -432,7 +432,7 @@ export class Room {
     const hooks = { lineup: (t, recs) => this.lineupHook(t, recs) };
     this.live = day.map(([a, b], k) => beginMatch(g, a, b, `${this.mdIdx}-${a}-${b}`, hooks));
     this.ready = new Set(); this.openWindow();
-    this.setReveal({ kind: "half1", day: this.mdIdx, matches: this.live.map((m) => ({ a: m.a, b: m.b, lineups: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out })), score: m.ht.score, events: m.ht.events })) });
+    this.setReveal({ kind: "half1", day: this.mdIdx, matches: this.live.map((m) => ({ a: m.a, b: m.b, all: m.ht.events, lineups: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out })), score: m.ht.score, events: m.ht.events, flow: m.ht.flow })) });
     this.step = "md.half1";
     this.after(this.p(HALF_MS), () => this.halftime());
     this.changed();
@@ -459,7 +459,7 @@ export class Room {
         const pp = g.players[d.pid], tn = d.team != null ? g.teams[d.team].name : "no team";
         this.notify(`Failed drugs test: ${pp.name} (${tn}) is suspended for ${d.games} games.${d.penalty ? ` The ban outlasts the contract, so ${g.teams[d.penalty.team].name} lose a roster spot in season ${d.penalty.season}.` : ""}`);
       }
-      matches.push({ a: m.a, b: m.b, score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out })) });
+      matches.push({ a: m.a, b: m.b, all: res.events.map((e) => ({ half: e.half, minute: e.minute, team: e.team, type: e.type })), score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), flow: res.flow, goals: res.events.filter((e) => e.type === "goal").map((e) => ({ minute: e.minute, team: e.team, player: e.player })), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out })) });
     }
     this.pendingTable = standingsOf(this.results, g.teams.length);
     payIncome(g, this.pendingTable); tickSuspensions(g);
@@ -472,13 +472,14 @@ export class Room {
     this.shownTable = this.pendingTable;
     this.dealCareerCards(); this.rollStore();
     this.step = "md.result";
-    this.after(this.p(6000), () => this.nextMatchday());
+    this.after(this.p(14000), () => this.nextMatchday());
     this.changed();
   }
   endSeason() {
     const g = this.game, table = standingsOf(this.results, g.teams.length);
     this.step = "season.end"; this.phase = "season";
-    g.history = g.history || []; g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i) });
+    g.history = g.history || []; const top = topScorers(g, 1)[0];
+    g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null });
     this.final = g.season >= this.settings.seasons;
     this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final });
     this.save("seasonEnd");
@@ -560,6 +561,7 @@ export class Room {
     if (this.reveal && this.reveal.kind === "draft") for (const pk of this.reveal.picks) if (pk.card && pk.card.t === "p") ids.add(pk.card.id);
     for (const p of this.players.values()) if (p.pid != null) ids.add(p.pid);
     for (const p of unsigned(g)) ids.add(p.id);
+    for (const b of topScorers(g, 10)) ids.add(b.id);
     v.pd = Object.fromEntries([...ids].map((id) => [id, this.pdyn(id)]));
     { const pm = this.userView(token); if (pm) v.pm = pm; const sk = this.seekersView(me && me.teamId != null ? me : null); if (sk) v.seekers = sk; }
     if (this.phase === "draft" && this.draftRound) v.draft = { round: this.draftRound, total: g.P.packs.rounds, locked: [...this.picks].filter(([, h]) => h.locked).map(([id]) => id), humans: this.humanTeams().map((t) => t.id) };
@@ -570,6 +572,7 @@ export class Room {
     if (this.phase === "offseason" && this.step.startsWith("off.rookie")) v.rookies = { avail: availableRookies(g), order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks };
     if (this.phase === "offseason" && this.step === "off.trade" && !me) v.tradeLog = this.trade ? this.trade.log.slice(-10) : [];
     v.history = g.history || []; v.final = !!this.final;
+    v.boot = topScorers(g, 10);
     v.store = { open: STORE_STEPS.includes(this.step), stock: this.store }; v.notices = this.notices;
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
