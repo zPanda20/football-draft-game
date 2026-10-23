@@ -240,3 +240,21 @@ table.tb td,table.tb th{padding:5px 4px}.tb .tchip .n{max-width:112px}
 .kitf{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0}.kitf figcaption{font-size:10px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase}
 #bg.wall{background:linear-gradient(rgba(10,16,14,.28),rgba(10,16,14,.5)),var(--wall) center/cover no-repeat,var(--bg)}
 .bigmatch .tm .kit{margin-top:2px}
+
+.club{cursor:pointer}.club .vopt{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mute);margin-top:3px;cursor:pointer}.club .vopt input{accent-color:var(--acc)}
+
+/* between-match menu */
+.hubhead .hubnext{display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 0 4px;font-weight:800;font-size:16px}
+.hubgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}@media (max-width:560px){.hubgrid{grid-template-columns:1fr}}
+.hubtile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:18px 18px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(160deg,var(--panel2),var(--panel));color:var(--text);cursor:pointer;min-height:112px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.hubtile:hover{transform:translateY(-3px);border-color:var(--acc);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.hubtile .ic{font-size:26px;line-height:1}.hubtile b{font-size:22px;font-weight:900}.hubtile .sub{font-size:12.5px;color:var(--mute)}
+.hubtile.ready{background:linear-gradient(160deg,color-mix(in srgb,var(--acc) 38%,var(--panel2)),var(--panel));border-color:var(--acc)}
+.hubtile.ready.on{background:linear-gradient(160deg,color-mix(in srgb,var(--good) 55%,var(--panel2)),var(--panel));border-color:var(--good);box-shadow:0 0 0 2px var(--good) inset}
+.rarepip{color:#ff8a8a;font-weight:800}
+.hubbar{display:flex;align-items:center;gap:12px;padding:10px 14px}
+table.tb tr.clickable{cursor:pointer}table.tb tr.clickable:hover td{background:var(--panel2)}
+.benchrow.tv{cursor:default}.pill.warn{border-color:var(--warn);color:var(--warn)}
+.tmhead{display:flex;align-items:center;justify-content:center;gap:10px}
+.tchip .kit{flex:none;width:auto}
+svg.kit{display:inline-block;flex:none}

@@ -17,7 +17,8 @@
   "c1": "#1a1a1a",
   "c2": "#f2e6b8",
   "kind": "throwback",
-  "base": "juventus"
+  "base": "juventus",
+  "label": "Throwback"
  },
  {
   "slug": "inter",
@@ -39,7 +40,8 @@
   "c1": "#101010",
   "c2": "#0a3d91",
   "kind": "throwback",
-  "base": "inter"
+  "base": "inter",
+  "label": "Throwback"
  },
  {
   "slug": "real-madrid",
@@ -96,7 +98,8 @@
   "c1": "#1a1a17",
   "c2": "#9d1c1c",
   "kind": "alt",
-  "base": "psg"
+  "base": "psg",
+  "label": "Alt · TWD"
  },
  {
   "slug": "london-city",
@@ -376,7 +379,8 @@
   "c1": "#6a2c91",
   "c2": "#f4e9c9",
   "kind": "throwback",
-  "base": "fiorentina"
+  "base": "fiorentina",
+  "label": "Throwback"
  },
  {
   "slug": "atletico-madrid",
@@ -458,7 +462,8 @@
   "c1": "#f5f5f5",
   "c2": "#fb090b",
   "kind": "alt",
-  "base": "ac-milan"
+  "base": "ac-milan",
+  "label": "Alt"
  },
  {
   "slug": "como",

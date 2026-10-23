@@ -64,6 +64,30 @@ export const crest = (t, size = 24) => crestOfClub(club(t), size);
 export function kitImg(c, kind, h = 70) {
   const u = c && art(c, kind); return u ? `<img class="kit" src="${esc(u)}" alt="" style="height:${h}px" loading="lazy">` : "";
 }
+// Colour helpers (hex "#rrggbb").
+const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+export const lum = (h) => { const v = rgb(h).map((x) => x / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+export const colorDist = (a, b) => { const [r1, g1, b1] = rgb(a), [r2, g2, b2] = rgb(b); return Math.sqrt(2 * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + 3 * (b1 - b2) ** 2); };
+const lighten = (h, k = 0.45) => "#" + rgb(h).map((x) => Math.round(x + (255 - x) * k).toString(16).padStart(2, "0")).join("");
+// The two colours a match is drawn in: the home side's main colour, and the away side's main colour unless it is too
+// close to the home side's (or too dark to see), in which case the away side's secondary colour.
+export function matchColors(home, away) {
+  const vis = (h) => lum(h) > 0.07, ok = (a, b) => colorDist(a, b) > 110;
+  const h = home ? (vis(home.c1) ? home.c1 : vis(home.c2) ? home.c2 : lighten(home.c1)) : "#3ddc84";
+  if (!away) return [h, "#ffb020"];
+  const cands = [away.c1, away.c2].filter(vis);
+  const a = cands.find((c) => ok(c, h)) || cands.sort((x, y) => colorDist(y, h) - colorDist(x, h))[0] || lighten(away.c1);
+  return [h, ok(a, h) ? a : "#ffb020"];
+}
+// A kit next to a crest: the club's uploaded kit if there is one, else a simple shirt in its colours.
+// side 0 = home kit, 1 = away kit (a plain shirt swaps its colours so the two sides differ).
+export function shirt(c, side = 0, h = 22) {
+  const up = c && art(c, side ? "kitAway" : "kitHome");
+  if (up) return `<img class="kit k1" src="${esc(up)}" alt="" style="height:${h}px">`;
+  let a = c ? c.c1 : "#777", b = c ? c.c2 : "#ddd";
+  if (side) [a, b] = [b, a];
+  return `<svg class="kit k1" viewBox="0 0 100 100" style="height:${h}px;width:${h}px" aria-hidden="true"><path d="M30 8L4 26l10 16 12-6v52h48V36l12 6 10-16L70 8c-4 8-12 12-20 12S34 16 30 8z" fill="${a}" stroke="rgba(0,0,0,.55)" stroke-width="4" stroke-linejoin="round"/><path d="M38 40h24v7H38z" fill="${b}" opacity=".9"/></svg>`;
+}
 export function chip(t, size = 22, owner = false) {
   if (!t) return "";
   return `<span class="tchip">${crest(t, size)}<span class="n">${esc(t.name)}${owner && t.owner ? ` <span class="own">(${esc(t.owner)})</span>` : ""}</span></span>`;

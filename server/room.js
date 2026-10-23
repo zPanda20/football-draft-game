@@ -13,7 +13,7 @@ import { usermodeMethods } from "./usermode.js";
 import { unsigned, buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
-const DEFAULTS = { minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 20, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
+const DEFAULTS = { minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 35, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
 const KEEP_FEED = 40;
 const IDLE_MS = 6000;   // how long the room waits for idle players once nobody else is left to act
 const MARKET_ROUNDS = 8;
@@ -120,9 +120,10 @@ export class Room {
   setClub(token, slug) {
     const p = this.players.get(token); if (!p || this.phase !== "lobby" || p.mode === "player") return;
     if (!this.clubBySlug.has(slug)) return;
-    for (const q of this.players.values()) if (q !== p && q.club === slug) return;
+    const fam = (s) => this.clubBySlug.get(s).base || s;                        // a throwback or alt belongs to its main club
+    for (const q of this.players.values()) if (q !== p && q.club && fam(q.club) === fam(slug)) return;
     p.club = slug;
-    if (!p.teamName || this.D.clubs.some((c) => c.name === p.teamName)) p.teamName = this.clubBySlug.get(slug).name;
+    if (!p.teamName || this.D.clubs.some((c) => c.name === p.teamName)) p.teamName = this.clubBySlug.get(fam(slug)).name;
   }
   setTeamName(token, name) {
     const p = this.players.get(token); if (!p) return;
@@ -176,13 +177,14 @@ export class Room {
     const N = teamsFor(Math.max(this.settings.minTeams, humans.length));
     const rr = makeRng(seed, "room");
     const game = createGame({ D: this.D, N, seed });
-    const used = new Set(humans.map((h) => h.club).filter(Boolean));
-    const free = shuffle(this.D.clubs.map((c) => c.slug).filter((s) => !used.has(s)), rr);
+    const fam = (s) => this.clubBySlug.get(s).base || s;
+    const used = new Set(humans.map((h) => h.club).filter(Boolean).map(fam));
+    const free = shuffle(this.D.clubs.filter((c) => c.kind === "main").map((c) => c.slug).filter((s) => !used.has(s)), rr);
     const slots = shuffle([...Array(N).keys()], rr);
     humans.forEach((p, i) => {
       const t = game.teams[slots[i]]; t.human = true; t.bot = "balanced"; p.teamId = t.id;
       if (!p.club) p.club = free.shift();
-      t.club = p.club; t.name = p.teamName || this.clubBySlug.get(p.club).name;
+      t.club = p.club; t.name = p.teamName || this.clubBySlug.get(fam(p.club)).name;
     });
     for (const t of game.teams) if (!t.human) { t.club = free.shift(); t.name = this.clubBySlug.get(t.club).name; }
     this.game = game; this.seed = seed;
@@ -359,7 +361,7 @@ export class Room {
     this.phase = "season"; this.mdIdx = -1; this.results = []; this.days = schedule(g.teams.length, g.seed + g.season);
     this.shownTable = standingsOf([], g.teams.length);
     for (const t of g.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.equip = undefined; }
-    g.goals = {}; this.mdIdx = -1; this.rollStore();
+    g.goals = {}; this.lastDay = null; this.mdIdx = -1; this.rollStore();
     this.step = "season.intro";
     this.setReveal({ kind: "intro", season: g.season, days: this.days.length });
     this.after(this.p(8000), () => this.nextMatchday());
@@ -463,17 +465,18 @@ export class Room {
     }
     this.pendingTable = standingsOf(this.results, g.teams.length);
     this.pendingIncome = incomeBreakdown(g, this.pendingTable, this.results.filter((r) => r.day === day)); tickSuspensions(g);
+    this.pendingLast = { day, matches: matches.map((m) => ({ a: m.a, b: m.b, score: m.score, goals: m.goals })) };
     this.setReveal({ kind: "half2", day, matches });
     this.step = "md.half2";
     this.after(this.p(HALF_MS), () => this.showResult());
     this.changed();
   }
   showResult() {
-    this.shownTable = this.pendingTable;
+    this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
     this.dealCareerCards(); this.rollStore();
     this.step = "md.result";
-    this.after(this.p(14000), () => this.nextMatchday());
+    this.after(this.p(18000), () => this.nextMatchday());
     this.changed();
   }
   endSeason() {
@@ -573,7 +576,7 @@ export class Room {
     if (this.phase === "offseason" && this.step.startsWith("off.rookie")) v.rookies = { avail: availableRookies(g), order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks };
     if (this.phase === "offseason" && this.step === "off.trade" && !me) v.tradeLog = this.trade ? this.trade.log.slice(-10) : [];
     v.history = g.history || []; v.final = !!this.final;
-    v.boot = topScorers(g, 10);
+    v.boot = topScorers(g, 10); v.lastDay = this.lastDay || null;
     v.store = { open: STORE_STEPS.includes(this.step), stock: this.store }; v.notices = this.notices;
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {

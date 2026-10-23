@@ -1,7 +1,10 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, pl, tierOf, flag, miniPlayer, remaining, card } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, pl, tierOf, flag, miniPlayer, remaining, card } from "./core.js";
+import { storeCard } from "./store.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+// A team with its kit right next to the crest (side 0 = home kit, 1 = away kit).
+const tchipK = (ti, side, size = 18) => { const t = team(ti); return `<span class="tchip">${crest(t, size)}${shirt(club(t), side, size + 6)}<span class="n">${esc(t.name)}</span></span>`; };
 
 // ---------- pitch geometry and position fit (mirrors engine/roster.js) ----------
 const ROW = { GK: 0, CB: 1, LB: 1, RB: 1, CDM: 2, CM: 3, LM: 3, RM: 3, CAM: 4, LW: 4, RW: 4, ST: 5 };
@@ -83,6 +86,10 @@ export const matchHandlers = {
   cont() { send({ t: "continue" }); },
   mslot(a) { choose("slot", +a.i); },
   mcancel() { st.ui.mSel = null; st.render(); },
+  hubgo(a) { st.ui.hub = a.to; st.ui.mSel = null; st.render(); window.scrollTo(0, 0); },
+  hubback() { st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.render(); },
+  viewteam(a) { st.ui.viewTeam = +a.i; st.render(); window.scrollTo(0, 0); },
+  closeteam() { st.ui.viewTeam = null; st.render(); },
   mfocus(a) { st.ui.focus = +a.k; st.render(); },
   mplayer(a) { choose("p", +a.id); },
   mform(a) { st.ui.mSel = null; send({ t: "lineupAuto", formation: a.value || a.f }); },
@@ -102,12 +109,12 @@ export const matchHandlers = {
 };
 
 // ---------- league table ----------
-export function tablePanel(S, limit = 99) {
+export function tablePanel(S, limit = 99, click = false) {
   const rows = (S.table || []).slice(0, limit);
   if (!rows.length) return "";
   const me = S.me ? S.me.teamId : -1;
   return `<div class="card"><h3>League table</h3><table class="tb"><tr><th>#</th><th>Team</th><th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">GD</th><th class="n">Pts</th></tr>
-    ${rows.map((r, k) => `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""}"><td>${k + 1}</td><td>${chip(team(r.i), 18)}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`).join("")}</table></div>`;
+    ${rows.map((r, k) => `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""} ${click ? "clickable" : ""}" ${click ? `data-act="viewteam" data-i="${r.i}" title="See this team"` : ""}><td>${k + 1}</td><td>${chip(team(r.i), 18)}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`).join("")}</table></div>`;
 }
 
 // ---------- line-up editor ----------
@@ -195,7 +202,6 @@ function evLine(m, e) {
 // ---------- momentum and possession ----------
 // The engine gives one reading per moment (ten a match): the share of the ball and who is pressing. Between readings
 // the display interpolates, and shots and goals add a spike, so the bars read like a minute-by-minute momentum graph.
-const HOME_C = "#3ddc84", AWAY_C = "#ffb020";
 function interp(flow, key, min, dflt) {
   if (!flow.length) return dflt;
   if (min <= flow[0].minute) return flow[0][key];
@@ -217,6 +223,7 @@ function possAt(k, now) {                     // running share of the ball for t
   return n ? sum / n : 0.5;
 }
 function statsPanel(m, now) {
+  const [HOME_C, AWAY_C] = matchColors(club(team(m.a)), club(team(m.b)));
   const k = known(m, now), W = 540, H = 110, mid = H / 2, bw = W / 90;
   let bars = "";
   for (let x = 1; x <= 90; x++) {
@@ -266,7 +273,7 @@ export function playbackTick() {
 }
 function fixtureRows(S, ms) {
   const me = S.me ? S.me.teamId : -1;
-  return ms.map((m, k) => `<div class="fixture ${m.a === me || m.b === me ? "mine" : ""} ${k === focusK(S) ? "focus" : ""}" data-act="mfocus" data-k="${k}" title="Show this match"><div class="l">${chip(team(m.a), 18)}</div><div class="score" data-pb="score" data-k="${k}"></div><div>${chip(team(m.b), 18)}</div></div>`).join("");
+  return ms.map((m, k) => `<div class="fixture ${m.a === me || m.b === me ? "mine" : ""} ${k === focusK(S) ? "focus" : ""}" data-act="mfocus" data-k="${k}" title="Show this match"><div class="l">${tchipK(m.a, 0)}</div><div class="score" data-pb="score" data-k="${k}"></div><div>${tchipK(m.b, 1)}</div></div>`).join("");
 }
 function focusK(S) {
   const R = S.reveal, mine = S.me && S.me.match ? S.me.match.index : -1;
@@ -278,7 +285,7 @@ function playbackView(S) {
   const mine = focusK(S);
   const m = R.matches[mine] || null;
   const big = m ? `<div class="card"><div class="row"><h3 style="margin:0">${S.step === "md.half1" || S.step === "md.half" ? "First half" : "Second half"}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${mine}"></span></div>
-    <div class="bigmatch"><div class="tm">${crest(team(m.a), 44)}${esc(team(m.a).name)}${kitImg(club(team(m.a)), "kitHome", 56)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm">${crest(team(m.b), 44)}${esc(team(m.b).name)}${kitImg(club(team(m.b)), "kitAway", 56)}</div></div>
+    <div class="bigmatch"><div class="tm"><div class="tmhead">${crest(team(m.a), 44)}${shirt(club(team(m.a)), 0, 52)}</div>${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm"><div class="tmhead">${crest(team(m.b), 44)}${shirt(club(team(m.b)), 1, 52)}</div>${esc(team(m.b).name)}</div></div>
     <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
 }
@@ -295,15 +302,66 @@ function scorerLines(m, side) {
   for (const g of m.goals || []) if (g.team === side) (by.get(g.player) || by.set(g.player, []).get(g.player)).push(g.minute);
   return [...by.entries()].map(([pid, mins]) => `<div class="sc1"><b>${esc(nm(pid))}</b> <span class="mute">${mins.map((x) => x + "'").join(" ")}</span></div>`).join("") || `<div class="sc1 mute">–</div>`;
 }
-function resultsView(S) {
-  const R = S.reveal, me = S.me ? S.me.teamId : -1, k = focusK(S);
-  const rows = R.matches.map((m, i) => `<div class="resrow ${m.a === me || m.b === me ? "mine" : ""} ${i === k ? "focus" : ""}" data-act="mfocus" data-k="${i}">
-    <div class="side l">${chip(team(m.a), 20)}<div class="scs">${scorerLines(m, 0)}</div></div>
+function resRows(ms, me, focus = null) {
+  return ms.map((m, i) => `<div class="resrow ${m.a === me || m.b === me ? "mine" : ""} ${i === focus ? "focus" : ""}" ${focus != null ? `data-act="mfocus" data-k="${i}"` : ""}>
+    <div class="side l">${tchipK(m.a, 0, 20)}<div class="scs">${scorerLines(m, 0)}</div></div>
     <div class="fscore">${m.score[0]} – ${m.score[1]}</div>
-    <div class="side r">${chip(team(m.b), 20)}<div class="scs">${scorerLines(m, 1)}</div></div></div>`).join("");
-  const m = R.matches[k];
-  return `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1} results</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${k}">FT</span></div><div class="mt">${rows}</div></div>
-    <div class="card"><h3>${chip(team(m.a), 20)} <span class="mute">v</span> ${chip(team(m.b), 20)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>`;
+    <div class="side r">${tchipK(m.b, 1, 20)}<div class="scs">${scorerLines(m, 1)}</div></div></div>`).join("");
+}
+function resultsView(S) {
+  const R = S.reveal, me = S.me ? S.me.teamId : -1, k = focusK(S), m = R.matches[k];
+  return `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1} results</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${k}">FT</span></div><div class="mt">${resRows(R.matches, me, k)}</div></div>
+    <div class="card"><h3>${tchipK(m.a, 0, 20)} <span class="mute">v</span> ${tchipK(m.b, 1, 20)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>`;
+}
+
+// ---------- the menu between matches ----------
+const HUB_TITLES = { team: "Team", standings: "Standings", store: "Store" };
+function hubBar(S, title, back = "hubback", backText = "← Menu") {
+  const me = S.me, ready = me && S.teams[me.teamId].ready;
+  return `<div class="card hubbar"><button class="btn sm" data-act="${back}">${backText}</button><h3 style="margin:0">${esc(title)}</h3><div class="grow"></div>${me ? `<button class="btn ${ready ? "" : "pri"}" data-act="mready">${ready ? "Ready ✓ (undo)" : "Ready"}</button>` : ""}</div>`;
+}
+function hubHome(S) {
+  const me = S.me, d = S.season.day, fx = (S.season.fixtures || []).find(([a, b]) => me && (a === me.teamId || b === me.teamId));
+  const t = me ? S.teams[me.teamId] : null, ready = t && t.ready;
+  const rank = t ? (S.table || []).findIndex((r) => r.i === t.id) : -1, row = rank >= 0 ? S.table[rank] : null;
+  const have = me ? me.coins : S.pm ? S.pm.coins : 0, rare = S.store && S.store.open && Object.values(S.store.stock || {}).some((n) => n > 0);
+  const tile = (to, ic, name, sub, cls = "") => `<button class="hubtile ${cls}" data-act="hubgo" data-to="${to}"><span class="ic">${ic}</span><b>${name}</b><span class="sub">${sub}</span></button>`;
+  const next = fx ? `<div class="hubnext">${tchipK(fx[0], 0, 26)}<span class="mute">v</span>${tchipK(fx[1], 1, 26)}</div>` : "";
+  const tiles = [
+    me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items${Object.values(me.items || {}).some((n) => n > 0) ? "" : ""}`) : "",
+    tile("standings", "🏆", "Standings", row ? `${rank + 1}${["st", "nd", "rd"][rank] || "th"} · ${row.pts} pts · table, results, Golden Boot` : "Table, results, Golden Boot, other teams"),
+    tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item in stock</span>" : ""}`),
+    me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : ready ? "Ready" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
+  ].join("");
+  return `<div class="card hubhead"><div class="row wrap"><h3 style="margin:0">Matchday ${d + 1} of ${S.season.total}</h3><div class="grow"></div><span class="mute small">Next match</span></div>${next}</div>
+    <div class="hubgrid">${tiles}</div>${fixturesPreview(S)}`;
+}
+function teamViewer(S, i) {
+  const t = team(i), c = club(t), row = (S.table || []).findIndex((r) => r.i === i), tr = row >= 0 ? S.table[row] : null;
+  const ps = t.players.map((id) => pl(id)).filter(Boolean);
+  const fit = ps.filter((p) => !p.susp), gk = fit.filter((p) => p.pos === "GK").sort((a, b) => b.ovr - a.ovr)[0];
+  const out = fit.filter((p) => p !== gk).sort((a, b) => b.ovr - a.ovr).slice(0, 5), start = new Set([gk, ...out].filter(Boolean).map((p) => p.id));
+  const lines = (list) => list.map((p) => `<div class="benchrow tv ${p.susp ? "dim" : ""}"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}${p.user ? " · created player" : ""}</span></span>
+    <span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
+  const byOvr = (a, b) => b.ovr - a.ovr, starters = ps.filter((p) => start.has(p.id)).sort((a, b) => (a.pos === "GK" ? -1 : b.pos === "GK" ? 1 : byOvr(a, b))), bench = ps.filter((p) => !start.has(p.id)).sort(byOvr);
+  return `${hubBar(S, t.name, "closeteam", "← Standings")}<div class="card"><div class="row wrap" style="gap:14px">${crest(t, 48)}${shirt(c, 0, 56)}<div class="grow"><b style="font-size:20px">${esc(t.name)}</b><div class="mute small">${t.owner ? "Managed by " + esc(t.owner) : "CPU manager"}${tr ? ` · ${row + 1}${["st", "nd", "rd"][row] || "th"} · ${tr.pts} pts (${tr.w}-${tr.d}-${tr.l})` : ""} · ${ps.length}/${t.cap} players</div></div></div>
+    <h3 class="mt">Likely line-up</h3><div class="col" style="gap:3px">${lines(starters)}</div>
+    ${bench.length ? `<h3 class="mt">Bench</h3><div class="col" style="gap:3px">${lines(bench)}</div>` : ""}
+    <p class="tiny mute mt">Line-ups are set at kick-off. This shows the strongest available players. Contract = seasons left, counting this one.</p></div>`;
+}
+function standingsView(S) {
+  if (st.ui.viewTeam != null && team(st.ui.viewTeam)) return teamViewer(S, st.ui.viewTeam);
+  const me = S.me ? S.me.teamId : -1, L = S.lastDay;
+  const last = L ? `<div class="card"><h3>Matchday ${L.day + 1} results</h3><div class="mt">${resRows(L.matches, me)}</div></div>` : `<div class="card"><h3>Latest results</h3><p class="mute small">No matches played yet.</p></div>`;
+  return `${hubBar(S, "Standings")}${tablePanel(S, 99, true)}${last}${bootPanel(S, 10, "Golden Boot race") || `<div class="card"><h3>Golden Boot race</h3><p class="mute small">No goals yet.</p></div>`}`;
+}
+function hubView(S) {
+  if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; }
+  const hub = st.ui.hub;
+  if (!hub || (hub === "team" && !S.me)) return hubHome(S);
+  if (hub === "team") return hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
+  if (hub === "store") return hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
+  return standingsView(S);
 }
 
 // ---------- the whole view ----------
@@ -315,7 +373,7 @@ export function matchView(S, ctx) {
       main = `<div class="card c"><h3>Season ${S.seasonNo}</h3><p style="font-size:24px;font-weight:800">${S.season.total} matchdays</p><p class="mute mt">Three points for a win, one for a draw. Goal difference, then goals scored, break ties. Top of the table wins the league.</p></div>`;
       break;
     case "md.lineup":
-      main = me ? lineupEditor(S, false) + fixturesPreview(S) : fixturesPreview(S);
+      main = me || S.pm ? hubView(S) : fixturesPreview(S);
       break;
     case "md.half1": case "md.half2":
       main = playbackView(S); break;
@@ -342,5 +400,5 @@ function finalCard(S) {
 }
 function fixturesPreview(S) {
   const fx = S.season.fixtures || [], me = S.me ? S.me.teamId : -1;
-  return `<div class="card"><h3>Matchday ${S.season.day + 1} fixtures</h3>${fx.map(([a, b]) => `<div class="fixture ${a === me || b === me ? "mine" : ""}"><div class="l">${chip(team(a), 18)}</div><div class="score mute">v</div><div>${chip(team(b), 18)}</div></div>`).join("")}</div>`;
+  return `<div class="card"><h3>Matchday ${S.season.day + 1} fixtures</h3>${fx.map(([a, b]) => `<div class="fixture ${a === me || b === me ? "mine" : ""}"><div class="l">${tchipK(a, 0)}</div><div class="score mute">v</div><div>${tchipK(b, 1)}</div></div>`).join("")}</div>`;
 }

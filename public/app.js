@@ -67,7 +67,12 @@ const A = {
   join() { const c = ($("#jc")?.value || "").toUpperCase(); if (c.length < 4) return toast("Enter the 4-letter code."); store("name", nameVal()); intent = { t: "join", room: c, name: nameVal() }; go(); },
   rejoin() { intent = { t: "join", room: store("room"), name: store("name") || "Manager" }; go(); },
   watch() { const c = ($("#wc")?.value || "").toUpperCase() || st.room; if (!c || c.length < 4) return toast("Enter the 4-letter code."); intent = { t: "watch", room: c }; go(); },
-  club(a) { send({ t: "club", slug: a.slug }); },
+  club(a) {
+    const you = st.S && st.S.players.find((p) => p.you), cur = you && you.club && st.clubBy[you.club];
+    if (cur && (cur.base || cur.slug) === a.slug) return;                  // already on this club (maybe its throwback): leave it
+    send({ t: "club", slug: a.slug });
+  },
+  clubVar(a, el) { send({ t: "club", slug: el.checked ? a.slug : a.main }); },
   start() { send({ t: "start" }); },
   pause() { send({ t: "pause" }); }, resume() { send({ t: "resume" }); }, skip() { send({ t: "skip" }); },
   copy() { navigator.clipboard?.writeText(`${location.origin}/?room=${st.S.room}`); toast("Link copied"); },
@@ -85,6 +90,7 @@ for (const ev of ["pointerdown", "keydown", "touchstart"]) window.addEventListen
 }, { passive: true, capture: true });
 
 app.addEventListener("click", (e) => {
+  if (e.target.closest(".vopt")) return;                                 // ticking a throwback/alt box is a change, not a club click
   const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
   const f = A[b.dataset.act]; if (f) { e.preventDefault(); f({ ...b.dataset }, b); }
 });
@@ -225,9 +231,14 @@ function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
   const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, S.settings.minTeams - humans);
-  const clubs = st.cat.clubs.map((c) => {
-    const owner = taken.get(c.slug), sel = you && you.club === c.slug;
-    return `<button class="club ${sel ? "sel" : ""} ${owner && !sel ? "taken" : ""}" data-act="club" data-slug="${c.slug}">${crestOfClub(c, 28)}<span class="grow"><b>${esc(c.name)}</b>${c.kind !== "main" ? `<div class="tiny mute">${c.kind}</div>` : ""}${owner && !sel ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></button>`;
+  const fam = (slug) => (st.clubBy[slug] && st.clubBy[slug].base) || slug;
+  const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
+  const clubs = st.cat.clubs.filter((c) => c.kind === "main").map((c) => {
+    const owner = takenFam.get(c.slug), mine = you && you.club && fam(you.club) === c.slug, others = owner && owner !== you;
+    const vars = st.cat.clubs.filter((v) => v.base === c.slug);
+    const shown = mine && you.club !== c.slug ? st.clubBy[you.club] : c;     // the tile wears the chosen scheme
+    const boxes = vars.map((v) => `<label class="vopt" title="Use the ${esc(v.label || v.kind)} colours and art"><input type="checkbox" data-change="clubVar" data-main="${c.slug}" data-slug="${v.slug}" ${mine && you.club === v.slug ? "checked" : ""} ${others ? "disabled" : ""}> ${esc(v.label || v.kind)}</label>`).join("");
+    return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}${boxes}</span></div>`;
   }).join("");
   const s = S.settings, hostOnly = S.host ? "" : "disabled";
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
@@ -242,7 +253,7 @@ function lobby(S) {
       <span class="small">Pace</span>${sel("pace", [[1.4, "Relaxed"], [1, "Normal"], [0.7, "Fast"], [0.5, "Turbo"]])}
       <span class="small">Pack pick timer</span>${sel("draftSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}
       <span class="small">Market round timer</span>${sel("marketSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}
-      <span class="small">Line-up timer</span>${sel("lineupSec", [[10, "10 s"], [20, "20 s"], [30, "30 s"], [45, "45 s"]])}
+      <span class="small">Line-up timer</span>${sel("lineupSec", [[20, "20 s"], [30, "30 s"], [35, "35 s"], [45, "45 s"], [60, "60 s"], [90, "90 s"]])}
       <span class="small">Half-time timer</span>${sel("halfSec", [[10, "10 s"], [15, "15 s"], [20, "20 s"], [30, "30 s"]])}
       <span class="small">Seasons</span>${sel("seasons", [1, 2, 3, 4, 5].map((n) => [n, n]))}
       <span class="small">Re-sign timer</span>${sel("resignSec", [[20, "20 s"], [40, "40 s"], [60, "60 s"]])}
@@ -273,7 +284,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { if (S.pm) main = pmPanel(S) + main; if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); main += storeCard(S); }
+  if (S.step !== "lobby") { if (S.pm) main = pmPanel(S) + main; if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);
