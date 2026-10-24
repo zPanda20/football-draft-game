@@ -6,6 +6,7 @@ import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
 import { steroidStory, ensureLife } from "../engine/life.js";
+import { clubAllowed } from "../engine/unlocks.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
 import { expiring, availableRookies } from "../engine/offseason.js";
@@ -132,6 +133,7 @@ export class Room {
   setClub(token, slug) {
     const p = this.players.get(token); if (!p || this.phase !== "lobby" || p.mode === "player") return;
     if (!this.clubBySlug.has(slug)) return;
+    if (!clubAllowed(this.clubBySlug.get(slug), p.unlocks)) return;
     const fam = (s) => this.clubBySlug.get(s).base || s;                        // a throwback or alt belongs to its main club
     for (const q of this.players.values()) if (q !== p && q.club && fam(q.club) === fam(slug)) return;
     p.club = slug;
@@ -150,7 +152,7 @@ export class Room {
     if (["all", "male", "female"].includes(s.pool) && s.pool !== this.settings.pool) {
       const cap = this.poolInfo()[s.pool].maxClubs;
       if (this.players.size > cap) { this.paceNote = { id: (this.paceNote ? this.paceNote.id : 0) + 1, text: `A ${s.pool === "all" ? "" : s.pool + "s-only "}league holds ${cap} people at most; ${this.players.size} are in the room` }; return this.changed(); }
-      this.settings.pool = s.pool;
+      this.settings.pool = s.pool; this.fitCharsToPool();
     }
     num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60); num("resignSec", 10, 120); num("rookieSec", 10, 90); num("tradeSec", 30, 600);
     if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
@@ -561,7 +563,7 @@ export class Room {
     if (p.ovr !== b.ovr || p.pac !== b.pac || p.sho !== b.sho || p.pas !== b.pas || p.dri !== b.dri || p.def !== b.def || p.phy !== b.phy || p.sta !== b.sta) o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta];
     if (p.pos !== b.pos) o.pos = p.pos;
     if (p.susp > 0) o.sp = p.susp;
-    if (p.user) { o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta]; o.u = { name: p.name, nat: p.nat, pos: p.pos, club: p.club }; }
+    if (p.user) { o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta]; o.u = { name: p.name, nat: p.nat, pos: p.pos, club: p.club, img: p.img, g: p.gender }; }
     if (p.pot) o.pot = p.pot;
     { const x = this.game.stats && this.game.stats[id]; if (x && x.gp) o.x = [x.gp, x.g, x.a, x.kp, x.tk, x.ic, x.sv, +(x.rt / x.gp).toFixed(1)]; }   // season line: games, goals, assists, chances created, tackles, interceptions, saves, average rating
     return o;
@@ -572,8 +574,9 @@ export class Room {
     const v = {
       room: this.code, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
-      players: [...this.players.values()].map((p) => ({ you: p.token === token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      players: [...this.players.values()].map((p) => ({ you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
       news: this.game ? this.newsView(token) : null,
+      unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chat.slice(-30), reveal: this.reveal, feed: this.feed,
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],

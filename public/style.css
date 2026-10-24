@@ -342,3 +342,25 @@ svg.kit{display:inline-block;flex:none}
 .newsban.nk-proud,.newsban.nk-fun{background:linear-gradient(180deg,#1a1405,#5a4208 70%,rgba(90,66,8,.94))}
 .newsban.nk-boring{background:linear-gradient(180deg,#121417,#3a4047 70%,rgba(58,64,71,.94))}
 @media(max-width:640px){.lifep .lstat{grid-template-columns:1fr}.linc{align-items:flex-start;text-align:left}}
+
+/* ---- trophy cabinet: collectable plates ---- */
+.cabinet{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:12px;border-radius:14px;background:linear-gradient(180deg,#0d1512,#08100d);border:1px solid var(--line);box-shadow:inset 0 0 30px rgba(0,0,0,.6)}
+.plate{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;padding:12px 8px 10px;border-radius:10px;min-height:104px;justify-content:center}
+.plate.locked{background:repeating-linear-gradient(135deg,#141b18 0 8px,#101612 8px 16px);border:1px dashed #2c3a33;color:#6d7f75}
+.plate.locked b{font-size:20px;letter-spacing:.2em}.pl-lock{font-size:16px;opacity:.7}
+.plate.on{background:linear-gradient(160deg,#f6e7b0 0%,#c9a24a 38%,#8a6a1c 62%,#d9bd6a 100%);color:#2b1f05;border:1px solid #fff3c4;box-shadow:0 0 0 3px #3a2a08,0 6px 14px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.6)}
+.plate.on::before,.plate.on::after{content:"";position:absolute;top:7px;width:6px;height:6px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#7a6226);box-shadow:0 1px 1px rgba(0,0,0,.5)}
+.plate.on::before{left:7px}.plate.on::after{right:7px}
+.plate.on b{font-size:13px;letter-spacing:.04em;text-transform:uppercase}.plate.on .tiny{color:#4a3a12;font-weight:700}
+.pl-sw{display:flex}.pl-sw i{width:16px;height:30px;display:block;border:1px solid rgba(0,0,0,.35);margin-left:-2px;border-radius:3px}
+.plate.flash{animation:plateflash 1.6s ease-out 2}
+@keyframes plateflash{0%{transform:scale(.8);filter:brightness(2.2)}40%{transform:scale(1.08)}100%{transform:scale(1);filter:none}}
+.cabhead{display:flex;justify-content:space-between;align-items:baseline}
+
+/* ---- footballer creator: face, gender ---- */
+.facebox{width:104px;height:104px;border-radius:16px;background:radial-gradient(circle at 50% 30%,#31483c,#14211b);display:grid;place-items:center;border:1px solid var(--line)}
+.facerow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.facerow>.small{min-width:78px}
+.fdot{width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0}.fdot.sel{border-color:#fff;box-shadow:0 0 0 2px var(--acc2)}
+.fphoto{padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:none;cursor:pointer}.fphoto.sel{border-color:var(--acc2)}
+.seg{display:inline-flex;gap:4px}
+.cface .init.av{background:transparent;box-shadow:none;width:auto;height:auto;border-radius:50%;overflow:hidden}

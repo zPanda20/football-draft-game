@@ -1,5 +1,5 @@
 // Player mode screens: the character creator (lobby), the career panel shown over every game screen, and the manager's list of free players.
-import { st, esc, send, team, chip, card, pl, miniPlayer, coins, flag, tierOf } from "./core.js";
+import { st, esc, send, team, chip, card, pl, miniPlayer, coins, flag, tierOf, avatar, faceOf, SKIN, HAIRC, HAIR_NAMES, ISO_NATIONS } from "./core.js";
 
 const POS = ["ST", "LW", "RW", "CAM", "CM", "LM", "RM", "CDM", "CB", "LB", "RB", "GK"];
 const OUT = ["PAC", "SHO", "PAS", "DRI", "DEF", "PHY"], GKL = ["DIV", "HAN", "KIC", "REF", "SPE", "POS"];
@@ -11,6 +11,9 @@ export const pmHandlers = {
   roll() { send({ t: "roll" }); },
   charName(a) { send({ t: "char", c: { name: a.value } }); },
   charPos(a) { send({ t: "char", c: { pos: a.value } }); },
+  charNat(a) { send({ t: "char", c: { nat: a.value } }); },
+  charGender(a) { send({ t: "char", c: { gender: a.g } }); },
+  charFace(a) { const y = you(st.S), p = String((y && y.char && y.char.img) || "0-0-0").split("-").map(Number); if (a.f && a.f.startsWith("f:")) return send({ t: "char", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "char", c: { img: p.slice(0, 3).join("-") } }); },
   charSwap(a) {
     const i = +a.i, s = ui().swap, y = you(st.S), asg = y && y.char && y.char.assign;
     if (!asg) return;
@@ -43,11 +46,17 @@ export function creator(S) {
   const c = y.char, gk = c.pos === "GK", labels = gk ? GKL : OUT, sw = ui().swap;
   const rolls = st.cat.rules.rerolls ?? 2;
   const rows = labels.map((l, i) => { const v = c.nums[c.assign[i]]; return `<button class="statrow ${sw === i ? "sel" : ""}" data-act="charSwap" data-i="${i}"><b>${l}</b><span class="bar"><i style="width:${Math.max(4, (v - 40) * 100 / 57)}%"></i></span><em>${v}</em></button>`; }).join("");
+  const pool = S.settings && S.settings.pool, gLock = pool === "female" || pool === "male", g = c.gender || "M", [fs, fh, fc] = String(c.img || "0-0-0").split("-").map(Number);
+  const dots = (part, list, cur, label) => `<div class="facerow"><span class="small mute">${label}</span>${list.map((col, i) => `<button class="fdot ${cur === i ? "sel" : ""}" style="background:${col}" data-act="charFace" data-part="${part}" data-v="${i}" aria-label="${label} ${i + 1}"></button>`).join("")}</div>`;
+  const hairBtns = `<div class="facerow"><span class="small mute">Hair</span>${HAIR_NAMES.map((n, i) => `<button class="btn sm ${fh === i ? "pri" : ""}" data-act="charFace" data-part="1" data-v="${i}">${n}</button>`).join("")}</div>`;
+  const looks = `<div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, g)}</div><div class="col grow" style="gap:6px;min-width:230px">${dots(0, SKIN, fs, "Skin")}${hairBtns}${dots(2, HAIRC, fc, "Hair colour")}${(st.cat.faces || []).length ? `<div class="facerow"><span class="small mute">Photos</span>${st.cat.faces.map((f) => `<button class="fphoto ${c.img === "f:" + f ? "sel" : ""}" data-act="charFace" data-f="f:${esc(f)}"><img src="/assets/faces/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("")}</div>` : ""}</div></div>`;
   return `<div class="card"><h3>Create your footballer</h3>
-    <div class="row wrap" style="gap:10px"><input id="charname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="charName" style="flex:1;min-width:160px"><select data-change="charPos">${POS.map((p) => `<option ${p === c.pos ? "selected" : ""}>${p}</option>`).join("")}</select></div>
+    <div class="row wrap" style="gap:10px"><input id="charname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="charName" style="flex:1;min-width:160px"><select data-change="charPos">${POS.map((p) => `<option ${p === c.pos ? "selected" : ""}>${p}</option>`).join("")}</select>
+      <select data-change="charNat" title="Nation"><option value="">Nation…</option>${ISO_NATIONS.map((n) => `<option value="${esc(n)}" ${n === c.nat ? "selected" : ""}>${flag(n)} ${esc(n)}</option>`).join("")}</select>
+      <span class="seg"><button class="btn sm ${g === "M" ? "pri" : ""}" data-act="charGender" data-g="M" ${gLock && pool !== "male" ? "disabled" : ""}>Man</button><button class="btn sm ${g === "F" ? "pri" : ""}" data-act="charGender" data-g="F" ${gLock && pool !== "female" ? "disabled" : ""}>Woman</button></span></div>${looks}
     <div class="row mt" style="gap:12px;align-items:center"><div class="ovrb big ${tierOf(c.ovr)}">${c.ovr}</div><div class="small mute grow">Starting overall. The six numbers below are rolled for you; tap two stats to swap their numbers and shape your player.</div><button class="btn sm" data-act="roll" ${c.rolls >= rolls ? "disabled" : ""}>Re-roll (${Math.max(0, rolls - c.rolls)} left)</button></div>
     <div class="col mt" style="gap:6px">${rows}</div>
-    <p class="small mute mt">After the draft you will wait in the free-agent pool until a manager signs you. If nobody does by the end of the first off-season, a computer team takes you.</p></div>`;
+    <p class="small mute mt">${S.phase === "draft" || (S.step || "").startsWith("draft.") ? "The others are still drafting, so you can keep re-rolling and shuffling your numbers. This closes when the market opens." : "After the draft you will wait in the free-agent pool until a manager signs you. If nobody does by the end of the first off-season, a computer team takes you."}</p></div>`;
 }
 
 // ---------- in-game panel for a player-mode user ----------

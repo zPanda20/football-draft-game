@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { loadData } from "../engine/data.js";
 import { Room } from "./room.js";
-import { buildCatalog, clubsWithArt } from "./describe.js";
+import { buildCatalog, clubsWithArt, listFaces } from "./describe.js";
 import { withParams } from "../engine/params.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -105,12 +105,12 @@ wss.on("connection", (ws) => {
 function attach(ws, room, token, watch) {
   ws.room = room; ws.token = token; ws.watch = watch;
   room.sockets.add(ws);
-  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC) }, now: Date.now() });
+  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC), faces: listFaces(PUBLIC) }, now: Date.now() });
   room.kick();
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "lifeBuy", "newsDecide"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -153,6 +153,8 @@ function handle(ws, m) {
     case "offerRespond": room.respondOffer(t, m.id | 0, !!m.accept); break;
     case "card": room.answerCareer(t, m.n | 0, m.opt | 0); break;
     case "effort": room.setEffort(t, m.mode); break;
+    case "redeem": room.redeem(t, String(m.code || "").slice(0, 60)); break;
+    case "unlocks": room.setUnlocks(t, Array.isArray(m.ids) ? m.ids.slice(0, 40).map(String) : []); break;
     case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), !!m.marry); break;
     case "lifeBuy": room.lifeBuy(t, String(m.id || "")); break;
     case "newsDecide": room.newsDecide(t, m.id | 0, !!m.yes); break;

@@ -238,7 +238,7 @@ t("clubs: unique slugs, colours, variants point at a main club, art files are pi
   const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path");
   const cl = D.clubs; assert.ok(cl.length >= 40);
   assert.equal(new Set(cl.map((c) => c.slug)).size, cl.length); assert.equal(new Set(cl.map((c) => c.name)).size, cl.length);
-  for (const c of cl) { assert.match(c.c1, /^#[0-9a-f]{6}$/i); assert.match(c.c2, /^#[0-9a-f]{6}$/i); assert.ok(["main", "throwback", "alt"].includes(c.kind)); if (c.kind !== "main") assert.equal(cl.find((x) => x.slug === c.base)?.kind, "main"); }
+  for (const c of cl) { assert.match(c.c1, /^#[0-9a-f]{6}$/i); assert.match(c.c2, /^#[0-9a-f]{6}$/i); assert.ok(["main", "throwback", "alt", "code"].includes(c.kind)); if (c.kind === "throwback" || c.kind === "alt") assert.equal(cl.find((x) => x.slug === c.base)?.kind, "main"); }
   const dir = mkdtempSync(join(tmpdir(), "art-")); mkdirSync(join(dir, "assets", "teams", "juventus"), { recursive: true });
   writeFileSync(join(dir, "assets", "teams", "juventus", "badge.svg"), "<svg/>"); writeFileSync(join(dir, "assets", "teams", "juventus", "Kit-Home.PNG"), "x");
   const art = clubsWithArt(cl, dir).find((c) => c.slug === "juventus").art; assert.match(art.badge, /\/assets\/teams\/juventus\/badge\.svg\?v=/); assert.ok(art.kitHome); assert.equal(art.wallpaper, undefined);
@@ -357,6 +357,20 @@ t("player life: activities move energy, love, money and followers; stories follo
   // survives a save
   const { serializeGame, restoreGame } = await import("../engine/game.js"); const back = restoreGame(D, JSON.parse(JSON.stringify(serializeGame(g2))));
   assert.equal(back.news.length, g2.news.length); assert.equal(back.players[q.id].life.own.house, "house-town");
+});
+t("unlocks: codes open plates, plates gate clubs, and the codes stay on the server", async () => {
+  const { findPlate, clubAllowed, clubUnlock } = await import("../engine/unlocks.js"); const { buildCatalog } = await import("../server/describe.js");
+  const want = { "Ka-Chow": "kachow", "grandpa": "grandpa", "SISTER FEI": "sisterfei", "Baguette": "baguette", "Pineapple on Pizza": "pineapple", "Tequila e Tacos": "tacos", "Guns": "guns", "MAGA": "maga", "Way Back": "wayback", "Jackson Wang": "jacksonwang", "Into the Woods": "woods", "Jack": "woods", "FIFA": "fifa", "Latifi Into the Wall": "latifi", "Freedom": "strawhat".replace("strawhat", "freedom"), "NFL": "nfl", "Choom": "choom" };
+  for (const [code, id] of Object.entries(want)) assert.equal(findPlate(D.plates, code)?.id, id, code);
+  assert.equal(findPlate(D.plates, "nothing"), null);
+  const byName = (n) => D.clubs.find((c) => c.name === n); for (const n of ["Lightning McQueen FC", "Turtle FC", "Holy Freak FC", "French National Team", "Italian National Team", "Mexican National Team", "US National Team", "Trump FC", "Forest FC", "Jonny Football FC", "Max Verstappen FC", "Strawhat FC"]) assert.ok(byName(n), n);
+  const tr = byName("Trump FC"); assert.equal(tr.c1.slice(1, 3) > "b0", true); assert.ok(D.clubs.filter((c) => c.unlock === "nfl").length >= 5 && D.clubs.filter((c) => c.unlock === "choom").length >= 5);
+  const mine = new Set(); assert.ok(!clubAllowed(byName("Turtle FC"), mine) && !clubAllowed(D.clubs.find((c) => c.kind === "throwback"), mine) && !clubAllowed(D.clubs.find((c) => c.slug === "psg-twd"), mine) && clubAllowed(D.clubs.find((c) => c.slug === "psg"), mine) && clubAllowed(D.clubs.find((c) => c.kind === "alt" && c.slug !== "psg-twd"), mine));
+  mine.add("wayback"); assert.ok(clubAllowed(D.clubs.find((c) => c.kind === "throwback"), mine)); assert.equal(clubUnlock(byName("Turtle FC")), "grandpa");
+  assert.ok(!JSON.stringify(buildCatalog(D, withParams())).toLowerCase().includes("ka-chow"), "codes are not in the catalogue");
+  const { Room } = await import("../server/room.js"); const r = new Room({ code: "UNLK", D, hostToken: "h", onChange() {}, onSave() {} }); r.addPlayer("h", "Host");
+  r.setClub("h", "turtle-fc"); assert.equal(r.players.get("h").club, null, "locked club cannot be picked"); r.redeem("h", "grandpa"); r.setClub("h", "turtle-fc"); assert.equal(r.players.get("h").club, "turtle-fc");
+  r.setUnlocks("h", ["wayback", "bogus"]); assert.deepEqual([...r.players.get("h").unlocks], ["wayback"]);
 });
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

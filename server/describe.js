@@ -9,6 +9,11 @@ import { POSITIONS, SLOT_W, XY } from "../engine/roster.js";
 export const ART_FILES = { badge: "badge", wallpaper: "wallpaper", kitHome: "kit-home", kitAway: "kit-away", kitThird: "kit-third" };
 const EXTS = ["png", "webp", "svg", "jpg", "jpeg"];
 let artCache = { at: 0, v: null };
+// Optional portrait photos for created footballers: drop images into public/assets/faces/.
+export function listFaces(publicDir) {
+  const dir = join(publicDir, "assets", "faces"); if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f)).sort().slice(0, 60);
+}
 export function clubsWithArt(clubs, publicDir) {
   if (artCache.v && Date.now() - artCache.at < 4000) return artCache.v;
   const out = clubs.map((c) => {
@@ -32,6 +37,7 @@ export function buildCatalog(D, P) {
     items: D.items,
     life: { acts: ACT_INFO, shop: SHOP, cats: SHOP_CATS, costs: Object.fromEntries(Object.entries(P.life.acts).map(([k, v]) => [k, v])), wedding: P.life.wedding, boringAt: P.life.boringAt },
     clubs: D.clubs,
+    plates: (D.plates || []).map(({ codes, ...p }) => p),           // the codes themselves never leave the server
     positions: POSITIONS,
     slotWeights: SLOT_W, xy: XY, fit: P.fit,
     rules: { playerItemCap: P.player.itemCap, rerolls: P.player.rerolls, rosterMax: P.money.rosterMax, rosterMin: P.money.rosterMin, activeCap: P.items.activeCap, lenMult: P.money.lenMult, extraCap: P.money.extraCap, moments: P.match.moments, fatigueK: P.stamina.fatigueK, packs: P.packs.rounds },

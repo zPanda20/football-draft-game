@@ -5,6 +5,7 @@ import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
 import { storeCard } from "./store.js";
 import { pmHandlers, pmPanel, seekersCard, modeCard, creator } from "./pm.js";
+import { unlockHandlers, unlockSync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 
@@ -36,7 +37,7 @@ function connect(first) {
       { const g = m.s.me && m.s.me.gain ? m.s.me.gain : m.s.pm && m.s.pm.gain ? m.s.pm.gain : null;   // money paid after a match: show it once
         if (st.ui.gainSeen === undefined) st.ui.gainSeen = g ? g.seq : 0; else if (g && g.seq > st.ui.gainSeen) { st.ui.gainSeen = g.seq; showGain(g); } }
       { const ns = m.s.notices || [], top = ns.length ? ns[ns.length - 1].id : 0; if (st.ui.noticeSeen === undefined) st.ui.noticeSeen = top; else for (const n of ns) if (n.id > st.ui.noticeSeen) { toast(n.text); st.ui.noticeSeen = n.id; } }
-      newsTick(m.s);
+      newsTick(m.s); unlockSync(m.s);
       const nt = m.s.speed && m.s.speed.note;
       if (nt && nt.id !== st.ui.paceNoteId) { if (st.ui.paceNoteId !== undefined) toast(nt.text); st.ui.paceNoteId = nt.id; } else if (st.ui.paceNoteId === undefined) st.ui.paceNoteId = 0;
       render();
@@ -82,7 +83,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -106,7 +107,7 @@ app.addEventListener("input", (e) => {
   const t = e.target;
   if (t.dataset.input && A[t.dataset.input]) A[t.dataset.input]({ ...t.dataset, value: t.value }, t);
 });
-app.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "chatin") A.chatSend(); if (e.key === "Enter" && e.target.id === "jc") A.join(); });
+app.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "chatin") A.chatSend(); if (e.key === "Enter" && e.target.id === "jc") A.join(); if (e.key === "Enter" && e.target.id === "codein") A.redeem(); });
 
 // ---------- top bar ----------
 function phaseLabel(S) {
@@ -237,17 +238,22 @@ function lobby(S) {
   const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
   const clubs = st.cat.clubs.filter((c) => c.kind === "main").map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club && fam(you.club) === c.slug, others = owner && owner !== you;
-    const vars = st.cat.clubs.filter((v) => v.base === c.slug);
+    const vars = st.cat.clubs.filter((v) => v.base === c.slug && clubOpen(v, you));
     const shown = mine && you.club !== c.slug ? st.clubBy[you.club] : c;     // the tile wears the chosen scheme
     const boxes = vars.map((v) => `<label class="vopt" title="Use the ${esc(v.label || v.kind)} colours and art"><input type="checkbox" data-change="clubVar" data-main="${c.slug}" data-slug="${v.slug}" ${mine && you.club === v.slug ? "checked" : ""} ${others ? "disabled" : ""}> ${esc(v.label || v.kind)}</label>`).join("");
     return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}${boxes}</span></div>`;
+  }).join("");
+  const extra = codeClubs(you).map((c) => {
+    const owner = takenFam.get(c.slug), mine = you && you.club === c.slug, others = owner && owner !== you;
+    return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(c, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></div>`;
   }).join("");
   const s = S.settings, hostOnly = S.host ? "" : "disabled";
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
     ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
-    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}<div class="clubgrid mt">${clubs}</div></div>`;
+    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
+    ${enterCode(you)}`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
       ${s.pool && s.pool !== "all" && S.pools ? `<p class="small mute mt">${s.pool === "female" ? "Women" : "Men"}-only league: ${S.pools[s.pool].players} players, ${S.pools[s.pool].keepers} keepers, so at most ${S.pools[s.pool].maxClubs} clubs.</p>` : ""}
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
@@ -288,7 +294,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = pmPanel(S) + lifePanel(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);

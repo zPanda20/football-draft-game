@@ -1,6 +1,8 @@
 // Player mode on the server: lobby set-up, career cards, offers from teams, half-time effort, CPU fallbacks.
+import { makeRng } from "../engine/rng.js";
 import { withParams } from "../engine/params.js";
-import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, dealCard, answerCard, unsigned, signUser, cpuOffers, cpuTakes, ALL_POS } from "../engine/playermode.js";
+import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, reviseUserPlayer, dealCard, answerCard, unsigned, signUser, cpuOffers, cpuTakes, ALL_POS } from "../engine/playermode.js";
+import { findPlate } from "../engine/unlocks.js";
 import { feeFor, rosterRoom } from "../engine/market.js";
 import { ensureLife, runActivity, blocked, canMarry, actCost, WEDDING_COST, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub } from "../engine/life.js";
 
@@ -14,23 +16,34 @@ export const usermodeMethods = {
       if (p.mode === "player") return;
       p.mode = "player"; p.club = null; p.teamName = "";
       const r = rollNumbers(P0, this.code, token, 0);
-      p.char = { name: p.name, pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM"), rolls: 0, nat: "" };
+      const g = this.settings.pool === "female" ? "F" : "M", rr = makeRng(this.code, "face", token);
+      p.char = { name: p.name, pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM"), rolls: 0, nat: "", gender: g, img: [Math.floor(rr() * 6), Math.floor(rr() * 6), Math.floor(rr() * 6)].join("-") };
     } else { p.mode = "manager"; p.char = null; }
   },
+  // A footballer can be edited in the lobby and while the others draft; once the market opens he is as he is.
+  editable(p) { return (this.phase === "lobby" || this.phase === "draft") && this.isPlayerMode(p) && p.char; },
+  syncChar(p) { if (this.phase === "draft" && p.pid != null) { const u = this.game.players[p.pid]; if (u) reviseUserPlayer(this.game, u, p.char); } },
   rollChar(token) {
-    const p = this.players.get(token); if (!p || this.phase !== "lobby" || !this.isPlayerMode(p) || !p.char) return;
+    const p = this.players.get(token); if (!p || !this.editable(p)) return;
     if (p.char.rolls >= P0.player.rerolls) return;
     p.char.rolls++;
     const r = rollNumbers(P0, this.code, token, p.char.rolls);
     p.char.nums = r.nums; p.char.ovr = r.ovr; p.char.assign = defaultAssign(p.char.pos);
+    this.syncChar(p);
   },
   setChar(token, c) {
-    const p = this.players.get(token); if (!p || this.phase !== "lobby" || !this.isPlayerMode(p) || !p.char || !c) return;
+    const p = this.players.get(token); if (!p || !this.editable(p) || !c) return;
     if (typeof c.name === "string") { const n = c.name.trim().slice(0, 22); if (n) p.char.name = n; }
     if (typeof c.pos === "string" && ALL_POS.includes(c.pos)) { if (c.pos !== p.char.pos) p.char.assign = defaultAssign(c.pos); p.char.pos = c.pos; }
     if (c.assign) p.char.assign = cleanAssign(c.assign);
-    if (typeof c.nat === "string") p.char.nat = c.nat.slice(0, 30);
+    if (typeof c.nat === "string" && (c.nat === "" || /^[A-Za-z' .-]{1,30}$/.test(c.nat))) p.char.nat = c.nat;
+    const pool = this.settings.pool;
+    if (c.gender === "F" || c.gender === "M") p.char.gender = pool === "female" ? "F" : pool === "male" ? "M" : c.gender;
+    if (typeof c.img === "string" && /^(\d-\d-\d|f:[\w.-]{1,40})$/.test(c.img)) p.char.img = c.img;
+    this.syncChar(p);
   },
+  // The host changed the pool: footballers who no longer fit the league switch to the gender it uses.
+  fitCharsToPool() { const g = this.settings.pool === "female" ? "F" : this.settings.pool === "male" ? "M" : null; if (g) for (const q of this.players.values()) if (q.char) q.char.gender = g; },
   // After the league exists: every player-mode user gets his footballer.
   createUserPlayers() {
     const g = this.game;
@@ -112,6 +125,22 @@ export const usermodeMethods = {
     if (!this.efforts || !this.efforts.size) return null;
     const out = {}; for (const id of team.players) if (this.efforts.has(id)) out[id] = this.efforts.get(id);
     return Object.keys(out).length ? out : null;
+  },
+
+  // ---------- cosmetic unlocks ----------
+  redeem(token, text) {
+    const p = this.players.get(token); if (!p || this.phase !== "lobby") return;
+    const plate = findPlate(this.D.plates || [], text);
+    if (!plate) { this.unlockNote = { id: (this.unlockNote ? this.unlockNote.id : 0) + 1, token, ok: false, text: "That code does not open anything." }; return this.changed(); }
+    (p.unlocks = p.unlocks || new Set()).add(plate.id);
+    this.unlockNote = { id: (this.unlockNote ? this.unlockNote.id : 0) + 1, token, ok: true, plate: plate.id, text: `Unlocked: ${plate.name}` };
+    this.changed();
+  },
+  // A browser tells us the plates it already holds (they live in its local storage). Only real plate ids count.
+  setUnlocks(token, ids) {
+    const p = this.players.get(token); if (!p) return;
+    const ok = new Set((this.D.plates || []).map((x) => x.id)); p.unlocks = new Set(ids.filter((i) => ok.has(i)));
+    this.changed();
   },
 
   // ---------- life between matches ----------

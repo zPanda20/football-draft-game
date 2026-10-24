@@ -1,0 +1,467 @@
+{
+ "plates": [
+  {
+   "id": "kachow",
+   "name": "Lightning McQueen FC",
+   "codes": [
+    "ka-chow",
+    "kachow",
+    "ka chow"
+   ],
+   "hint": "Speed. I am speed.",
+   "clubs": [
+    "lightning-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "grandpa",
+   "name": "Turtle FC",
+   "codes": [
+    "grandpa"
+   ],
+   "hint": "Slow and steady.",
+   "clubs": [
+    "turtle-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "sisterfei",
+   "name": "Holy Freak FC",
+   "codes": [
+    "sister fei"
+   ],
+   "hint": "A blessing, of sorts.",
+   "clubs": [
+    "holy-freak-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "baguette",
+   "name": "French National Team",
+   "codes": [
+    "baguette"
+   ],
+   "hint": "Fresh from the oven.",
+   "clubs": [
+    "france-national"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "pineapple",
+   "name": "Italian National Team",
+   "codes": [
+    "pineapple on pizza"
+   ],
+   "hint": "A controversial topping.",
+   "clubs": [
+    "italy-national"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "tacos",
+   "name": "Mexican National Team",
+   "codes": [
+    "tequila e tacos",
+    "tequila and tacos"
+   ],
+   "hint": "Tuesday night.",
+   "clubs": [
+    "mexico-national"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "guns",
+   "name": "US National Team",
+   "codes": [
+    "guns"
+   ],
+   "hint": "Freedom, but louder.",
+   "clubs": [
+    "usa-national"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "maga",
+   "name": "Trump FC",
+   "codes": [
+    "maga"
+   ],
+   "hint": "Make the kit great again.",
+   "clubs": [
+    "trump-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "woods",
+   "name": "Forest FC",
+   "codes": [
+    "into the woods",
+    "jack"
+   ],
+   "hint": "Somebody say a name.",
+   "clubs": [
+    "forest-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "fifa",
+   "name": "Jonny Football FC",
+   "codes": [
+    "fifa"
+   ],
+   "hint": "The other football game.",
+   "clubs": [
+    "jonny-football-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "latifi",
+   "name": "Max Verstappen FC",
+   "codes": [
+    "latifi into the wall"
+   ],
+   "hint": "Abu Dhabi, last lap.",
+   "clubs": [
+    "max-verstappen-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "freedom",
+   "name": "Strawhat FC",
+   "codes": [
+    "freedom"
+   ],
+   "hint": "Set sail.",
+   "clubs": [
+    "strawhat-fc"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "nfl",
+   "name": "American Football Pack",
+   "codes": [
+    "nfl"
+   ],
+   "hint": "Different shaped ball.",
+   "clubs": [
+    "nfl-green-bay",
+    "nfl-kansas-city",
+    "nfl-philadelphia",
+    "nfl-san-francisco",
+    "nfl-dallas",
+    "nfl-pittsburgh",
+    "nfl-baltimore"
+   ],
+   "kind": "pack"
+  },
+  {
+   "id": "choom",
+   "name": "Cyberpunk Pack",
+   "codes": [
+    "choom"
+   ],
+   "hint": "Wake up, samurai.",
+   "clubs": [
+    "cp-arasaka",
+    "cp-militech",
+    "cp-kangtao",
+    "cp-biotechnica",
+    "cp-tygerclaws",
+    "cp-valentinos",
+    "cp-maelstrom",
+    "cp-voodoo",
+    "cp-aldecaldos"
+   ],
+   "kind": "pack"
+  },
+  {
+   "id": "wayback",
+   "name": "Throwback Shirts",
+   "codes": [
+    "way back",
+    "wayback"
+   ],
+   "hint": "Retro shirts, new legs.",
+   "clubs": [],
+   "kind": "throwbacks"
+  },
+  {
+   "id": "jacksonwang",
+   "name": "PSG Alt Kit",
+   "codes": [
+    "jackson wang"
+   ],
+   "hint": "Paris, but darker.",
+   "clubs": [
+    "psg-twd"
+   ],
+   "kind": "variant"
+  }
+ ],
+ "clubs": [
+  {
+   "slug": "lightning-fc",
+   "name": "Lightning McQueen FC",
+   "short": "LMQ",
+   "c1": "#d62a1f",
+   "c2": "#ffcc1a",
+   "kind": "code",
+   "unlock": "kachow"
+  },
+  {
+   "slug": "turtle-fc",
+   "name": "Turtle FC",
+   "short": "TUR",
+   "c1": "#3a8f3f",
+   "c2": "#c9a66b",
+   "kind": "code",
+   "unlock": "grandpa"
+  },
+  {
+   "slug": "holy-freak-fc",
+   "name": "Holy Freak FC",
+   "short": "HFF",
+   "c1": "#5b2a86",
+   "c2": "#f3ecff",
+   "kind": "code",
+   "unlock": "sisterfei"
+  },
+  {
+   "slug": "france-national",
+   "name": "French National Team",
+   "short": "FRA",
+   "c1": "#0055a4",
+   "c2": "#ef4135",
+   "kind": "code",
+   "unlock": "baguette"
+  },
+  {
+   "slug": "italy-national",
+   "name": "Italian National Team",
+   "short": "ITA",
+   "c1": "#0064c8",
+   "c2": "#ffffff",
+   "kind": "code",
+   "unlock": "pineapple"
+  },
+  {
+   "slug": "mexico-national",
+   "name": "Mexican National Team",
+   "short": "MEX",
+   "c1": "#006847",
+   "c2": "#ce1126",
+   "kind": "code",
+   "unlock": "tacos"
+  },
+  {
+   "slug": "usa-national",
+   "name": "US National Team",
+   "short": "USA",
+   "c1": "#0a2a5e",
+   "c2": "#bf0a30",
+   "kind": "code",
+   "unlock": "guns"
+  },
+  {
+   "slug": "trump-fc",
+   "name": "Trump FC",
+   "short": "TFC",
+   "c1": "#c9a227",
+   "c2": "#f3d46b",
+   "kind": "code",
+   "unlock": "maga"
+  },
+  {
+   "slug": "forest-fc",
+   "name": "Forest FC",
+   "short": "FOR",
+   "c1": "#1b4d2e",
+   "c2": "#8fd16a",
+   "kind": "code",
+   "unlock": "woods"
+  },
+  {
+   "slug": "jonny-football-fc",
+   "name": "Jonny Football FC",
+   "short": "JFC",
+   "c1": "#2aa8ff",
+   "c2": "#ffffff",
+   "kind": "code",
+   "unlock": "fifa"
+  },
+  {
+   "slug": "max-verstappen-fc",
+   "name": "Max Verstappen FC",
+   "short": "MVF",
+   "c1": "#101c4a",
+   "c2": "#ff1e00",
+   "kind": "code",
+   "unlock": "latifi"
+  },
+  {
+   "slug": "strawhat-fc",
+   "name": "Strawhat FC",
+   "short": "STW",
+   "c1": "#f0d264",
+   "c2": "#c1272d",
+   "kind": "code",
+   "unlock": "freedom"
+  },
+  {
+   "slug": "nfl-green-bay",
+   "name": "Green Bay Packers",
+   "short": "GBP",
+   "c1": "#203731",
+   "c2": "#ffb612",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-kansas-city",
+   "name": "Kansas City Chiefs",
+   "short": "KCC",
+   "c1": "#e31837",
+   "c2": "#ffb81c",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-philadelphia",
+   "name": "Philadelphia Eagles",
+   "short": "PHE",
+   "c1": "#004c54",
+   "c2": "#a5acaf",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-san-francisco",
+   "name": "San Francisco 49ers",
+   "short": "SF9",
+   "c1": "#aa0000",
+   "c2": "#b3995d",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-dallas",
+   "name": "Dallas Cowboys",
+   "short": "DAL",
+   "c1": "#003594",
+   "c2": "#869397",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-pittsburgh",
+   "name": "Pittsburgh Steelers",
+   "short": "PIT",
+   "c1": "#101820",
+   "c2": "#ffb612",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "nfl-baltimore",
+   "name": "Baltimore Ravens",
+   "short": "BAL",
+   "c1": "#241773",
+   "c2": "#9e7c0c",
+   "kind": "code",
+   "unlock": "nfl"
+  },
+  {
+   "slug": "cp-arasaka",
+   "name": "Arasaka",
+   "short": "ARA",
+   "c1": "#b00020",
+   "c2": "#111111",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-militech",
+   "name": "Militech",
+   "short": "MIL",
+   "c1": "#4b5320",
+   "c2": "#c0c0c0",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-kangtao",
+   "name": "Kang Tao",
+   "short": "KTO",
+   "c1": "#0b6e8a",
+   "c2": "#e8f1f5",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-biotechnica",
+   "name": "Biotechnica",
+   "short": "BIO",
+   "c1": "#1f8a4c",
+   "c2": "#d9ffe9",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-tygerclaws",
+   "name": "Tyger Claws",
+   "short": "TYG",
+   "c1": "#6a1b9a",
+   "c2": "#ffe14d",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-valentinos",
+   "name": "Valentinos",
+   "short": "VAL",
+   "c1": "#c8102e",
+   "c2": "#ffd700",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-maelstrom",
+   "name": "Maelstrom",
+   "short": "MAE",
+   "c1": "#8b0000",
+   "c2": "#cccccc",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-voodoo",
+   "name": "Voodoo Boys",
+   "short": "VOO",
+   "c1": "#3a0ca3",
+   "c2": "#00ffcc",
+   "kind": "code",
+   "unlock": "choom"
+  },
+  {
+   "slug": "cp-aldecaldos",
+   "name": "Aldecaldos",
+   "short": "ALD",
+   "c1": "#b5651d",
+   "c2": "#f4e4c1",
+   "kind": "code",
+   "unlock": "choom"
+  }
+ ]
+}

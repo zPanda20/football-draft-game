@@ -32,19 +32,31 @@ export function defaultAssign(pos) {
 }
 
 let nextId = 100000;   // clear of the data files (rookie classes use 1000 * class + n)
-export function createUserPlayer(game, { token, name, pos, nums, ovr, assign, nat }) {
+export function createUserPlayer(game, { token, name, pos, nums, ovr, assign, nat, gender, img }) {
   const P = game.P;
   pos = ALL_POS.includes(pos) ? pos : "CM";
   const a = cleanAssign(assign);
   let id = nextId++; while (game.players[id]) id = nextId++;
   const p = {
-    id, slug: "user-" + id, name: String(name || "Player").slice(0, 22), gender: "X", age: 21, nat: nat || "", club: "Free Agent", pos,
+    id, slug: "user-" + id, name: String(name || "Player").slice(0, 22), gender: gender === "F" ? "F" : "M", img: String(img || "0-0-0").slice(0, 40), age: 21, nat: nat || "", club: "Free Agent", pos,
     ovr, pac: 0, sho: 0, pas: 0, dri: 0, def: 0, phy: 0, sta: 80, tier: ovr >= 90 ? "ruby" : ovr >= 85 ? "gold" : "silver",
     stam: 100, team: null, contract: 0, user: true, owner: token, ovrf: ovr, career: { pending: [], log: [], n: 0 }, coins: P.player.startCoins, items: {}, equip: [],
   };
   STAT_KEYS.forEach((k, i) => { p[k] = nums[a[i]]; });
   game.players[p.id] = rate(p, P);
   game.userPool = game.userPool || []; game.userPool.push(p.id);
+  return p;
+}
+
+// While the others are still drafting, a footballer can still change his look, position and stats (nothing has been offered yet).
+export function reviseUserPlayer(game, p, { name, pos, nums, ovr, assign, nat, gender, img }) {
+  if (name) p.name = String(name).slice(0, 22);
+  if (nat != null) p.nat = nat;
+  if (gender) p.gender = gender === "F" ? "F" : "M";
+  if (img) p.img = String(img).slice(0, 40);
+  if (ALL_POS.includes(pos)) p.pos = pos;
+  if (nums && assign) { const a = cleanAssign(assign); STAT_KEYS.forEach((k, i) => { p[k] = nums[a[i]]; }); p.ovr = ovr; p.ovrf = ovr; p.tier = ovr >= 90 ? "ruby" : ovr >= 85 ? "gold" : "silver"; }
+  rate(p, game.P);
   return p;
 }
 

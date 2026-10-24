@@ -99,7 +99,8 @@
   "c2": "#9d1c1c",
   "kind": "alt",
   "base": "psg",
-  "label": "Alt · TWD"
+  "label": "Alt · TWD",
+  "unlock": "jacksonwang"
  },
  {
   "slug": "london-city",
