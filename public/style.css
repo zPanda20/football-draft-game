@@ -75,9 +75,10 @@ input:focus,select:focus{border-color:var(--acc)}
 .pcard::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--cardbg)}
 .pcard::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.35) 48%,transparent 60%);background-size:260% 100%;background-position:120% 0;animation:sheen 4s infinite}
 @keyframes sheen{60%,100%{background-position:-60% 0}}
-.pcard.ruby{--cardbg:linear-gradient(160deg,#ff5a78,#a8102f 55%,#5a0618);color:#fff}
-.pcard.gold{--cardbg:linear-gradient(160deg,#fff0a6,#e5b53b 50%,#8a6510)}
-.pcard.silver{--cardbg:linear-gradient(160deg,#f2f5f9,#aeb8c4 55%,#6a7480)}
+/* Card textures live in public/assets/cards/{ruby,gold,silver}.jpg; the gradient underneath shows if a file is missing. */
+.pcard.ruby{--cardbg:url("/assets/cards/ruby.jpg") center/cover no-repeat,linear-gradient(160deg,#ff5a78,#a8102f 55%,#5a0618);color:#fff}
+.pcard.gold{--cardbg:url("/assets/cards/gold.jpg") center/cover no-repeat,linear-gradient(160deg,#fff0a6,#e5b53b 50%,#8a6510)}
+.pcard.silver{--cardbg:url("/assets/cards/silver.jpg") center/cover no-repeat,linear-gradient(160deg,#f2f5f9,#aeb8c4 55%,#6a7480)}
 .pcard.lg{width:190px}.pcard.md{width:150px}.pcard.sm{width:104px}
 .ctop{display:flex;justify-content:space-between;align-items:flex-start}
 .covr{font-weight:900;font-size:30px;line-height:.95;letter-spacing:-.02em}.covr small{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;opacity:.85}

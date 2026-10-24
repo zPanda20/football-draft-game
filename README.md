@@ -38,6 +38,8 @@ Team art (badge, wallpaper, home/away/third kits) is dropped into `public/assets
 
 Player portraits go in `public/assets/players/`, named after the player's `slug` in `data/players.json` (e.g. `kylian-mbappe.png`; png, webp, svg or jpg). A card shows the portrait in place of the initials; a transparent cutout of the head and shoulders works best, roughly square. Reload the page after adding files. Photos for footballers a person creates in the lobby are separate: those go in `public/assets/faces/`.
 
+Card textures are `public/assets/cards/ruby.jpg` (90+), `gold.jpg` (85 to 89) and `silver.jpg`; the old gradients show underneath if a file is missing.
+
 All tunable numbers live in `engine/params.js`. Balance tests change those, never the code.
 
 ## Tests and balance checks
@@ -54,5 +56,5 @@ node tests/seasons.js            # multi-season supply and strength drift
 
 ## Data still to come
 
-- Real STA column (every player is 80 for now), final rookie classes (the five in `data/rookies.json` are generated placeholders), card background textures, final item list.
+- Real STA column (every player is 80 for now), final rookie classes (the five in `data/rookies.json` are generated placeholders), final item list.
 - Rebuild the player file: `python3 tools/build_players.py <xlsx> data/players.json`.
