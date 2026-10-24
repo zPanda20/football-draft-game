@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { loadData } from "../engine/data.js";
 import { Room } from "./room.js";
-import { buildCatalog, clubsWithArt, listFaces } from "./describe.js";
+import { buildCatalog, clubsWithArt, listFaces, playerPics } from "./describe.js";
 import { withParams } from "../engine/params.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -105,7 +105,7 @@ wss.on("connection", (ws) => {
 function attach(ws, room, token, watch) {
   ws.room = room; ws.token = token; ws.watch = watch;
   room.sockets.add(ws);
-  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC), faces: listFaces(PUBLIC) }, now: Date.now() });
+  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC), faces: listFaces(PUBLIC), pics: playerPics(PUBLIC) }, now: Date.now() });
   room.kick();
   room.changed();
 }

@@ -247,6 +247,17 @@ t("clubs: unique slugs, colours, variants point at a main club, art files are pi
   for (const n of ["Real Madrid", "FC Barcelona", "FC Bayern München", "Paris Saint-Germain", "Lombardia FC (Inter Milan)", "Milano FC (AC Milan)", "Atlético de Madrid", "Manchester United", "Racing Louisville FC", "ACF Fiorentina", "Portland Thorns", "Inter Miami CF"]) { assert.ok(names.has(n), n); assert.ok(alias.has(norm(n)), "no crest for " + n); }
   assert.ok(!alias.has(norm("Paris FC")));
 });
+t("player portraits: a file named after a player's slug is picked up, png wins over other formats, strangers are ignored", async () => {
+  const { playerPics } = await import("../server/describe.js");
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "pics-")); assert.deepEqual(playerPics(dir), {}); // no folder, no portraits
+  const d2 = mkdtempSync(join(tmpdir(), "pics-")); mkdirSync(join(d2, "assets", "players"), { recursive: true });
+  const slug = D.players[0].slug;
+  for (const f of [slug + ".webp", slug + ".PNG", "readme.txt", ".gitkeep"]) writeFileSync(join(d2, "assets", "players", f), "x");
+  const pics = playerPics(d2);
+  assert.deepEqual(Object.keys(pics), [slug]); assert.match(pics[slug], new RegExp(`^/assets/players/${slug}\\.PNG\\?v=\\d+$`));
+  assert.ok(D.players.every((p) => /^[a-z0-9-]+$/.test(p.slug)), "slugs are lower-case file-name safe");
+});
 t("formations: each shape has its own identity, counter-play is symmetric, stamina follows the role, matches stay deterministic", async () => {
   const { chooseForFormation, FORMATION_NAMES } = await import("../engine/roster.js");
   const { shapeAdjust, breakChance, teamNow } = await import("../engine/match.js");

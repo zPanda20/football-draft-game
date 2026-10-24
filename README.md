@@ -36,6 +36,8 @@ tools/     build_players.py (spreadsheet to players.json), gen_placeholder_rooki
 
 Team art (badge, wallpaper, home/away/third kits) is dropped into `public/assets/teams/<club>/`; see the README there, and `npm run assets` for what is missing.
 
+Player portraits go in `public/assets/players/`, named after the player's `slug` in `data/players.json` (e.g. `kylian-mbappe.png`; png, webp, svg or jpg). A card shows the portrait in place of the initials; a transparent cutout of the head and shoulders works best, roughly square. Reload the page after adding files. Photos for footballers a person creates in the lobby are separate: those go in `public/assets/faces/`.
+
 All tunable numbers live in `engine/params.js`. Balance tests change those, never the code.
 
 ## Tests and balance checks

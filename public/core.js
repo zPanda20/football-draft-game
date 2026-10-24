@@ -121,10 +121,11 @@ export function card(id, opts = {}) {
   const p = pl(id); if (!p) return "";
   const gk = p.pos === "GK", labels = gk ? GKSTATS : STATS;
   const t = tierOf(p.ovr), size = opts.size || "md";
+  const pic = !p.img && p.slug && st.cat && st.cat.pics ? st.cat.pics[p.slug] : null; // real-player portrait, if one was dropped into assets/players
   const stats = size === "sm" ? "" : `<div class="cstats">${labels.map((l, i) => `<span><b>${p.st[i]}</b>${l}</span>`).join("")}</div>`;
   return `<div class="pcard ${t} ${size} pgb-${posGroup(p.pos)} ${opts.cls || ""}" data-pid="${id}">
     <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 18 : size === "lg" ? 28 : 22)}</div></div>
-    <div class="cface">${p.img ? `<span class="init av">${faceOf(p.img, size === "sm" ? 38 : 58, p.g)}</span>` : `<span class="init">${esc(initials(p.name).toUpperCase())}</span>`}</div>
+    <div class="cface">${p.img ? `<span class="init av">${faceOf(p.img, size === "sm" ? 38 : 58, p.g)}</span>` : pic ? `<img class="cpic" src="${esc(pic)}" alt="" loading="lazy">` : `<span class="init">${esc(initials(p.name).toUpperCase())}</span>`}</div>
     <div class="cname">${esc(p.name)}</div>
     ${stats}${opts.tag || p.susp ? `<div class="ctag">${p.susp ? `Suspended · ${p.susp} games` : opts.tag}</div>` : ""}</div>`;
 }

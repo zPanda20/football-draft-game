@@ -14,6 +14,22 @@ export function listFaces(publicDir) {
   const dir = join(publicDir, "assets", "faces"); if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((f) => /\.(png|jpe?g|webp|svg)$/i.test(f)).sort().slice(0, 60);
 }
+// Portraits of the real players: public/assets/players/<player slug>.png (or webp / svg / jpg), e.g. kylian-mbappe.png.
+// The file name is the player's `slug` in data/players.json; the card shows it in place of the initials.
+// Returns { slug: url }. A page reload picks up new files, no restart needed.
+let picCache = { at: 0, dir: null, v: null };
+export function playerPics(publicDir) {
+  if (picCache.v && picCache.dir === publicDir && Date.now() - picCache.at < 4000) return picCache.v;
+  const dir = join(publicDir, "assets", "players"), out = {}, rank = {};
+  if (existsSync(dir)) for (const f of readdirSync(dir)) {
+    const m = /^(.+)\.(png|webp|svg|jpe?g)$/i.exec(f); if (!m) continue;
+    const slug = m[1].toLowerCase(), r = EXTS.indexOf(m[2].toLowerCase()); // png first, same order as the team art
+    if (rank[slug] !== undefined && rank[slug] <= r) continue;
+    rank[slug] = r; out[slug] = `/assets/players/${encodeURIComponent(f)}?v=${Math.floor(statSync(join(dir, f)).mtimeMs / 1000)}`;
+  }
+  picCache = { at: Date.now(), dir: publicDir, v: out };
+  return out;
+}
 export function clubsWithArt(clubs, publicDir) {
   if (artCache.v && Date.now() - artCache.at < 4000) return artCache.v;
   const out = clubs.map((c) => {
