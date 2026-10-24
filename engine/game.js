@@ -2,6 +2,7 @@
 // functions step by step; the balance tests call them straight through with CPU managers on every team.
 import { makeRng } from "./rng.js";
 import { withParams } from "./params.js";
+import { lifeIncome, resetSeason as resetLife } from "./life.js";
 import { rate, bestLineup, FORMATIONS, SLOT_W, GROUP, genderOk } from "./roster.js";
 import { ratings as matchRatings } from "../public/rating.js";   // shared with the browser, which uses it for the live ratings
 import { matchSteps } from "./match.js";
@@ -20,7 +21,7 @@ export function createGame({ D, N = 20, seed = 1, params = {}, bots = null, gend
     id: i, name: "Team " + (i + 1), bot: bots?.[i] || pickArchetype(r), human: false,
     players: [], items: {}, coins: P.money.startCoins, picks: [], income: 0,
   }));
-  const game = { P, params, seed, gender, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], userPool: [], log: [] };
+  const game = { P, params, seed, gender, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], userPool: [], log: [], news: [], newsSeq: 0, pubSeq: 0, newsFlags: {} };
   game.pool = makePool(D.players.filter((p) => genderOk(gender, p.gender)), N, P);
   return game;
 }
@@ -221,7 +222,11 @@ export function incomeBreakdown(game, table, day = []) {
 }
 export function applyIncome(game, bd) {
   for (const [ti, b] of bd) { const t = game.teams[ti]; t.coins += b.total; t.income += b.total; }
-  for (const p of Object.values(game.players)) if (p.user) p.coins = (p.coins || 0) + game.P.player.income;
+  game.userGain = {};
+  for (const p of Object.values(game.players)) if (p.user) {
+    const li = p.life ? lifeIncome(game, p) : { sponsor: 0, venue: 0, total: 0 }, base = game.P.player.income;
+    p.coins = (p.coins || 0) + base + li.total; game.userGain[p.id] = { base, sponsor: li.sponsor, venue: li.venue, total: base + li.total };
+  }
 }
 export function payIncome(game, table, day = []) { applyIncome(game, incomeBreakdown(game, table, day)); }
 
@@ -230,7 +235,7 @@ export function playSeason(game, hooks = {}) {
   const P = game.P, N = game.teams.length;
   const days = schedule(N, game.seed + game.season);
   const results = [];
-  game.goals = {}; game.stats = {};
+  game.goals = {}; game.stats = {}; resetLife(game);
   days.forEach((day, d) => {
     game.md = { day: d, total: days.length };
     const dayRes = day.map(([a, b]) => {
@@ -258,14 +263,14 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    userPool: game.userPool || [], goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
+    userPool: game.userPool || [], news: game.news || [], newsSeq: game.newsSeq || 0, pubSeq: game.pubSeq || 0, newsFlags: game.newsFlags || {}, goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params, gender: snap.gender || "all" });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);

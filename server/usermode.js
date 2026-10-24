@@ -2,6 +2,7 @@
 import { withParams } from "../engine/params.js";
 import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, dealCard, answerCard, unsigned, signUser, cpuOffers, cpuTakes, ALL_POS } from "../engine/playermode.js";
 import { feeFor, rosterRoom } from "../engine/market.js";
+import { ensureLife, runActivity, blocked, canMarry, actCost, WEDDING_COST, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub } from "../engine/life.js";
 
 const P0 = withParams({});
 export const usermodeMethods = {
@@ -113,6 +114,58 @@ export const usermodeMethods = {
     return Object.keys(out).length ? out : null;
   },
 
+  // ---------- life between matches ----------
+  userPlayers() { return [...this.players.values()].filter((p) => this.isPlayerMode(p) && p.pid != null); },
+  // Someone who is here and has not picked this week's activity yet.
+  lifeOpen() { return this.userPlayers().some((u) => u.connected && !u.auto && !ensureLife(this.game, this.game.players[u.pid]).act); },
+  chooseActivity(token, act, marry) {
+    const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || this.step !== "md.lineup") return;
+    const g = this.game, p = g.players[u.pid], L = ensureLife(g, p);
+    if (act == null) { L.act = null; return this.changed(); }
+    marry = !!marry && canMarry(g, p);
+    if (blocked(g, p, act, { marry })) return;
+    L.act = { act, marry }; this.changed(); this.maybeGo();
+  },
+  lifeBuy(token, id) {
+    const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || !this.game) return;
+    if (!["season.intro", "md.lineup", "md.result"].includes(this.step)) return;
+    const g = this.game, p = g.players[u.pid], r = buyLife(g, p, id); if (!r) return;
+    purchaseStory(g, p, r.item);
+    this.changed();
+  },
+  newsDecide(token, id, yes) {
+    const u = this.players.get(token); if (!u || u.teamId == null || !this.game) return;
+    const n = (this.game.news || []).find((x) => x.id === id); if (!n || n.status !== "pending" || n.approver !== u.teamId) return;
+    decideStory(this.game, id, !!yes); this.changed();
+  },
+  // Everyone's chosen week plays out just before the match: money, energy, love, followers, and whatever it makes the papers print.
+  resolveLife() {
+    const g = this.game; dropPending(g);
+    for (const u of this.userPlayers()) {
+      const p = g.players[u.pid]; if (!p || p.retired) continue;
+      const L = ensureLife(g, p), ch = L.act || { act: "balance", marry: false };
+      if (p.team == null) p.stam = 100;
+      const res = runActivity(g, p, ch.act, { marry: ch.marry, day: this.mdIdx });
+      u.lastLife = { act: res.act, cost: res.cost, stories: res.stories.map((n) => n.id), wada: res.wada };
+      for (const n of res.stories) {
+        if (n.status === "pending") { const mgr = this.playerOfTeam(n.approver); if (!mgr || !mgr.connected || mgr.auto) { n.status = "live"; n.approver = null; n.pub = ++g.pubSeq; } }
+      }
+    }
+  },
+  lifeView(p) {
+    const g = this.game, L = ensureLife(g, p);
+    const shop = {}; for (const it of SHOP) shop[it.id] = { price: priceFor(g, p, it), own: owns(L, it), better: ownsBetter(L, it) };
+    const costs = {}; for (const a of Object.keys(g.P.life.acts)) costs[a] = actCost(g, p, a);
+    const inc = lifeIncome(g, p);
+    return { fol: L.fol, love: L.love, partner: L.partner, married: L.married, own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, canMarry: canMarry(g, p), costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, wedCost: WEDDING_COST(g) };
+  },
+  newsView(token) {
+    const g = this.game, me = this.players.get(token); if (!g) return null;
+    const live = (g.news || []).filter((n) => n.status === "live").map((n) => ({ id: n.id, pub: n.pub, kind: n.kind, icon: n.icon, pid: n.pid, name: n.name, club: n.clubName, head: n.head, sub: n.sub, season: n.season, day: n.day }));
+    const ask = me && me.teamId != null ? (g.news || []).filter((n) => n.status === "pending" && n.approver === me.teamId).map((n) => ({ id: n.id, icon: n.icon, name: n.name, head: n.head, sub: n.sub })) : [];
+    return { list: live.slice(-30), ask, top: live.reduce((m, n) => Math.max(m, n.pub || 0), 0) };
+  },
+
   // ---------- view parts ----------
   userView(token) {
     const u = this.players.get(token), g = this.game; if (!u || !g) return null;
@@ -121,7 +174,7 @@ export const usermodeMethods = {
       const offers = (this.offers || []).filter((o) => o.pid === p.id && (o.status === "open" || o.status === "accepted")).map((o) => ({ id: o.id, team: o.team, len: o.len, fee: o.fee, from: o.from, status: o.status }));
       let onPitch = false;
       if (this.step === "md.half" && this.live && p.team != null) { const m = this.live.find((x) => x.a === p.team || x.b === p.team); if (m) { const l = g.teams[p.team].htLineup || m.lineups[m.a === p.team ? 0 : 1]; onPitch = l.gk === p.id || l.out.includes(p.id); } }
-      return { pid: p.id, team: p.team, contract: p.contract, pending: c.pending, log: c.log.slice(-8).reverse(), last: u.lastResult || null, offers, onPitch, effort: (this.efforts && this.efforts.get(p.id)) || null, gain: this.gain ? { seq: this.gain.seq, coins: this.gain.user } : null, coins: Math.round(p.coins || 0), items: p.items || {}, equip: p.equip || [], susp: p.susp || 0, canAnswer: true, market: this.step.startsWith("market."), unsigned: p.team == null, seasonCards: g.P.player.cards };
+      return { pid: p.id, team: p.team, contract: p.contract, pending: c.pending, log: c.log.slice(-8).reverse(), last: u.lastResult || null, offers, onPitch, effort: (this.efforts && this.efforts.get(p.id)) || null, gain: this.gain ? { seq: this.gain.seq, coins: (g.userGain && g.userGain[p.id] ? g.userGain[p.id].total : g.P.player.income), parts: g.userGain ? g.userGain[p.id] : null } : null, stam: Math.round(p.stam ?? 100), life: this.lifeView(p), lastLife: u.lastLife || null, coins: Math.round(p.coins || 0), items: p.items || {}, equip: p.equip || [], susp: p.susp || 0, canAnswer: true, market: this.step.startsWith("market."), unsigned: p.team == null, seasonCards: g.P.player.cards };
     }
     return null;
   },

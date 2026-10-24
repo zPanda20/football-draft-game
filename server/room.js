@@ -5,6 +5,7 @@ import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
+import { steroidStory, ensureLife } from "../engine/life.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
 import { expiring, availableRookies } from "../engine/offseason.js";
@@ -192,7 +193,7 @@ export class Room {
     const humans = [...this.players.values()].filter((q) => q.mode !== "player");
     const cap = this.maxPeople(), N = Math.min(cap - (cap % 2), teamsFor(Math.max(this.settings.minTeams, humans.length)));
     const rr = makeRng(seed, "room");
-    const game = createGame({ D: this.D, N, seed, gender: this.settings.pool || "all" });
+    const game = createGame({ D: this.D, N, seed, gender: this.settings.pool || "all", params: process.env.TEST_PARAMS ? JSON.parse(process.env.TEST_PARAMS) : {} });
     const fam = (s) => this.clubBySlug.get(s).base || s;
     const used = new Set(humans.map((h) => h.club).filter(Boolean).map(fam));
     const free = shuffle(this.D.clubs.filter((c) => c.kind === "main").map((c) => c.slug).filter((s) => !used.has(s)), rr);
@@ -392,7 +393,8 @@ export class Room {
     for (const t of g.teams) t.htLineup = null;
     this.step = "md.lineup"; this.openWindow();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
-    const anyone = this.humanTeams().some((t) => this.humanFor(t.id));
+    for (const u of this.userPlayers()) if (u.auto) ensureLife(this.game, this.game.players[u.pid]).act = null;
+    const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected);
     this.after(anyone ? this.settings.lineupSec * 1000 : this.p(2500), () => this.firstHalf());
     this.changed();
   }
@@ -437,16 +439,23 @@ export class Room {
     if (on) this.ready.add(teamId); else this.ready.delete(teamId);
     const next = { "md.lineup": () => this.firstHalf(), "md.half": () => this.secondHalf(), "off.resign": () => this.finishResign(), "off.trade": () => this.endTrade() }[this.step];
     if (on && next) {
-      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto && (this.step !== "off.resign" || expiring(this.game, t.id).length));
+      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto && (this.step !== "off.resign" || expiring(this.game, t.id).length)) || (this.step === "md.lineup" && this.lifeOpen());
       if (!open) { const st0 = this.step; this.after(900, () => { if (this.step === st0) next(); }); }
     }
     this.changed();
+  }
+  // After a footballer picks his week: go early if every manager is ready and every footballer has chosen.
+  maybeGo() {
+    if (this.step !== "md.lineup") return;
+    const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto) || this.lifeOpen();
+    if (!open) { const st0 = this.step, md0 = this.mdIdx; this.after(900, () => { if (this.step === st0 && this.mdIdx === md0) this.firstHalf(); }); }
   }
   setReady(token, on = true) { const p = this.players.get(token); if (!p || p.teamId == null) return; this.markReady(p.teamId, on); }
 
   firstHalf() {
     this.closeWindow();
     const g = this.game, day = this.days[this.mdIdx];
+    this.resolveLife();
     const hooks = { lineup: (t, recs) => this.lineupHook(t, recs) };
     this.live = day.map(([a, b], k) => beginMatch(g, a, b, `${this.mdIdx}-${a}-${b}`, hooks));
     this.ready = new Set(); this.openWindow();
@@ -474,6 +483,7 @@ export class Room {
       const res = finishMatch(g, m, changes, { effort: (t) => this.effortHook(t) });
       this.results.push({ day, a: m.a, b: m.b, ga: res.score[0], gb: res.score[1] });
       for (const d of res.dope || []) {
+        steroidStory(g, d);
         const pp = g.players[d.pid], tn = d.team != null ? g.teams[d.team].name : "no team";
         this.notify(`Failed drugs test: ${pp.name} (${tn}) is suspended for ${d.games} games.${d.penalty ? ` The ban outlasts the contract, so ${g.teams[d.penalty.team].name} lose a roster spot in season ${d.penalty.season}.` : ""}`);
       }
@@ -563,6 +573,7 @@ export class Room {
       room: this.code, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
       players: [...this.players.values()].map((p) => ({ you: p.token === token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      news: this.game ? this.newsView(token) : null,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chat.slice(-30), reveal: this.reveal, feed: this.feed,
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],

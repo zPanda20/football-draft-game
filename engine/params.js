@@ -120,6 +120,24 @@ export const DEFAULT_PARAMS = {
   // ---- items ----
   items: { activeCap: 3 },
   // Steroids: store-only, shows up now and then. Caught means a suspension of max(ban, games left this season).
+  // Player-mode life between matches (engine/life.js). stam is the "recovery" the activities move.
+  life: {
+    startFollowers: 3000, startLove: 40,
+    acts: {
+      train: { stam: -12, love: -3, fol: 300, cost: 0 },
+      date: { stam: -5, love: 12, fol: 0, cost: 12 },
+      party: { stam: -22, love: -10, fol: 900, cost: 28 },
+      rest: { stam: 18, love: -6, fol: -150, cost: 0 },
+      balance: { stam: 2, love: 0, fol: 0, cost: 0 },
+    },
+    trainGain: 0.15, trainStat: 0.7,                // overall points per Train hard (about 7 sessions per point); chance a stat moves too
+    partnerParty: 0.3, partyLoveWithPartier: 3,     // a new partner is a party-er this often; partying with one costs no love life
+    wada: 0.04, wadaBan: 2,                         // Party: chance of a flagged test, and the ban in matches
+    sponsor: { per: 2000, cap: 40 },                // coins a matchday = followers / per, up to cap
+    wedding: { dates: 10, cost: 60 },
+    boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3,
+    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1 },
+  },
   steroids: { chance: 0.22, stock: 1, price: 300, catchChance: 0.51, ban: 10 },
 };
 

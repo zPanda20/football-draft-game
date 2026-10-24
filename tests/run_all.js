@@ -328,5 +328,35 @@ t("player pool: women-only and men-only leagues draft, play and bring in rookies
   const r = new Room({ code: "TEST", D, hostToken: "h", onChange() {}, onSave() {} }), info = r.poolInfo();
   assert.ok(info.female.maxClubs <= 12 && info.male.maxClubs <= 12 && info.all.maxClubs === 30, JSON.stringify(info));
 });
+t("player life: activities move energy, love, money and followers; stories follow the choices; shop and wedding work", async () => {
+  const L = await import("../engine/life.js");
+  const g = createGame({ D, N: 10, seed: 9 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Test Pro", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") });
+  p.gender = "M"; const lf = L.ensureLife(g, p), o0 = p.ovr, c0 = p.coins;
+  p.stam = 80; L.runActivity(g, p, "rest", { day: 0 }); assert.ok(p.stam > 90 && lf.love < g.P.life.startLove && lf.fol < g.P.life.startFollowers, "rest: energy up, love and followers down");
+  p.stam = 80; const f1 = lf.fol; L.runActivity(g, p, "party", { day: 1 }); assert.ok(p.stam < 70 && lf.fol > f1 && p.coins < c0, "party: tired, famous, poorer");
+  p.coins = 5; assert.equal(L.blocked(g, p, "party"), "Not enough money"); assert.equal(L.runActivity(g, p, "party", { day: 2 }).act, "balance", "cannot afford: falls back to balance");
+  p.coins = 5000; for (let d = 0; d < 10; d++) L.runActivity(g, p, "date", { day: 10 + d });
+  assert.ok(L.canMarry(g, p) && lf.partner.dates >= 10); const w = L.runActivity(g, p, "date", { marry: true, day: 30 });
+  assert.ok(lf.married && w.stories.some((n) => n.kind === "wedding" && n.status === "live"), "wedding story goes to the lobby");
+  for (let d = 0; d < 20; d++) L.runActivity(g, p, "train", { day: 40 + d }); assert.ok(p.ovr > o0 && p.ovr <= o0 + 4, "training helps a little");
+  // boring: 15 balance weeks in one season, guaranteed
+  const g2 = createGame({ D, N: 10, seed: 10 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
+  const q = createUserPlayer(g2, { token: "u", name: "Dull Dan", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "M"; L.ensureLife(g2, q);
+  let boring = 0; for (let d = 0; d < 15; d++) boring += L.runActivity(g2, q, "balance", { day: d }).stories.filter((n) => n.kind === "boring").length;
+  assert.equal(boring, 1); assert.match(g2.news.at(-1).head, /MOST BORING MAN/);
+  // shop: a car, then a house upgrade charges the difference; a yacht allows the Monaco party at most once a season
+  q.coins = 5000; assert.ok(L.buyLife(g2, q, "car-m3") && !L.buyLife(g2, q, "car-m3")); L.buyLife(g2, q, "house-flat"); const before = q.coins; L.buyLife(g2, q, "house-town"); assert.equal(before - q.coins, 280 - 60);
+  L.buyLife(g2, q, "yacht"); const gc = g2.P.life.chance; for (const k of Object.keys(gc)) gc[k] = 1; q.life.sCount = 0;
+  let monaco = 0; for (let d = 0; d < 6; d++) { q.life.sCount = 0; q.coins = 5000; monaco += L.runActivity(g2, q, "party", { day: 20 + d }).stories.filter((n) => n.kind === "yacht").length; } assert.equal(monaco, 1, "Monaco story at most once a season");
+  // a manager must approve a story about a footballer signed to a human club
+  const g3 = createGame({ D, N: 10, seed: 11 }); g3.md = { day: 0, total: 18 }; g3.teams[0].human = true; Object.assign(g3.P.life.chance, { proud: 1 });
+  const z = createUserPlayer(g3, { token: "z", name: "Zed", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); z.team = 0; g3.teams[0].players.push(z.id);
+  const pr = L.runActivity(g3, z, "train", { day: 0 }).stories.find((n) => n.kind === "proud"); assert.equal(pr.status, "pending");
+  L.decideStory(g3, pr.id, false); assert.equal(g3.news.find((n) => n.id === pr.id).status, "blocked");
+  // survives a save
+  const { serializeGame, restoreGame } = await import("../engine/game.js"); const back = restoreGame(D, JSON.parse(JSON.stringify(serializeGame(g2))));
+  assert.equal(back.news.length, g2.news.length); assert.equal(back.players[q.id].life.own.house, "house-town");
+});
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

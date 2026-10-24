@@ -1,0 +1,101 @@
+// Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
+// and the big news banner every user sees when a story breaks.
+import { st, $, esc, send, coins, pl } from "./core.js";
+
+const ui = () => st.ui;
+export const lifeHandlers = {
+  act(a) { send({ t: "act", act: a.k, marry: a.marry === "1" }); },
+  actClear() { send({ t: "act", act: null }); },
+  lifeBuy(a) { send({ t: "lifeBuy", id: a.id }); },
+  shopToggle() { ui().shopOpen = !ui().shopOpen; st.render(); },
+  shopCat(a) { ui().shopCat = a.cat; st.render(); },
+  newsYes(a) { send({ t: "newsDecide", id: +a.id, yes: true }); },
+  newsNo(a) { send({ t: "newsDecide", id: +a.id, yes: false }); },
+  newsClose() { closeBanner(); },
+};
+
+const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "K" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(Math.round(n)));
+const arrow = (n, big = 15) => (n >= big ? "▲▲" : n > 0 ? "▲" : n <= -big ? "▼▼" : n < 0 ? "▼" : "–");
+const tone = (n) => (n > 0 ? "up" : n < 0 ? "dn" : "flat");
+const bar = (label, v, max, cls, extra = "") => `<div class="lbar ${cls}"><span class="lb-l">${label}</span><span class="lb-t"><i style="width:${Math.max(2, Math.min(100, (v / max) * 100))}%"></i></span><span class="lb-v">${extra}</span></div>`;
+
+function chips(k) {
+  const c = st.cat.life.costs[k];
+  const out = [];
+  if (k === "train") out.push(["Skills", 1, "▲"]);
+  if (c.fol) out.push(["Followers", c.fol, arrow(c.fol, 700)]);
+  if (c.stam) out.push(["Recovery", c.stam, arrow(c.stam)]);
+  if (c.love) out.push(["Love life", c.love, arrow(c.love, 14)]);
+  return out.map(([n, v, a]) => `<span class="ch ${tone(v)}">${n} ${a}</span>`).join("");
+}
+
+export function lifePanel(S) {
+  const pm = S.pm, lf = pm && pm.life; if (!lf) return "";
+  const p = pl(pm.pid), info = st.cat.life.acts, coinsNow = pm.coins;
+  const cur = lf.act ? lf.act.act : null;
+  const partner = lf.partner ? `${esc(lf.partner.name)} · ${lf.married ? "married" : `${lf.partner.dates} date${lf.partner.dates === 1 ? "" : "s"}`}${lf.partner.partier ? " · loves a party" : ""}` : "Single";
+  const status = `<div class="lstat">
+    <div class="lfol"><b>${fmt(lf.fol)}</b><span>followers</span></div>
+    <div class="lbars">${bar("Love life", lf.love, 100, "love", `<small>${partner}</small>`)}${bar("Recovery", Math.round(pm.stam ?? 100), 100, "rec", `<small>energy at kick-off</small>`)}</div>
+    <div class="linc"><span class="small mute">Per matchday</span><b>+${lf.base + lf.income.total}</b><span class="tiny mute">${lf.base} wage${lf.income.sponsor ? ` + ${lf.income.sponsor} sponsors` : ""}${lf.income.venue ? ` + ${lf.income.venue} club` : ""}</span></div></div>`;
+  let week = "";
+  const acts = ["train", "date", "party", "rest", "balance"].map((k) => {
+    const cost = lf.costs[k], dis = !lf.open || cost > coinsNow || (k === "party" && pm.susp > 0);
+    return `<button class="act ${cur === k && !lf.act.marry ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}</span></button>`;
+  }).join("");
+  const marry = lf.canMarry ? `<button class="act marry ${lf.act && lf.act.marry ? "sel" : ""}" data-act="act" data-k="date" data-marry="1" ${!lf.open || lf.costs.date + lf.wedCost > coinsNow ? "disabled" : ""}><span class="ai">💍</span><b>Date + propose</b><span class="chs"><span class="ch up">Wedding · story goes to the lobby</span><span class="ch dn">Money −${lf.costs.date + lf.wedCost}</span></span></button>` : "";
+  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
+  const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.marry ? " + proposal" : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
+  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${last}</div>`;
+  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${week}${shopView(S)}</div>`;
+}
+
+function shopView(S) {
+  const pm = S.pm, lf = pm.life, cats = st.cat.life.cats, items = st.cat.life.shop, cat = ui().shopCat || "car";
+  const tabs = cats.map(([k, n]) => `<button class="btn sm ${cat === k ? "pri" : ""}" data-act="shopCat" data-cat="${k}">${esc(n)}</button>`).join("");
+  const owned = [...lf.own.cars, lf.own.house, lf.own.yacht, lf.own.plane ? "plane" : null, lf.own.club].filter(Boolean).map((id) => items.find((i) => i.id === id)).filter(Boolean);
+  const rows = items.filter((i) => i.cat === cat).map((it) => {
+    const s = lf.shop[it.id], can = lf.store && !s.own && !s.better && pm.coins >= s.price;
+    const text = it.text || (it.fol ? `+${fmt(it.fol)} followers` : "");
+    const act = s.own ? `<span class="pill good">Owned</span>` : s.better ? `<span class="pill">Have better</span>` : `<button class="btn sm pri" data-act="lifeBuy" data-id="${it.id}" ${can ? "" : "disabled"}>Buy · ${s.price}</button>`;
+    return `<div class="shoprow"><div class="grow"><b>${esc(it.name)}</b><div class="tiny mute">${esc(text)}</div></div>${act}</div>`;
+  }).join("");
+  const mine = owned.length ? `<div class="own mt">${owned.map((i) => `<span class="pill">${esc(i.name)}</span>`).join("")}</div>` : "";
+  const open = !!ui().shopOpen;
+  return `<div class="shop mt"><button class="shophead" data-act="shopToggle"><b>Shop</b> <span class="mute small">cars, houses, yachts, a plane and nightlife</span> <span class="pill">${coins(pm.coins)}</span><span class="grow"></span><span class="mute">${open ? "▲" : "▼"}</span></button>${open ? `<div class="row wrap mt" style="gap:6px">${tabs}</div>${mine}<div class="shoplist mt">${rows}</div>` : ""}</div>`;
+}
+
+// A manager is asked before a story about the footballer on his team goes to the whole lobby.
+export function newsAsk(S) {
+  const a = S.news && S.news.ask; if (!a || !a.length) return "";
+  return a.map((n) => `<div class="card newsask"><div class="tiny mute" style="text-transform:uppercase;letter-spacing:.08em">${esc(n.icon)} A story about ${esc(n.name)} is ready</div><b>${esc(n.head)}</b><p class="small mute" style="margin:4px 0 8px">${esc(n.sub)}</p>
+    <div class="row" style="gap:8px"><button class="btn pri" data-act="newsYes" data-id="${n.id}">Let it run</button><button class="btn" data-act="newsNo" data-id="${n.id}">Keep it quiet</button></div></div>`).join("");
+}
+export function newsCard(S) {
+  const l = S.news && S.news.list; if (!l || !l.length) return "";
+  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div></div>`).join("")}</div></div>`;
+}
+
+// ---------- the banner ----------
+const KIND = { steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", fun: "Spotted", club: "Business" };
+let queue = [], showing = null, timer = null;
+export function newsTick(S) {
+  const n = S.news; if (!n) return;
+  if (ui().newsSeen === undefined) { ui().newsSeen = n.top || 0; return; }
+  const fresh = n.list.filter((x) => (x.pub || 0) > ui().newsSeen).sort((a, b) => a.pub - b.pub);
+  for (const x of fresh) { queue.push(x); ui().newsSeen = Math.max(ui().newsSeen, x.pub); }
+  if (!showing) nextBanner();
+}
+function nextBanner() {
+  const n = queue.shift(); if (!n) { showing = null; return; }
+  showing = n; clearTimeout(timer);
+  let el = $("#newsban"); if (!el) { el = document.createElement("div"); el.id = "newsban"; document.body.appendChild(el); }
+  el.className = "newsban nk-" + n.kind + " in";
+  el.innerHTML = `<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">THE DAILY WHISTLE</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
+    <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${esc(n.name)} · ${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
+  timer = setTimeout(closeBanner, 11000);
+}
+function closeBanner() {
+  const el = $("#newsban"); clearTimeout(timer);
+  if (el) { el.classList.remove("in"); el.classList.add("out"); setTimeout(() => { showing = null; if (queue.length) nextBanner(); else if (el.parentNode) el.remove(); }, 350); } else { showing = null; if (queue.length) nextBanner(); }
+}

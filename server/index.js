@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "lifeBuy", "newsDecide"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -153,6 +153,9 @@ function handle(ws, m) {
     case "offerRespond": room.respondOffer(t, m.id | 0, !!m.accept); break;
     case "card": room.answerCareer(t, m.n | 0, m.opt | 0); break;
     case "effort": room.setEffort(t, m.mode); break;
+    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), !!m.marry); break;
+    case "lifeBuy": room.lifeBuy(t, String(m.id || "")); break;
+    case "newsDecide": room.newsDecide(t, m.id | 0, !!m.yes); break;
     case "teamName": room.setTeamName(t, m.name); break;
     case "settings": room.setSettings(t, m.s || {}); break;
     case "pace": room.setPace(t, m.pace); break;
