@@ -73,10 +73,11 @@ export function newsAsk(S) {
 }
 export function newsCard(S) {
   const l = S.news && S.news.list; if (!l || !l.length) return "";
-  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div></div>`).join("")}</div></div>`;
+  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div></div>`).join("")}</div></div>`;
 }
 
 // ---------- the banner ----------
+export const WADA_MARK = `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">`;
 const KIND = { steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", fun: "Spotted", club: "Business" };
 let queue = [], showing = null, timer = null;
 export function newsTick(S) {
@@ -90,10 +91,12 @@ function nextBanner() {
   const n = queue.shift(); if (!n) { showing = null; return; }
   showing = n; clearTimeout(timer);
   let el = $("#newsban"); if (!el) { el = document.createElement("div"); el.id = "newsban"; document.body.appendChild(el); }
-  el.className = "newsban nk-" + n.kind + " in";
-  el.innerHTML = `<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">THE DAILY WHISTLE</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
+  const wada = n.kind === "steroids";
+  el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "");
+  el.innerHTML = `${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">THE DAILY WHISTLE</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
     <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${esc(n.name)} · ${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
-  timer = setTimeout(closeBanner, 11000);
+  if (wada) setTimeout(() => { const e = $("#newsban"); if (e && showing === n) e.classList.add("go"); }, 2300);
+  timer = setTimeout(closeBanner, wada ? 14000 : 11000);
 }
 function closeBanner() {
   const el = $("#newsban"); clearTimeout(timer);

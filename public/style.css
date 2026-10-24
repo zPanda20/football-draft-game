@@ -366,3 +366,15 @@ svg.kit{display:inline-block;flex:none}
 .fphoto{padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:none;cursor:pointer}.fphoto.sel{border-color:var(--acc2)}
 .seg{display:inline-flex;gap:4px}
 .cface .init.av{background:transparent;box-shadow:none;width:auto;height:auto;border-radius:50%;overflow:hidden}
+
+/* ---- WADA: the logo opens any substance-ban story, then slides aside for the news ---- */
+.wadamark{display:inline-block;vertical-align:middle;border-radius:3px}
+.newsban.wada{overflow:hidden;display:flex;align-items:center;gap:0;padding:18px 20px}
+.newsban.wada .nb-wada{flex:0 0 100%;display:grid;place-items:center;transition:flex-basis .7s cubic-bezier(.65,0,.25,1),transform .7s cubic-bezier(.65,0,.25,1);animation:wadapop .6s ease-out}
+.newsban.wada .nb-wada img{width:min(560px,78vw);max-height:26vh;object-fit:contain;background:#fff;border-radius:14px;padding:14px 22px;box-shadow:0 10px 40px rgba(0,0,0,.5);transition:width .7s cubic-bezier(.65,0,.25,1)}
+.newsban.wada .nb-in{flex:0 1 0;max-width:0;max-height:0;opacity:0;overflow:hidden;transition:flex-basis .7s cubic-bezier(.65,0,.25,1),opacity .5s .35s,max-width .7s cubic-bezier(.65,0,.25,1)}
+.newsban.wada.go .nb-wada{flex:0 0 clamp(150px,22vw,250px)}
+.newsban.wada.go .nb-wada img{width:100%}
+.newsban.wada.go .nb-in{flex:1 1 0;max-width:880px;max-height:70vh;opacity:1;margin-left:22px}
+@keyframes wadapop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@media(max-width:640px){.newsban.wada.go{flex-direction:column}.newsban.wada.go .nb-wada{flex-basis:auto;width:150px}.newsban.wada.go .nb-in{margin:12px 0 0}}

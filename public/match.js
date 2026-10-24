@@ -168,7 +168,7 @@ function itemsTray(S, l) {
     const it = st.items[id], on = act.includes(id), sel = st.ui.itemSel === id, who = (me.equip || {})[id], wp = who != null ? pl(who) : null;
     const state = it.scope === "team" ? (on ? "On for this match" : "Off") : wp && on ? `Worn by <b>${esc(wp.name)}</b>${inLine.has(who) ? "" : " (benched, not used)"}` : on ? "Auto: best attacker" : sel ? "Now click a player on the pitch" : "Drag onto a player";
     return `<div class="ichip ${it.scope} ${on ? "on" : ""} ${sel ? "sel" : ""} ${it.banned ? "rare" : ""}" data-act="itemchip" data-id="${id}" draggable="${it.scope === "player"}" title="${esc(it.text || "")}">
-      <span class="ico">${ICON(id)}</span><span class="grow"><b>${esc(it.name)}</b> <span class="fxb">${esc(fxBadge(it))}</span><span class="ist">${state}${it.banned ? " · <span class=\"neg\">51% caught: banned for the season</span>" : ""}</span></span>
+      <span class="ico">${it.banned ? `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">` : ICON(id)}</span><span class="grow"><b>${esc(it.name)}</b> <span class="fxb">${esc(fxBadge(it))}</span><span class="ist">${state}${it.banned ? " · <span class=\"neg\">51% caught: banned for the season</span>" : ""}</span></span>
       ${it.scope === "player" ? users.map((u) => `<button class="btn sm" data-act="mgift" data-id="${id}" data-pid="${u.id}" title="Hand it to the created player: it goes in his own kit">Give to ${esc(u.name.split(" ")[0])}</button>`).join("") : ""}
       <span class="tiny mute">×${me.items[id]}</span>${on && it.scope === "player" && who != null ? `<button class="x" data-act="itemoff" data-id="${id}" title="Take it off">✕</button>` : ""}</div>`;
   };
