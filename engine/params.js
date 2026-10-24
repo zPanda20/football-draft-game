@@ -65,9 +65,10 @@ export const DEFAULT_PARAMS = {
     headlinerMin: 20,                               // headliners come from the top max(this, teams) players
     r1Boost: 0.8,                                   // round-1 packs lean to the best players
     dialStrength: 1.0, dialClamp: 1.0,              // how hard weaker rosters are favoured in later packs
+    needBoost: 1.6,                                 // weight for a striker / defender the team has none of yet
     gkOwnedWeight: 0.10, stOwnedWeight: 0.70, defOwnedWeight: 0.60, defOwnedAfter: 2,
     gkReserve: 3,                                   // keepers kept back for teams that still have none
-    gkGuaranteeRounds: [5, 6],
+    gkGuaranteeRounds: [4, 5, 6, 7, 8],
   },
 
   // ---- money ----

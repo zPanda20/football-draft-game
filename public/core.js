@@ -104,7 +104,7 @@ export function card(id, opts = {}) {
   const gk = p.pos === "GK", labels = gk ? GKSTATS : STATS;
   const t = tierOf(p.ovr), size = opts.size || "md";
   const stats = size === "sm" ? "" : `<div class="cstats">${labels.map((l, i) => `<span><b>${p.st[i]}</b>${l}</span>`).join("")}</div>`;
-  return `<div class="pcard ${t} ${size} ${opts.cls || ""}" data-pid="${id}">
+  return `<div class="pcard ${t} ${size} pgb-${posGroup(p.pos)} ${opts.cls || ""}" data-pid="${id}">
     <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 18 : size === "lg" ? 28 : 22)}</div></div>
     <div class="cface"><span class="init">${esc(initials(p.name).toUpperCase())}</span></div>
     <div class="cname">${esc(p.name)}</div>
@@ -112,7 +112,7 @@ export function card(id, opts = {}) {
 }
 export function miniPlayer(id, extra = "") {
   const p = pl(id); if (!p) return "";
-  return `<span class="mini ${tierOf(p.ovr)}"><i>${p.ovr}</i><b>${esc(p.pos)}</b><span class="nm">${esc(p.name)}</span>${p.susp ? `<span class="pill bad tiny" title="Suspended">SUSP ${p.susp}</span>` : ""}${extra}</span>`;
+  return `<span class="mini ${tierOf(p.ovr)} pgb-${posGroup(p.pos)}"><i>${p.ovr}</i><b>${esc(p.pos)}</b><span class="nm">${esc(p.name)}</span>${p.susp ? `<span class="pill bad tiny" title="Suspended">SUSP ${p.susp}</span>` : ""}${extra}</span>`;
 }
 export function itemCard(it, opts = {}) {
   const i = typeof it === "string" ? st.items[it] : it; if (!i) return "";

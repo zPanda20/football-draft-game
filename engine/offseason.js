@@ -1,6 +1,6 @@
 // Off-season: retirements, ageing, re-signing, rookies, releases. All pure functions of the game state and the seed.
 import { makeRng, gauss } from "./rng.js";
-import { rate } from "./roster.js";
+import { rate, genderOk } from "./roster.js";
 import { marketValue, feeFor } from "./market.js";
 
 // ---- retirement ----
@@ -33,7 +33,7 @@ export function retire(game, p, forced) {
 }
 
 // ---- ageing ----
-function meanDrift(age, P) {
+export function meanDrift(age, P) {
   const pts = Object.entries(P.age.drift).map(([a, v]) => [+a, v]).sort((x, y) => x[0] - y[0]);
   if (age <= pts[0][0]) return pts[0][1];
   if (age >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
@@ -105,6 +105,7 @@ export function introduceRookies(game, classNo, D) {
   if (!cls) return [];
   const ids = [];
   for (const raw of cls.players) {
+    if (!genderOk(game.gender, raw.gender)) continue;                        // a women's or men's league only gets its own rookies
     const p = { stam: 100, team: null, contract: 0, rookie: true, class: classNo, ...raw };
     game.players[p.id] = rate(p, game.P); ids.push(p.id);
   }

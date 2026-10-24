@@ -230,7 +230,7 @@ function clubPreview(you) {
 function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
-  const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, S.settings.minTeams - humans);
+  const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, Math.min(S.settings.minTeams, S.pools && S.pools[S.settings.pool || "all"] ? S.pools[S.settings.pool || "all"].maxClubs : 30) - humans);
   const fam = (slug) => (st.clubBy[slug] && st.clubBy[slug].base) || slug;
   const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
   const clubs = st.cat.clubs.filter((c) => c.kind === "main").map((c) => {
@@ -247,8 +247,10 @@ function lobby(S) {
     ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
     <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}<div class="clubgrid mt">${clubs}</div></div>`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
+      ${s.pool && s.pool !== "all" && S.pools ? `<p class="small mute mt">${s.pool === "female" ? "Women" : "Men"}-only league: ${S.pools[s.pool].players} players, ${S.pools[s.pool].keepers} keepers, so at most ${S.pools[s.pool].maxClubs} clubs.</p>` : ""}
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
     <div class="card"><h3>Game settings ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="set">
+      <span class="small">Player pool</span>${sel("pool", [["all", "All players"], ["female", "Women only"], ["male", "Men only"]])}
       <span class="small">Minimum teams</span>${sel("minTeams", [10, 12, 14, 16, 20, 24, 30].map((n) => [n, n]))}
       <span class="small">Pace</span>${sel("pace", [[1.4, "Relaxed"], [1, "Normal"], [0.7, "Fast"], [0.5, "Turbo"]])}
       <span class="small">Pack pick timer</span>${sel("draftSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}

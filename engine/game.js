@@ -2,16 +2,16 @@
 // functions step by step; the balance tests call them straight through with CPU managers on every team.
 import { makeRng } from "./rng.js";
 import { withParams } from "./params.js";
-import { rate, bestLineup, FORMATIONS, SLOT_W, GROUP } from "./roster.js";
+import { rate, bestLineup, FORMATIONS, SLOT_W, GROUP, genderOk } from "./roster.js";
 import { ratings as matchRatings } from "../public/rating.js";   // shared with the browser, which uses it for the live ratings
 import { matchSteps } from "./match.js";
 import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
-import { resolveMarketRound, buyItem, marketValue } from "./market.js";
+import { resolveMarketRound, buyItem, marketValue, feeFor } from "./market.js";
 import { pickArchetype, botDraftPick, botMarketBid, botItemBuys } from "./bots.js";
-import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool } from "./offseason.js";
+import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool, meanDrift, retireChance } from "./offseason.js";
 
-export function createGame({ D, N = 20, seed = 1, params = {}, bots = null }) {
+export function createGame({ D, N = 20, seed = 1, params = {}, bots = null, gender = "all" }) {
   const P = withParams(params);
   const players = {};
   for (const p of D.players) players[p.id] = rate({ ...p, stam: 100, team: null, contract: 0 }, P);
@@ -20,8 +20,8 @@ export function createGame({ D, N = 20, seed = 1, params = {}, bots = null }) {
     id: i, name: "Team " + (i + 1), bot: bots?.[i] || pickArchetype(r), human: false,
     players: [], items: {}, coins: P.money.startCoins, picks: [], income: 0,
   }));
-  const game = { P, params, seed, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], userPool: [], log: [] };
-  game.pool = makePool(D.players, N, P);
+  const game = { P, params, seed, gender, season: 1, round: 0, teams, players, items: D.items, supply: {}, pool: [], userPool: [], log: [] };
+  game.pool = makePool(D.players.filter((p) => genderOk(gender, p.gender)), N, P);
   return game;
 }
 
@@ -258,13 +258,13 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    userPool: game.userPool || [], goals: game.goals || {}, stats: game.stats || {},
+    userPool: game.userPool || [], goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
-  const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
+  const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params, gender: snap.gender || "all" });
   g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
@@ -308,4 +308,21 @@ export function seasonLeaders(game, n = 10) {
     out[k] = pool.sort((a, b) => b[k] - a[k] || b.g - a.g || a.id - b.id).slice(0, n);
   }
   return out;
+}
+
+// A close estimate of what the books look like at the end of the season, for the finance page: income still to come and
+// what re-signing each expiring player would cost next off-season (a year older, rated where his age says he will be).
+// Real fees move a little with the ageing noise, so these are shown as "about".
+export function financeOutlook(game, ti, { table = [], left = 0 } = {}) {
+  const P = game.P, M = P.money, t = game.teams[ti], N = game.teams.length;
+  const rank = Math.max(0, table.findIndex((r) => r.i === ti));
+  const base = M.incomePerMatch, catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
+  const bonus = Math.round(M.winBonus * 0.4 + M.drawBonus * 0.25);     // a typical mix of wins and draws
+  const per = base + catchup + bonus, r5 = (x) => Math.round(x / 5) * 5;
+  const expiring = t.players.map((id) => game.players[id]).filter((p) => !p.user && p.contract <= 1).sort((a, b) => b.ovr - a.ovr).map((p) => {
+    const q = { ...p, age: p.age + 1, ovr: Math.round(p.ovr + meanDrift(p.age + 1, P)) };
+    return { id: p.id, ovrNext: q.ovr, fees: [1, 2, 3].map((l) => r5(feeFor(q, l, P, true))), retire: +retireChance(p, P, game.season).toFixed(2) };
+  });
+  const cheapest = expiring.reduce((x, e) => x + e.fees[0] * (1 - e.retire), 0);
+  return { coins: t.coins, perMatch: { base, catchup, bonus, total: per }, left, income: per * left, expiring, cheapest: r5(cheapest), left0: t.coins + per * left - r5(cheapest), roster: t.players.length, cap: t.cap ?? M.rosterMax, staying: t.players.filter((id) => game.players[id].contract > 1 || game.players[id].user).length };
 }

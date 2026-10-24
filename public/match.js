@@ -62,18 +62,30 @@ function choose(kind, val) {
 }
 let dragFrom = null;
 const dndTarget = (e) => e.target.closest && e.target.closest('[data-act="mslot"],[data-act="mplayer"]');
+const clearHints = () => $$(".slot[data-hint]").forEach((n) => { if (!st.ui.itemSel) { n.removeAttribute("data-hint"); n.classList.remove("itemtarget"); } });
 document.addEventListener("dragstart", (e) => {
+  const c = e.target.closest && e.target.closest('[data-act="itemchip"]');
+  if (c) {
+    const it = st.items[c.dataset.id]; if (!it || it.scope !== "player") return e.preventDefault();
+    dragFrom = { kind: "item", val: c.dataset.id };
+    try { e.dataTransfer.setData("text/plain", "item"); e.dataTransfer.effectAllowed = "copy"; } catch (x) { /* ignore */ }
+    $$('.slot').forEach((n) => { if (!n.querySelector(".tok.empty")) { n.dataset.hint = fxBadge(it); n.classList.add("itemtarget"); } });
+    c.classList.add("dragging"); return;
+  }
   const n = dndTarget(e); if (!n) return;
   dragFrom = n.dataset.act === "mslot" ? { kind: "slot", val: +n.dataset.i } : { kind: "p", val: +n.dataset.id };
   try { e.dataTransfer.setData("text/plain", "swap"); e.dataTransfer.effectAllowed = "move"; } catch (x) { /* ignore */ }
   n.classList.add("dragging");
 });
-document.addEventListener("dragend", () => { dragFrom = null; $$(".dragging,.dropover").forEach((n) => n.classList.remove("dragging", "dropover")); });
-document.addEventListener("dragover", (e) => { const n = dndTarget(e); if (n && dragFrom) { e.preventDefault(); n.classList.add("dropover"); } });
+document.addEventListener("dragend", () => { dragFrom = null; $$(".dragging,.dropover").forEach((n) => n.classList.remove("dragging", "dropover")); clearHints(); });
+const okTarget = (n) => n && dragFrom && (dragFrom.kind !== "item" || n.dataset.act === "mslot");
+document.addEventListener("dragover", (e) => { const n = dndTarget(e); if (okTarget(n)) { e.preventDefault(); n.classList.add("dropover"); } });
 document.addEventListener("dragleave", (e) => { const n = dndTarget(e); if (n) n.classList.remove("dropover"); });
 document.addEventListener("drop", (e) => {
-  const n = dndTarget(e); if (!n || !dragFrom) return; e.preventDefault();
-  const to = n.dataset.act === "mslot" ? { kind: "slot", val: +n.dataset.i } : { kind: "p", val: +n.dataset.id }, from = dragFrom; dragFrom = null;
+  const n = dndTarget(e); if (!okTarget(n)) return; e.preventDefault();
+  const from = dragFrom; dragFrom = null;
+  if (from.kind === "item") { const l = lineupOf(st.S), pid = +n.dataset.i < 0 ? l.gk : l.out[+n.dataset.i]; clearHints(); if (pid != null) attachItem(from.val, pid); return; }
+  const to = n.dataset.act === "mslot" ? { kind: "slot", val: +n.dataset.i } : { kind: "p", val: +n.dataset.id };
   const l = lineupOf(st.S), out = swapLineup(l, ent(l, from.kind, from.val), ent(l, to.kind, to.val));
   st.ui.mSel = null; if (out) sendLineup(out);
   st.render();
@@ -85,7 +97,16 @@ function activeNow(S) {
 }
 export const matchHandlers = {
   cont() { send({ t: "continue" }); },
-  mslot(a) { choose("slot", +a.i); },
+  mslot(a) {
+    if (st.ui.itemSel) { const l = lineupOf(st.S), pid = +a.i < 0 ? l.gk : l.out[+a.i]; if (pid != null) return attachItem(st.ui.itemSel, pid); }
+    choose("slot", +a.i);
+  },
+  itemchip(a) {
+    const it = st.items[a.id]; if (!it) return;
+    if (it.scope === "team") { const act = activeNow(st.S), on = act.includes(a.id); return send({ t: "items", ids: on ? act.filter((x) => x !== a.id) : [...act, a.id].slice(-st.cat.rules.activeCap), equip: st.S.me.equip || {} }); }
+    st.ui.itemSel = st.ui.itemSel === a.id ? null : a.id; st.ui.mSel = null; st.render();
+  },
+  itemoff(a) { detachItem(a.id); },
   mcancel() { st.ui.mSel = null; st.render(); },
   lead(a) { st.ui.lead = a.k; st.render(); },
   hubgo(a) { st.ui.hub = a.to; st.ui.mSel = null; st.render(); window.scrollTo(0, 0); },
@@ -120,6 +141,41 @@ export function tablePanel(S, limit = 99, click = false) {
 }
 
 // ---------- line-up editor ----------
+// ---------- items: drag them onto a player ----------
+const ICON = (id) => (id.startsWith("boots") ? "👟" : id === "steroids" ? "💉" : id === "ice-bath" ? "🧊" : "🧰");
+const FXL = { off: "ATT", all: "ALL", rec: "STA", atk: "ATT", def: "DEF", ctl: "CTL", gk: "GK", recover: "STA" };
+function fxBadge(it) {
+  const parts = Object.entries(it.fx).filter(([k]) => FXL[k]).map(([k, v]) => `${v > 0 ? "+" : "−"}${Math.abs(v)} ${FXL[k]}`);
+  if (it.fx.drain) parts.push(`${Math.round(it.fx.drain * 100)}% drain`);
+  return parts.join(" ") || "";
+}
+const wornBy = (S, pid, act) => Object.entries(S.me.equip || {}).filter(([id, p]) => p === pid && act.includes(id)).map(([id]) => id);
+function attachItem(id, pid) {
+  const S = st.S, it = st.items[id]; if (!it || it.scope !== "player" || !((S.me.items || {})[id] > 0)) return;
+  let act = activeNow(S); if (!act.includes(id)) act = [...act, id].slice(-st.cat.rules.activeCap);
+  send({ t: "items", ids: act, equip: { ...(S.me.equip || {}), [id]: pid } }); st.ui.itemSel = null; st.render();
+}
+function detachItem(id) {
+  const S = st.S, eq = { ...(S.me.equip || {}) }; delete eq[id];
+  send({ t: "items", ids: activeNow(S).filter((x) => x !== id), equip: eq }); st.render();
+}
+const t_users = (S) => S.teams[S.me.teamId].players.map((id) => pl(id)).filter((p) => p && p.user);
+function itemsTray(S, l) {
+  const me = S.me, owned = Object.keys(me.items || {}).filter((id) => me.items[id] > 0 && st.items[id]); if (!owned.length) return "";
+  const act = activeNow(S), cap = st.cat.rules.activeCap, inLine = new Set([l.gk, ...l.out]);
+  const users = t_users(S);
+  const chip = (id) => {
+    const it = st.items[id], on = act.includes(id), sel = st.ui.itemSel === id, who = (me.equip || {})[id], wp = who != null ? pl(who) : null;
+    const state = it.scope === "team" ? (on ? "On for this match" : "Off") : wp && on ? `Worn by <b>${esc(wp.name)}</b>${inLine.has(who) ? "" : " (benched, not used)"}` : on ? "Auto: best attacker" : sel ? "Now click a player on the pitch" : "Drag onto a player";
+    return `<div class="ichip ${it.scope} ${on ? "on" : ""} ${sel ? "sel" : ""} ${it.banned ? "rare" : ""}" data-act="itemchip" data-id="${id}" draggable="${it.scope === "player"}" title="${esc(it.text || "")}">
+      <span class="ico">${ICON(id)}</span><span class="grow"><b>${esc(it.name)}</b> <span class="fxb">${esc(fxBadge(it))}</span><span class="ist">${state}${it.banned ? " · <span class=\"neg\">51% caught: banned for the season</span>" : ""}</span></span>
+      ${it.scope === "player" ? users.map((u) => `<button class="btn sm" data-act="mgift" data-id="${id}" data-pid="${u.id}" title="Hand it to the created player: it goes in his own kit">Give to ${esc(u.name.split(" ")[0])}</button>`).join("") : ""}
+      <span class="tiny mute">×${me.items[id]}</span>${on && it.scope === "player" && who != null ? `<button class="x" data-act="itemoff" data-id="${id}" title="Take it off">✕</button>` : ""}</div>`;
+  };
+  return `<div class="card itray"><div class="row wrap"><h3 style="margin:0">Items</h3><span class="mute small">${act.length}/${cap} in use this match</span><div class="grow"></div></div>
+    <p class="tiny mute" style="margin:4px 0 8px">Team items switch on with a click. For boots and the rest, <b>drag the item onto a player</b> on the pitch (or click it, then click the player). The stat it lifts is shown on every player while you hold it.</p>
+    <div class="ichips">${owned.map(chip).join("")}</div></div>`;
+}
 function pitch(S, l, stamOf) {
   const slots = S.formations[l.formation], pos = layout(slots);
   const sel = st.ui.mSel;
@@ -127,7 +183,9 @@ function pitch(S, l, stamOf) {
     const p = pid != null ? pl(pid) : null, f = p ? fit(p.pos, slotName) : 1, s = p ? Math.round(stamOf(pid)) : 0;
     const isSel = sel && ((sel.kind === "slot" && sel.val === i) || (sel.kind === "p" && p && sel.val === pid));
     const loss = p ? tiredLoss(p.ovr, s) : 0;
-    return `<div class="slot ${sel && !isSel ? "swappable" : ""}" style="left:${at.x}%;top:${at.y}%" data-act="mslot" data-i="${i}" draggable="true">
+    const isel = st.ui.itemSel && st.items[st.ui.itemSel], worn = p && S.me ? wornBy(S, pid, activeNow(S)) : [];
+    return `<div class="slot pgb-${posGroup(slotName)} ${sel && !isSel ? "swappable" : ""} ${isel && p ? "itemtarget" : ""}" ${isel && p ? `data-hint="${esc(fxBadge(isel))}"` : ""} style="left:${at.x}%;top:${at.y}%" data-act="mslot" data-i="${i}" draggable="true">
+      ${worn.length ? `<div class="ib">${worn.map((id) => `<span title="${esc(st.items[id].name)}">${ICON(id)}</span>`).join("")}</div>` : ""}
       <div class="tok ${p ? tierOf(p.ovr) : "empty"} ${isSel ? "sel" : ""}">${p ? p.ovr : "?"}${loss >= 2 ? `<span class="dn" title="Tired: plays about ${loss} points below his rating">−${loss}</span>` : ""}</div>
       <div class="nm">${p ? esc(p.name.split(" ").slice(-1)[0]) : "empty"}</div>
       <div class="sl">${slotName}${p && p.pos !== slotName ? ` <span class="fit ${fitCls(f)}">(${p.pos} ${Math.round(f * 100)}%)</span>` : ""}</div>
@@ -160,22 +218,13 @@ function lineupEditor(S, half) {
     <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span>${onPitch.has(p.id) ? `<span class="pill tiny">on</span>` : `<span class="pill tiny acc">bench</span>`}</div>`;
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");
-  const owned = Object.keys(me.items || {}).filter((id) => me.items[id] > 0);
-  const auto = activeNow(S), equip = me.equip || {};
-  const fit = roster.filter((p) => !p.susp), users = roster.filter((p) => p.user);
-  const itemRow = (id) => {
-    const it = st.items[id], on = auto.includes(id), wear = it.scope === "player" && on;
-    const sel = wear ? `<select data-change="mwear" data-id="${id}" style="max-width:190px"><option value="">${it.banned ? "Choose who takes it…" : "Auto (best attacker)"}</option>${fit.map((p) => `<option value="${p.id}" ${equip[id] === p.id ? "selected" : ""}>${esc(p.name)} (${p.pos})</option>`).join("")}</select>` : "";
-    const gift = it.scope === "player" ? users.map((u) => `<button class="btn sm" data-act="mgift" data-id="${id}" data-pid="${u.id}">Give 1 to ${esc(u.name)}</button>`).join("") : "";
-    return `<div class="row wrap small" style="gap:8px"><label class="row" style="cursor:pointer;gap:6px"><input type="checkbox" ${on ? "checked" : ""} data-change="mitem" data-id="${id}"> <b>${esc(it.name)}</b>${it.banned ? ` <span class="pill bad tiny">banned</span>` : ""}</label><span class="mute">${me.items[id]} left · ${esc(it.text)}</span>${sel}${gift}</div>`;
-  };
-  const items = !half && owned.length ? `<div class="card"><h3>Items for this match (max ${st.cat.rules.activeCap})</h3><div class="col" style="gap:8px">${owned.map(itemRow).join("")}</div></div>` : "";
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
   return `<div class="card"><div class="row wrap">${half ? "" : kitImg(club(t), "kitHome", 40)}<h3 style="margin:0">${half ? "Half-time changes" : "Line-up"}</h3><div class="grow"></div>
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
       ${half ? `<button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button>` : ""}</div>
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
-    <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div data-keep="bench" style="max-height:470px;overflow:auto">${roster.map(row).join("")}</div></div></div></div>${items}`;
+    ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
+    <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div data-keep="bench" style="max-height:470px;overflow:auto">${roster.map(row).join("")}</div></div></div></div>`;
 }
 
 // ---------- playback ----------
@@ -365,7 +414,7 @@ function resultsView(S) {
 }
 
 // ---------- the menu between matches ----------
-const HUB_TITLES = { team: "Team", standings: "Standings", store: "Store" };
+const coinsTxt = (n) => `${Math.round(n).toLocaleString()} 🪙`;
 function hubBar(S, title, back = "hubback", backText = "← Menu") {
   const me = S.me, ready = me && S.teams[me.teamId].ready;
   return `<div class="card hubbar"><button class="btn sm" data-act="${back}">${backText}</button><h3 style="margin:0">${esc(title)}</h3><div class="grow"></div>${me ? `<button class="btn ${ready ? "" : "pri"}" data-act="mready">${ready ? "Ready ✓ (undo)" : "Ready"}</button>` : ""}</div>`;
@@ -380,6 +429,7 @@ function hubHome(S) {
   const tiles = [
     me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items${Object.values(me.items || {}).some((n) => n > 0) ? "" : ""}`) : "",
     tile("standings", "🏆", "Standings", row ? `${rank + 1}${["st", "nd", "rd"][rank] || "th"} · ${row.pts} pts · table, results, Golden Boot` : "Table, results, Golden Boot, other teams"),
+    me && me.fin ? tile("finance", "💰", "Finance", `${me.fin.expiring.length ? `${me.fin.expiring.length} contract${me.fin.expiring.length === 1 ? "" : "s"} expiring · about ${Math.round(me.fin.cheapest)} to keep them` : "Nothing expiring this year"}`) : "",
     tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item in stock</span>" : ""}`),
     me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : ready ? "Ready" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
   ].join("");
@@ -405,11 +455,23 @@ function standingsView(S) {
   const last = L ? `<div class="card"><h3>Matchday ${L.day + 1} results</h3><div class="mt">${resRows(L.matches, me)}</div></div>` : `<div class="card"><h3>Latest results</h3><p class="mute small">No matches played yet.</p></div>`;
   return `${hubBar(S, "Standings")}${tablePanel(S, 99, true)}${last}${leadersPanel(S, 10)}`;
 }
+function financeView(S) {
+  const f = S.me.fin, ex = f.expiring, short = f.left0 < 0;
+  const rows = ex.map((e) => { const p = pl(e.id); if (!p) return "";
+    return `<tr><td><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${p.pos}</span></td><td class="n">${p.ovr}${e.ovrNext !== p.ovr ? ` <span class="mute">→ ${e.ovrNext}</span>` : ""}</td><td class="n">${p.age}</td>${e.fees.map((x) => `<td class="n">~${x}</td>`).join("")}<td class="n">${e.retire ? `<span class="${e.retire >= 0.4 ? "neg" : "mute"}">${Math.round(e.retire * 100)}%</span>` : "–"}</td></tr>`; }).join("");
+  return `<div class="card"><div class="row wrap" style="gap:18px"><div><div class="mute small">Coins now</div><b style="font-size:24px">${coinsTxt(f.coins)}</b></div>
+      <div><div class="mute small">Still to come this season</div><b style="font-size:24px">~${coinsTxt(f.income)}</b><div class="tiny mute">${f.left} match${f.left === 1 ? "" : "es"} × ~${f.perMatch.total} (${f.perMatch.base} base + ${f.perMatch.catchup} catch-up + ~${f.perMatch.bonus} for wins and draws)</div></div>
+      <div><div class="mute small">Cost to keep the expiring</div><b style="font-size:24px">~${coinsTxt(f.cheapest)}</b><div class="tiny mute">1-season deals, retirements allowed for</div></div>
+      <div><div class="mute small">Left over after that</div><b style="font-size:24px" class="${short ? "neg" : ""}">~${coinsTxt(f.left0)}</b></div></div></div>
+    <div class="card"><h3>Contracts ending this season</h3>${ex.length ? `<table class="tb"><tr><th>Player</th><th class="n">OVR</th><th class="n">Age</th><th class="n">1 yr</th><th class="n">2 yrs</th><th class="n">3 yrs</th><th class="n" title="Chance he retires this off-season">Retire</th></tr>${rows}</table>
+      <p class="tiny mute mt">Estimated re-sign fees with your loyalty discount, for a player one year older at the rating his age suggests. Real fees move a little with off-season ageing. You can only re-sign players who have not retired. You have ${f.roster}/${f.cap} players, ${f.staying} already signed for next season.</p>` : `<p class="mute small">Nobody's contract runs out this season.</p>`}</div>`;
+}
 function hubView(S) {
-  if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; }
+  if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.ui.itemSel = null; }
   const hub = st.ui.hub;
   if (!hub || (hub === "team" && !S.me)) return hubHome(S);
   if (hub === "team") return hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
+  if (hub === "finance" && S.me && S.me.fin) return hubBar(S, "Finance") + financeView(S);
   if (hub === "store") return hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
   return standingsView(S);
 }

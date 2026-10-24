@@ -315,5 +315,18 @@ t("box score: events carry xG, key passes, assists and defensive actions; rating
   const L = seasonLeaders(g2, 5); assert.ok(L.g.length && L.a.length && L.tk.length && L.sv.length && L.rt.length);
   assert.ok(L.rt[0].rt >= L.rt[L.rt.length - 1].rt);
 });
+t("player pool: women-only and men-only leagues draft, play and bring in rookies from their own pool; the room caps clubs", async () => {
+  const { genderOk } = await import("../engine/roster.js");
+  const { Room } = await import("../server/room.js");
+  for (const k of ["female", "male"]) {
+    const g = createGame({ D, N: 10, seed: 5, gender: k }); runDraft(g); runMarket(g);
+    assert.ok(g.pool.length > 0 && g.pool.every((id) => genderOk(k, g.players[id].gender)), k + " pool");
+    for (const tm of g.teams) assert.ok(rosterOf(g, tm).every((p) => genderOk(k, p.gender)));
+    assert.ok(rosterOf(g, g.teams[0]).some((p) => p.pos === "GK"), k + " league still has keepers");
+  }
+  assert.ok(genderOk("all", "Female") && genderOk("all", "Male") && !genderOk("female", "Male") && !genderOk("male", "F"));
+  const r = new Room({ code: "TEST", D, hostToken: "h", onChange() {}, onSave() {} }), info = r.poolInfo();
+  assert.ok(info.female.maxClubs <= 12 && info.male.maxClubs <= 12 && info.all.maxClubs === 30, JSON.stringify(info));
+});
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

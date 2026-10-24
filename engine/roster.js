@@ -1,4 +1,6 @@
 // Positions, fit penalties, formations and lineup choice. Pure functions of player records and the tunables.
+// Which players a league uses: everyone, only the women, or only the men.
+export const genderOk = (gender, g) => !gender || gender === "all" || (gender === "female" ? g === "Female" || g === "F" : gender === "male" ? g === "Male" || g === "M" : true);
 export const POSITIONS = ["GK", "CB", "LB", "RB", "CDM", "CM", "LM", "RM", "CAM", "LW", "RW", "ST"];
 
 // Where each position sits on the pitch: [depth from own goal, width -1 left .. +1 right].

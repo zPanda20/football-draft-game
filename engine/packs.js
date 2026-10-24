@@ -25,8 +25,8 @@ function dial(game, P) {
 function posWeight(team, game, pos, P) {
   const pk = P.packs, have = (f) => team.players.filter((id) => f(game.players[id].pos)).length;
   if (pos === "GK") return have((x) => x === "GK") ? pk.gkOwnedWeight : 1;
-  if (pos === "ST") return have((x) => x === "ST") ? pk.stOwnedWeight : 1;
-  if (isDef(pos)) return have(isDef) >= pk.defOwnedAfter ? pk.defOwnedWeight : 1;
+  if (pos === "ST") return have((x) => x === "ST") ? pk.stOwnedWeight : pk.needBoost;               // a team with no striker sees more of them
+  if (isDef(pos)) { const n = have(isDef); return n >= pk.defOwnedAfter ? pk.defOwnedWeight : n === 0 ? pk.needBoost : 1; }
   return 1;
 }
 

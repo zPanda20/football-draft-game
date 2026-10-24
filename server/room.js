@@ -1,11 +1,11 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
 import { makeRng, shuffle } from "../engine/rng.js";
-import { topScorers, seasonLeaders, groupsOf, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
+import { topScorers, seasonLeaders, groupsOf, financeOutlook, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
-import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS } from "../engine/roster.js";
+import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
 import { expiring, availableRookies } from "../engine/offseason.js";
 import { offseasonMethods } from "./offseason.js";
@@ -13,7 +13,7 @@ import { usermodeMethods } from "./usermode.js";
 import { unsigned, buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
-const DEFAULTS = { minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 35, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
+const DEFAULTS = { pool: "all", minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 35, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
 const KEEP_FEED = 40;
 const IDLE_MS = 6000;   // how long the room waits for idle players once nobody else is left to act
 const MARKET_ROUNDS = 8;
@@ -108,11 +108,22 @@ export class Room {
   playerOfTeam(id) { for (const p of this.players.values()) if (p.teamId === id) return p; return null; }
   isHost(token) { return token === this.hostToken; }
 
+  // A women's-only or men's-only league has fewer players to go round, so it plays with at most 12 clubs (fewer when
+  // there are not enough keepers for every club).
+  poolInfo() {
+    const out = {};
+    for (const k of ["all", "male", "female"]) {
+      const ps = this.D.players.filter((p) => genderOk(k, p.gender)), gks = ps.filter((p) => p.pos === "GK").length;
+      out[k] = { players: ps.length, keepers: gks, maxClubs: k === "all" ? 30 : Math.max(10, Math.min(12, gks - 1)) };
+    }
+    return out;
+  }
+  maxPeople() { return this.poolInfo()[this.settings.pool || "all"].maxClubs; }
   addPlayer(token, name) {
     let p = this.players.get(token);
     if (p) { p.connected = true; if (name && this.phase === "lobby") p.name = name; return p; }
     if (this.phase !== "lobby") return null;
-    if (this.players.size >= 30) return null;
+    if (this.players.size >= this.maxPeople()) return null;
     p = { token, name: String(name || "Manager").slice(0, 24), teamName: "", club: null, teamId: null, connected: true, auto: false, mode: "manager" };
     this.players.set(token, p);
     return p;
@@ -135,6 +146,11 @@ export class Room {
     if (!this.isHost(token) || this.phase !== "lobby") return;
     const num = (k, lo, hi) => { if (s[k] != null && isFinite(+s[k])) this.settings[k] = Math.max(lo, Math.min(hi, +s[k])); };
     if (s.pace != null) this.settings.pace = this.nearestPace(+s.pace);
+    if (["all", "male", "female"].includes(s.pool) && s.pool !== this.settings.pool) {
+      const cap = this.poolInfo()[s.pool].maxClubs;
+      if (this.players.size > cap) { this.paceNote = { id: (this.paceNote ? this.paceNote.id : 0) + 1, text: `A ${s.pool === "all" ? "" : s.pool + "s-only "}league holds ${cap} people at most; ${this.players.size} are in the room` }; return this.changed(); }
+      this.settings.pool = s.pool;
+    }
     num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60); num("resignSec", 10, 120); num("rookieSec", 10, 90); num("tradeSec", 30, 600);
     if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
   }
@@ -174,9 +190,9 @@ export class Room {
   start(token, seed = Math.floor(Math.random() * 1e9)) {
     if (!this.isHost(token) || this.phase !== "lobby" || !this.players.size) return;
     const humans = [...this.players.values()].filter((q) => q.mode !== "player");
-    const N = teamsFor(Math.max(this.settings.minTeams, humans.length));
+    const cap = this.maxPeople(), N = Math.min(cap - (cap % 2), teamsFor(Math.max(this.settings.minTeams, humans.length)));
     const rr = makeRng(seed, "room");
-    const game = createGame({ D: this.D, N, seed });
+    const game = createGame({ D: this.D, N, seed, gender: this.settings.pool || "all" });
     const fam = (s) => this.clubBySlug.get(s).base || s;
     const used = new Set(humans.map((h) => h.club).filter(Boolean).map(fam));
     const free = shuffle(this.D.clubs.filter((c) => c.kind === "main").map((c) => c.slug).filter((s) => !used.has(s)), rr);
@@ -547,6 +563,7 @@ export class Room {
       room: this.code, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
       players: [...this.players.values()].map((p) => ({ you: p.token === token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chat.slice(-30), reveal: this.reveal, feed: this.feed,
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],
     };
@@ -590,6 +607,7 @@ export class Room {
         mv.rosterRoom = capOf(t, g.P) - t.players.length;
       }
       if (this.phase === "season") {
+        mv.fin = financeOutlook(g, t.id, { table: this.shownTable || [], left: Math.max(0, (this.days || []).length - (this.mdIdx + (this.step === "md.result" ? 1 : 0))) });
         mv.lineup = t.lineup ? sanitizeLineup(t.lineup, rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P) : bestLineup(rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P);
         if (this.live) {
           const k = this.live.findIndex((m) => m.a === t.id || m.b === t.id);

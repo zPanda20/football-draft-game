@@ -28,12 +28,13 @@ function progress(S) {
   const d = S.draft; return `<div class="walk" style="width:100%;max-width:520px">${Array.from({ length: d.total }, (_, i) => `<span class="step ${i + 1 < d.round ? "done" : i + 1 === d.round ? "on" : ""}"></span>`).join("")}</div>`;
 }
 
-function cardFor(c, i, chosenIdx, locked, fresh) {
+function cardFor(c, i, chosenIdx, locked, fresh, needGk = false) {
   const cls = `pickable ${chosenIdx === i ? "chosen" : ""} ${locked && chosenIdx === i ? "locked" : ""} ${locked && chosenIdx !== i ? "dim" : ""} ${fresh ? "flip" : ""}`;
   const style = fresh ? ` style="animation-delay:${i * 0.18}s"` : "";
   const attr = locked ? "" : `data-act="pickc" data-idx="${i}"`;
   const inner = c.t === "p" ? card(c.id, { size: "lg", cls: "" }) : itemCard(c.id, { cls: "" });
-  return `<div class="${cls}" ${attr}${style}>${inner}</div>`;
+  const need = needGk && c.t === "p" && pl(c.id).pos === "GK" ? `<div class="needgk">YOUR KEEPER</div>` : "";
+  return `<div class="${cls}" ${attr}${style}>${need}${inner}</div>`;
 }
 
 export function draftView(S, ctx) {
@@ -52,8 +53,10 @@ export function draftView(S, ctx) {
         <div class="pack" data-act="open" data-key="${key}" style="border-color:var(--${tier === "silver" ? "silver" : tier});box-shadow:0 0 44px var(--${tier === "silver" ? "silver" : tier})">OPEN</div><p class="mute small">Tap to open. There is a timer, so don't wait too long.</p></div>`;
     } else {
       const ci = me.pick ? me.pick.idx : -1, locked = !!(me.pick && me.pick.locked);
+      const needGk = d.round >= 3 && !team(me.teamId).players.some((id) => pl(id).pos === "GK") && me.hand.some((c) => c.t === "p" && pl(c.id).pos === "GK");
       main = `<div class="card packarea"><h3>Pack ${d.round} of ${d.total} · ${packLabel(S)}</h3>${progress(S)}
-        <div class="hand">${me.hand.map((c, i) => cardFor(c, i, ci, locked, animNow)).join("")}</div>
+        ${needGk ? `<p class="warnline">You have no goalkeeper yet, and there is one in this pack. Without one an outfield player has to go in goal.</p>` : ""}
+        <div class="hand">${me.hand.map((c, i) => cardFor(c, i, ci, locked, animNow, needGk)).join("")}</div>
         <div class="row">${locked ? `<button class="btn" data-act="unlockc">Change my pick</button>` : `<button class="btn pri big" data-act="lockc" ${ci < 0 ? "disabled" : ""}>Lock in</button>`}</div></div>`;
     }
   } else if (S.step === "draft.reveal") {
