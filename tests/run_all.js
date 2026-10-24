@@ -287,5 +287,33 @@ t("formations: each shape has its own identity, counter-play is symmetric, stami
   // same seed, same match
   const x1 = run(lp), x2 = run(lp); assert.deepEqual(x1.score, x2.score); assert.deepEqual(x1.events, x2.events);
 });
+t("box score: events carry xG, key passes, assists and defensive actions; ratings follow the events", async () => {
+  const { ratings, tally } = await import("../public/rating.js");
+  const { groupsOf, ratingSides, seasonLeaders } = await import("../engine/game.js");
+  const g = createGame({ D, N: 10, seed: 41 }); runDraft(g); runMarket(g);
+  const A = rosterOf(g, g.teams[0]), B = rosterOf(g, g.teams[1]);
+  let goals = 0, assists = 0, kps = 0, shots = 0, tk = 0, ic = 0, xgSum = 0;
+  for (let i = 0; i < 40; i++) {
+    const cfg = { seed: 3 + i, matchKey: "b" + i, P: g.P, home: { id: 0, name: "A", players: A, lineup: bestLineup(A, g.P), fx: {} }, away: { id: 1, name: "B", players: B, lineup: bestLineup(B, g.P), fx: {} } };
+    const r = playMatch(cfg), first = [bestLineup(A, g.P), bestLineup(B, g.P)];
+    const T = tally(r.events), sum = (k) => Object.values(T).reduce((x, y) => x + y[k], 0);
+    assert.equal(sum("g"), r.score[0] + r.score[1]); assert.equal(sum("sh"), r.shots[0] + r.shots[1]);
+    assert.ok(sum("a") <= sum("g") && sum("kp") >= sum("a"));
+    for (const e of r.events) if (e.type === "goal" || e.type === "save") { assert.ok(e.xg > 0 && e.xg < 1); if (e.kp != null) assert.notEqual(e.kp, e.player); }
+    const R = ratings(r.events, ratingSides(first, r.lineups), { final: true });
+    for (const o of Object.values(R)) assert.ok(o.r >= 3 && o.r <= 10);
+    // the scorer of a goal outrates the same player without it
+    const goal = r.events.find((e) => e.type === "goal");
+    if (goal) { const without = ratings(r.events.filter((e) => e !== goal), ratingSides(first, r.lineups)), withIt = ratings(r.events, ratingSides(first, r.lineups)); assert.ok(withIt[goal.player].r > without[goal.player].r); }
+    goals += sum("g"); assists += sum("a"); kps += sum("kp"); shots += sum("sh"); tk += sum("tk"); ic += sum("ic"); for (const e of r.events) if (e.xg) xgSum += e.xg;
+  }
+  assert.ok(assists / goals > 0.5 && assists / goals < 1, "most goals are assisted");
+  assert.ok(tk > 20 && ic > 15, "defenders get tackles and interceptions");
+  assert.ok(Math.abs(xgSum / shots - goals / shots) < 0.12, "xG roughly matches goals scored: " + (xgSum / shots).toFixed(2) + " vs " + (goals / shots).toFixed(2));
+  // a whole season fills the season stats and leader tables
+  const g2 = createGame({ D, N: 10, seed: 42 }); runDraft(g2); runMarket(g2); playSeason(g2, {});
+  const L = seasonLeaders(g2, 5); assert.ok(L.g.length && L.a.length && L.tk.length && L.sv.length && L.rt.length);
+  assert.ok(L.rt[0].rt >= L.rt[L.rt.length - 1].rt);
+});
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

@@ -1,5 +1,6 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, pl, tierOf, flag, miniPlayer, remaining, card } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, pl, tierOf, posGroup, flag, miniPlayer, remaining, card } from "./core.js";
+import { ratings, ratingClass } from "./rating.js";
 import { storeCard } from "./store.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -86,6 +87,7 @@ export const matchHandlers = {
   cont() { send({ t: "continue" }); },
   mslot(a) { choose("slot", +a.i); },
   mcancel() { st.ui.mSel = null; st.render(); },
+  lead(a) { st.ui.lead = a.k; st.render(); },
   hubgo(a) { st.ui.hub = a.to; st.ui.mSel = null; st.render(); window.scrollTo(0, 0); },
   hubback() { st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.render(); },
   viewteam(a) { st.ui.viewTeam = +a.i; st.render(); window.scrollTo(0, 0); },
@@ -203,8 +205,9 @@ const nm = (id) => { const p = id != null ? pl(id) : null; return p ? p.name : "
 function evLine(m, e) {
   const tm = team(e.team ? m.b : m.a);
   const clock = `${e.minute}'`;
-  if (e.type === "goal") return `<div class="ev goal"><span class="min">${clock}</span>⚽ <b>${esc(nm(e.player))}</b> scores for ${esc(tm.name)}${e.fast ? " on the break" : ""}</div>`;
-  if (e.type === "save") return `<div class="ev"><span class="min">${clock}</span>🧤 ${e.fast ? "Breakaway! " : ""}${esc(nm(e.player))} shoots, ${esc(nm(e.keeper))} saves</div>`;
+  if (e.type === "goal") return `<div class="ev goal"><span class="min">${clock}</span>⚽ <b>${esc(nm(e.player))}</b> scores for ${esc(tm.name)}${e.fast ? " on the break" : ""}${e.assist != null ? ` <span class="mute">(assist ${esc(nm(e.assist))})</span>` : ""}${e.xg != null ? ` <span class="xg" title="Chance of scoring for an average keeper">xG ${e.xg.toFixed(2)}</span>` : ""}</div>`;
+  if (e.type === "tackle" || e.type === "intercept") return `<div class="ev def"><span class="min">${clock}</span>🛡 ${esc(nm(e.player))} ${e.type === "tackle" ? "wins a tackle" : "cuts out the pass"}</div>`;
+  if (e.type === "save") return `<div class="ev"><span class="min">${clock}</span>🧤 ${e.fast ? "Breakaway! " : ""}${esc(nm(e.player))} shoots, ${esc(nm(e.keeper))} saves${e.xg != null ? ` <span class="xg" title="Chance of scoring for an average keeper">xG ${e.xg.toFixed(2)}</span>` : ""}</div>`;
   return "";
 }
 // ---------- momentum and possession ----------
@@ -255,6 +258,28 @@ function statsPanel(m, now) {
     <div class="mrow mt"><b class="num">${shots[0]}</b><b class="mtitle">Shots</b><b class="num">${shots[1]}</b></div></div>`;
 }
 
+// ---------- line-ups with live ratings ----------
+function ratedSides(m, half) {
+  const first = half ? m.first : m.lineups, second = half ? m.lineups : null;
+  return [0, 1].map((i) => ({ first: first[i], second: second ? second[i] : null, group: { ...(first[i] && first[i].grp), ...(second && second[i] && second[i].grp) } }));
+}
+function lineupsPanel(m, half, now, final) {
+  const evs = (m.all || m.events || []).filter((e) => e.minute <= now), R = ratings(evs, ratedSides(m, half), { final, half2: !!half });
+  const best = final ? Object.keys(R).sort((a, b) => R[b].r - R[a].r)[0] : null;
+  const col = (i) => {
+    const first = (half ? m.first : m.lineups)[i], second = half ? m.lineups[i] : null;
+    const order = [first.gk, ...first.out, ...(second ? [second.gk, ...second.out] : [])].filter((x, k, a) => x != null && a.indexOf(x) === k);
+    const t = team(i === 0 ? m.a : m.b), rows = order.filter((id) => R[id]).map((id) => {
+      const o = R[id], p = pl(id), on = !second || [second.gk, ...second.out].includes(id), g = [];
+      if (o.g) g.push(`⚽${o.g > 1 ? "×" + o.g : ""}`); if (o.a) g.push(`🅰${o.a > 1 ? "×" + o.a : ""}`);
+      const small = [o.kp ? `${o.kp} KP` : "", o.tk ? `${o.tk} TK` : "", o.ic ? `${o.ic} INT` : "", o.sv ? `${o.sv} SV` : "", o.sh ? `${o.sh} SH` : ""].filter(Boolean).join(" · ");
+      return `<div class="lrow ${on ? "" : "off"}"><span class="rt ${ratingClass(o.r)}">${o.r.toFixed(1)}</span><span class="pg pg-${posGroup(p ? p.pos : "CM")}">${esc(p ? p.pos : "")}</span><span class="grow nm">${esc(p ? p.name : "?")}${String(id) === best ? " ⭐" : ""}</span><span class="stx">${g.join(" ")}${small ? `<small>${small}</small>` : ""}</span></div>`;
+    }).join("");
+    return `<div class="lcol"><div class="lhead">${crest(t, 18)}<b>${esc(t.name)}</b><span class="mute small">${esc((half ? m.lineups[i] : first).formation)}</span></div>${rows}</div>`;
+  };
+  return `<div class="lineups">${col(0)}${col(1)}</div>${final ? '<p class="tiny mute mt">⭐ player of the match. KP chances created, TK tackles, INT interceptions, SV saves, SH shots.</p>' : '<p class="tiny mute mt">Ratings update with every event.</p>'}`;
+}
+
 export function playbackTick() {
   const S = st.S; if (!S) return;
   const els = $$("[data-pb]"); if (!els.length) return;
@@ -267,6 +292,11 @@ export function playbackTick() {
     if (n.dataset.pb === "mstats") {
       const now = clamp(half * 45 + t * 45, 0, 90), key = `${S.step}|${S.reveal.seq}|${k}|${Math.floor(now * 2)}`;
       if (n.dataset.last !== key) { n.dataset.last = key; n.innerHTML = statsPanel(m, now); }
+      continue;
+    }
+    if (n.dataset.pb === "lineups") {
+      const now = clamp(half * 45 + t * 45, 0, 90), final = S.step === "md.result" || (S.step === "md.half2" && t >= 1), cnt = (m.all || m.events || []).filter((e) => e.minute <= now).length, key = `${S.step}|${S.reveal.seq}|${k}|${cnt}|${final}`;
+      if (n.dataset.last !== key) { n.dataset.last = key; n.innerHTML = lineupsPanel(m, half, now, final); }
       continue;
     }
     const s = matchState(m, half, t);
@@ -284,7 +314,9 @@ function fixtureRows(S, ms) {
   return ms.map((m, k) => `<div class="fixture ${m.a === me || m.b === me ? "mine" : ""} ${k === focusK(S) ? "focus" : ""}" data-act="mfocus" data-k="${k}" title="Show this match"><div class="l">${tchipK(m.a, 0)}</div><div class="score" data-pb="score" data-k="${k}"></div><div>${tchipK(m.b, 1)}</div></div>`).join("");
 }
 function focusK(S) {
-  const R = S.reveal, mine = S.me && S.me.match ? S.me.match.index : -1;
+  const R = S.reveal;
+  const own = S.me && S.me.match ? S.me.match.index : S.pm && S.pm.team != null ? R.matches.findIndex((x) => x.a === S.pm.team || x.b === S.pm.team) : -1;   // your club's match: a manager's or a footballer's
+  const mine = own;
   if (st.ui.focusDay !== R.day) { st.ui.focusDay = R.day; st.ui.focus = null; }
   return st.ui.focus != null && R.matches[st.ui.focus] ? st.ui.focus : mine >= 0 ? mine : 0;
 }
@@ -294,7 +326,8 @@ function playbackView(S) {
   const m = R.matches[mine] || null;
   const big = m ? `<div class="card"><div class="row"><h3 style="margin:0">${S.step === "md.half1" || S.step === "md.half" ? "First half" : "Second half"}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${mine}"></span></div>
     <div class="bigmatch"><div class="tm"><div class="tmhead">${crest(team(m.a), 44)}${shirt(club(team(m.a)), 0, 52)}</div>${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm"><div class="tmhead">${crest(team(m.b), 44)}${shirt(club(team(m.b)), 1, 52)}</div>${esc(team(m.b).name)}</div></div>
-    <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
+    <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
+    <div class="card"><h3>Line-ups and ratings</h3><div data-pb="lineups" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
 }
 
@@ -304,6 +337,14 @@ export function bootPanel(S, limit = 5, title = "Golden Boot") {
   const me = S.me ? S.me.teamId : -1;
   return `<div class="card"><h3>${title}</h3><table class="tb"><tr><th>#</th><th>Player</th><th class="n">Goals</th></tr>${b.map((x, k) => { const p = pl(x.id), t = team(x.team);
     return `<tr class="${x.team === me ? "me" : ""} ${k === 0 ? "leader" : ""}"><td>${k + 1}</td><td><div class="bootn">${t ? crest(t, 14) : ""}<b>${p ? esc(p.name) : "?"}</b></div></td><td class="n"><b>${x.g}</b></td></tr>`; }).join("")}</table></div>`;
+}
+const LEAD = [["g", "Golden Boot", "Goals"], ["a", "Assists", "Assists"], ["kp", "Chances created", "KP"], ["tk", "Tackles", "Tackles"], ["ic", "Interceptions", "Int."], ["sv", "Keeper saves", "Saves"], ["rt", "Average rating", "Rating"]];
+export function leadersPanel(S, limit = 10) {
+  const L = S.leaders || {}, key = st.ui.lead || "g", cur = LEAD.find((x) => x[0] === key) || LEAD[0], rows = (L[cur[0]] || []).slice(0, limit), me = S.me ? S.me.teamId : -1;
+  const tabs = LEAD.map(([k, name]) => `<button class="btn sm ${k === cur[0] ? "on" : ""}" data-act="lead" data-k="${k}">${name}</button>`).join("");
+  const body = rows.length ? `<table class="tb"><tr><th>#</th><th>Player</th>${cur[0] === "g" ? '<th class="n" title="Expected goals from their shots">xG</th>' : ""}<th class="n">${cur[2]}</th></tr>${rows.map((x, k) => { const p = pl(x.id), t = team(x.team);
+    return `<tr class="${x.team === me ? "me" : ""} ${k === 0 ? "leader" : ""}"><td>${k + 1}</td><td><div class="bootn">${t ? crest(t, 14) : ""}<b>${p ? esc(p.name) : "?"}</b><span class="mute small">${p ? p.pos : ""}</span></div></td>${cur[0] === "g" ? `<td class="n mute">${x.xg}</td>` : ""}<td class="n"><b>${cur[0] === "rt" ? x.rt.toFixed(2) : x[cur[0]]}</b></td></tr>`; }).join("")}</table>` : `<p class="mute small">Nothing yet.</p>`;
+  return `<div class="card"><h3>${cur[1]}</h3><div class="row wrap" style="gap:6px;margin-bottom:8px">${tabs}</div>${body}</div>`;
 }
 function scorerLines(m, side) {
   const by = new Map();
@@ -319,7 +360,8 @@ function resRows(ms, me, focus = null) {
 function resultsView(S) {
   const R = S.reveal, me = S.me ? S.me.teamId : -1, k = focusK(S), m = R.matches[k];
   return `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1} results</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${k}">FT</span></div><div class="mt">${resRows(R.matches, me, k)}</div></div>
-    <div class="card"><h3>${tchipK(m.a, 0, 20)} <span class="mute">v</span> ${tchipK(m.b, 1, 20)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>`;
+    <div class="card"><h3>${tchipK(m.a, 0, 20)} <span class="mute">v</span> ${tchipK(m.b, 1, 20)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>
+    <div class="card"><h3>Ratings</h3><div data-pb="lineups" data-k="${k}"></div></div>`;
 }
 
 // ---------- the menu between matches ----------
@@ -350,7 +392,7 @@ function teamViewer(S, i) {
   const fit = ps.filter((p) => !p.susp), gk = fit.filter((p) => p.pos === "GK").sort((a, b) => b.ovr - a.ovr)[0];
   const out = fit.filter((p) => p !== gk).sort((a, b) => b.ovr - a.ovr).slice(0, 5), start = new Set([gk, ...out].filter(Boolean).map((p) => p.id));
   const lines = (list) => list.map((p) => `<div class="benchrow tv ${p.susp ? "dim" : ""}"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}${p.user ? " · created player" : ""}</span></span>
-    <span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
+    ${p.x ? `<span class="tiny mute" title="This season: games, goals, assists, average rating">${p.x[0]} gp · ${p.x[1]}G ${p.x[2]}A · <b>${p.x[7].toFixed(1)}</b></span>` : ""}<span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
   const byOvr = (a, b) => b.ovr - a.ovr, starters = ps.filter((p) => start.has(p.id)).sort((a, b) => (a.pos === "GK" ? -1 : b.pos === "GK" ? 1 : byOvr(a, b))), bench = ps.filter((p) => !start.has(p.id)).sort(byOvr);
   return `${hubBar(S, t.name, "closeteam", "← Standings")}<div class="card"><div class="row wrap" style="gap:14px">${crest(t, 48)}${shirt(c, 0, 56)}<div class="grow"><b style="font-size:20px">${esc(t.name)}</b><div class="mute small">${t.owner ? "Managed by " + esc(t.owner) : "CPU manager"}${tr ? ` · ${row + 1}${["st", "nd", "rd"][row] || "th"} · ${tr.pts} pts (${tr.w}-${tr.d}-${tr.l})` : ""} · ${ps.length}/${t.cap} players</div></div></div>
     <h3 class="mt">Likely line-up</h3><div class="col" style="gap:3px">${lines(starters)}</div>
@@ -361,7 +403,7 @@ function standingsView(S) {
   if (st.ui.viewTeam != null && team(st.ui.viewTeam)) return teamViewer(S, st.ui.viewTeam);
   const me = S.me ? S.me.teamId : -1, L = S.lastDay;
   const last = L ? `<div class="card"><h3>Matchday ${L.day + 1} results</h3><div class="mt">${resRows(L.matches, me)}</div></div>` : `<div class="card"><h3>Latest results</h3><p class="mute small">No matches played yet.</p></div>`;
-  return `${hubBar(S, "Standings")}${tablePanel(S, 99, true)}${last}${bootPanel(S, 10, "Golden Boot race") || `<div class="card"><h3>Golden Boot race</h3><p class="mute small">No goals yet.</p></div>`}`;
+  return `${hubBar(S, "Standings")}${tablePanel(S, 99, true)}${last}${leadersPanel(S, 10)}`;
 }
 function hubView(S) {
   if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; }

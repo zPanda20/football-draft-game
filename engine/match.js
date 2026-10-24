@@ -37,7 +37,7 @@ export function teamNow(side, stamOf, P, fx = {}) {
     const ab = pl[p.id]?.all || 0;
     const off = (p.r.off + (pl[p.id]?.off || 0) + ab) * fit * f, def = (p.r.def + ab) * fit * f, ctl = (p.r.ctl + ab) * fit * f;
     a += sa * off; wa += sa; d += sd * def; wd += sd; c += sc * ctl; wc += sc;
-    who.push({ p, slot, off: sa * off });
+    who.push({ p, slot, off: sa * off, def: sd * def, ctl: sc * ctl });
     const G = grp[GROUP[slot]]; G.n++;
     for (const k of STATS) G[k] = (G[k] || 0) + ((p[k] ?? 40) + ab) * fit * f; // raw stats as played: out of position and tired players count for less
   });
@@ -104,6 +104,10 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
   const rb = makeRng(seed, "match-break", matchKey), brk = [[], []];
   for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) brk[h].push(rb());
 
+  // box-score rolls (who made the pass, who won the ball) also have a stream of their own
+  const rst = makeRng(seed, "match-stats", matchKey), sdr = [[], []];
+  for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) sdr[h].push({ kp: rst(), has: rst(), act: rst(), kind: rst(), who: rst() });
+
   const events = [], flow = [];
   const minuteOf = (h, m) => Math.round(h * 45 + ((m + 0.5) / M.moments) * 45);
 
@@ -132,7 +136,17 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       const A = homeBall ? 0 : 1, B = 1 - A;
       const fast = brk[h][m] < breakChance(tn[A], tn[B], P);
       const minute = minuteOf(h, m);
-      if (d.shot >= sig(shotLogit(A, B, fast ? P.shape.breakShot : 0))) { events.push({ half: h, minute, team: A, type: "move" }); continue; }
+      const sx = sdr[h][m], shooting = d.shot < sig(shotLogit(A, B, fast ? P.shape.breakShot : 0));
+      { // a defender wins the ball or breaks up play (more often when there is no shot)
+        const T = P.stats, chance = shooting ? T.defActShot : T.defActMove;
+        if (sx.act < chance) {
+          const tot = tn[B].who.reduce((x, w) => x + Math.max(1, w.def), 0);
+          let pick = sx.who * tot, who = tn[B].who[tn[B].who.length - 1].p;
+          for (const w of tn[B].who) { pick -= Math.max(1, w.def); if (pick <= 0) { who = w.p; break; } }
+          events.push({ half: h, minute, team: B, type: sx.kind < T.tackleShare ? "tackle" : "intercept", player: who.id });
+        }
+      }
+      if (!shooting) { events.push({ half: h, minute, team: A, type: "move" }); continue; }
       sides[A].shots++;
       // shooter: weighted by attacking contribution
       const tot = tn[A].who.reduce((x, w) => x + Math.max(1, w.off), 0);
@@ -143,9 +157,18 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       const S = P.shape, hold = (S.f[tn[A].formation] || {}).duel || 1;
       const duel = fast ? 0 : Math.max(-S.duelCap, Math.min(S.duelCap, S.duelK * hold * (tn[B].g.back.phy - tn[A].g.fwd.phy)));
       const guard = fast ? tn[B].gk : tn[B].gk * (1 - S.goalDef) + defOf(B) * S.goalDef + duel;
-      const scores = d.goal < sig(M.goalBase + M.goalK * (atkOf(A) - guard));
+      const pGoal = (g) => sig(M.goalBase + M.goalK * (atkOf(A) - g));
+      const scores = d.goal < pGoal(guard);
+      const xg = +pGoal(fast ? P.stretch.base : P.stretch.base * (1 - S.goalDef) + defOf(B) * S.goalDef + duel).toFixed(3);   // chance for an average keeper
+      // the pass that made the chance (a solo effort now and then; breaks are rarely a clean pass)
+      let kp = null;
+      if (sx.has < (fast ? P.stats.creatorBreak : P.stats.creator)) {
+        const others = tn[A].who.filter((w) => w.p !== shooter), tc = others.reduce((x, w) => x + Math.max(1, w.ctl), 0);
+        let pk = sx.kp * tc; kp = others.length ? others[others.length - 1].p.id : null;
+        for (const w of others) { pk -= Math.max(1, w.ctl); if (pk <= 0) { kp = w.p.id; break; } }
+      }
       if (scores) { sides[A].goals++; sides[A].scorers[shooter.id] = (sides[A].scorers[shooter.id] || 0) + 1; }
-      events.push({ half: h, minute, team: A, type: scores ? "goal" : "save", player: shooter.id, keeper: tn[B].gkP.id, ...(fast ? { fast: 1 } : {}) });
+      events.push({ half: h, minute, team: A, type: scores ? "goal" : "save", player: shooter.id, keeper: tn[B].gkP.id, xg, ...(kp != null ? { kp } : {}), ...(scores && kp != null ? { assist: kp } : {}), ...(fast ? { fast: 1 } : {}) });
     }
     // end-of-half stamina for everyone on the pitch
     sides.forEach((s, i) => {

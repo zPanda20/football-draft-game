@@ -36,7 +36,7 @@ export function pl(id) {
   if (!b) return null;
   if (!d) return { ...b, stam: 100, contract: 0, mv: 0, team: null, susp: 0 };
   const s = d.st || b.st;
-  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot, susp: d.sp || 0 };
+  return { ...b, ovr: d.o, age: d.a, stam: d.s, contract: d.c, team: d.t, mv: d.mv, pos: d.pos || b.pos, st: s, pot: d.pot || b.pot, susp: d.sp || 0, x: d.x || null };
 }
 
 // ---------- flags, badges, cards ----------
@@ -72,7 +72,7 @@ const lighten = (h, k = 0.45) => "#" + rgb(h).map((x) => Math.round(x + (255 - x
 // The two colours a match is drawn in: the home side's main colour, and the away side's main colour unless it is too
 // close to the home side's (or too dark to see), in which case the away side's secondary colour.
 export function matchColors(home, away) {
-  const vis = (h) => lum(h) > 0.07, ok = (a, b) => colorDist(a, b) > 110;
+  const vis = (h) => lum(h) > 0.07, ok = (a, b) => colorDist(a, b) > 160;
   const h = home ? (vis(home.c1) ? home.c1 : vis(home.c2) ? home.c2 : lighten(home.c1)) : "#3ddc84";
   if (!away) return [h, "#ffb020"];
   const cands = [away.c1, away.c2].filter(vis);
@@ -92,6 +92,8 @@ export function chip(t, size = 22, owner = false) {
   if (!t) return "";
   return `<span class="tchip">${crest(t, size)}<span class="n">${esc(t.name)}${owner && t.owner ? ` <span class="own">(${esc(t.owner)})</span>` : ""}</span></span>`;
 }
+// Position colours: keepers orange, defence yellow, midfield green, attack blue.
+export const posGroup = (pos) => (pos === "GK" ? "gk" : ["CB", "LB", "RB"].includes(pos) ? "def" : ["LW", "RW", "ST"].includes(pos) ? "att" : "mid");
 export const tierOf = (ovr) => (ovr >= 90 ? "ruby" : ovr >= 85 ? "gold" : "silver");
 export const STATS = ["PAC", "SHO", "PAS", "DRI", "DEF", "PHY", "STA"];
 export const GKSTATS = ["DIV", "HAN", "KIC", "REF", "SPE", "POS", "STA"];

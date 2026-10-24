@@ -2,7 +2,8 @@
 // functions step by step; the balance tests call them straight through with CPU managers on every team.
 import { makeRng } from "./rng.js";
 import { withParams } from "./params.js";
-import { rate, bestLineup, FORMATIONS, SLOT_W } from "./roster.js";
+import { rate, bestLineup, FORMATIONS, SLOT_W, GROUP } from "./roster.js";
+import { ratings as matchRatings } from "../public/rating.js";   // shared with the browser, which uses it for the live ratings
 import { matchSteps } from "./match.js";
 import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
@@ -139,6 +140,16 @@ export function enforceCap(game) {
   return out;
 }
 
+// Which line each player of a line-up stands in ("gk", "back", "mid", "fwd"): the rating rules need it.
+export function groupsOf(lineup) {
+  const g = {}; if (!lineup) return g;
+  if (lineup.gk != null) g[lineup.gk] = "gk";
+  FORMATIONS[lineup.formation]?.forEach((slot, i) => { const id = lineup.out[i]; if (id != null) g[id] = GROUP[slot]; });
+  return g;
+}
+// What the screens need to rate a match as it unfolds: both halves' line-ups with each player's line.
+export const ratingSides = (first, second) => [0, 1].map((i) => ({ first: first[i], second: second[i], group: { ...groupsOf(first[i]), ...groupsOf(second[i]) } }));
+
 // ---- one match: begin (to half-time) and finish (second half) are separate so the server can open a half-time window ----
 export function beginMatch(game, a, b, key, hooks = {}) {
   const P = game.P, sides = [a, b].map((ti) => game.teams[ti]);
@@ -165,6 +176,15 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     res = m.gen.next({ home: next[0], away: next[1], effort: [hooks.effort?.(m.sides[0]) || null, hooks.effort?.(m.sides[1]) || null] }).value;
   }
   res.dope = [];
+  res.firstLineups = m.lineups;
+  const rated = matchRatings(res.events, ratingSides(m.lineups, res.lineups), { final: true });
+  res.ratings = Object.fromEntries(Object.entries(rated).map(([id, o]) => [id, o.r]));
+  game.stats = game.stats || {};
+  for (const [id, o] of Object.entries(rated)) {
+    const x = (game.stats[id] = game.stats[id] || { gp: 0, g: 0, a: 0, kp: 0, sh: 0, sv: 0, tk: 0, ic: 0, xg: 0, ga: 0, rt: 0 });
+    x.gp++; x.rt += o.r; for (const k of ["g", "a", "kp", "sh", "sv", "tk", "ic", "xg", "ga"]) x[k] += o[k];
+    x.team = m.sides[o.side].id;
+  }
   game.goals = game.goals || {};
   res.scorers.forEach((sc, i) => { for (const [pid, n] of Object.entries(sc)) { const e = (game.goals[pid] = game.goals[pid] || { g: 0, team: m.sides[i].id }); e.g += n; e.team = m.sides[i].id; } });
   m.sides.forEach((t, i) => {
@@ -210,7 +230,7 @@ export function playSeason(game, hooks = {}) {
   const P = game.P, N = game.teams.length;
   const days = schedule(N, game.seed + game.season);
   const results = [];
-  game.goals = {};
+  game.goals = {}; game.stats = {};
   days.forEach((day, d) => {
     game.md = { day: d, total: days.length };
     const dayRes = day.map(([a, b]) => {
@@ -238,14 +258,14 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    userPool: game.userPool || [], goals: game.goals || {},
+    userPool: game.userPool || [], goals: game.goals || {}, stats: game.stats || {},
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);
@@ -276,4 +296,16 @@ export function runOffseason(game, D, hooks = {}) {
 // Season scoring table: [{id, g, team}] best first (ties: the lower id, so it is stable).
 export function topScorers(game, n = 10) {
   return Object.entries(game.goals || {}).map(([id, e]) => ({ id: +id, g: e.g, team: e.team })).sort((a, b) => b.g - a.g || a.id - b.id).slice(0, n);
+}
+
+// Season leaders for the stats pages: top n of each box-score column (rating needs a few games to count).
+export const LEADER_KEYS = ["g", "a", "kp", "tk", "ic", "sv", "rt"];
+export function seasonLeaders(game, n = 10) {
+  const rows = Object.entries(game.stats || {}).map(([id, x]) => ({ id: +id, team: x.team, gp: x.gp, g: x.g, a: x.a, kp: x.kp, tk: x.tk, ic: x.ic, sv: x.sv, xg: +x.xg.toFixed(1), rt: x.gp ? +(x.rt / x.gp).toFixed(2) : 0 }));
+  const out = {};
+  for (const k of LEADER_KEYS) {
+    const pool = k === "rt" ? rows.filter((r) => r.gp >= Math.min(3, Math.max(...rows.map((q) => q.gp), 0))) : rows.filter((r) => r[k] > 0);
+    out[k] = pool.sort((a, b) => b[k] - a[k] || b.g - a.g || a.id - b.id).slice(0, n);
+  }
+  return out;
 }

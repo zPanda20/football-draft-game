@@ -46,6 +46,9 @@ export const DEFAULT_PARAMS = {
     ],
   },
 
+  // ---- box score ----
+  stats: { defActShot: 0.4, defActMove: 0.8, tackleShare: 0.55, creator: 0.85, creatorBreak: 0.5 }, // chance a moment has a tackle or interception; share that are tackles; chance a shot comes from a pass
+
   // ---- stamina ----
   stamina: {
     drainPerHalf: 27,                               // at STA 50 -> 27 * (1.5 - STA/100) per half
