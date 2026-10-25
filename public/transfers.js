@@ -5,6 +5,7 @@ import { tradeBody } from "./off.js";
 
 const ui = () => st.ui;
 export const winHandlers = {
+  tpLater(a) { (st.ui.tradeHide || (st.ui.tradeHide = {}))[a.id] = true; st.render(); },
   winTab(a) { ui().winTab = a.tab; st.render(); },
   winSign(a) { send({ t: "windowSign", id: +a.id, len: +a.len }); },
   winDrop(a) { if (ui().dropAsk === +a.id) { ui().dropAsk = null; send({ t: "windowDrop", id: +a.id }); } else { ui().dropAsk = +a.id; st.render(); } },
@@ -67,4 +68,24 @@ export function transfersView(S) {
   const tabs = [["trade", `Trade${n ? ` (${n})` : ""}`], ["fa", "Free agents"], ["drop", "Drop players"]].map(([k, l]) => `<button class="btn sm ${tab === k ? "pri" : ""}" data-act="winTab" data-tab="${k}">${l}</button>`).join("");
   const body = tab === "fa" ? faTab(S) : tab === "drop" ? dropTab(S) : tradeBody(S);
   return `${banner(S)}<div class="row wrap mt" style="gap:6px">${tabs}</div><div class="mt">${body}</div>`;
+}
+
+// ---------- a trade offer from another manager takes over the screen until it is answered or put off ----------
+export function tradePopup(S) {
+  const t = S.me && S.me.trade; if (!t) return "";
+  const hidden = st.ui.tradeHide || (st.ui.tradeHide = {});
+  const open = t.offers.filter((o) => o.to === S.me.teamId && o.status === "open");
+  const shown = open.filter((o) => !hidden[o.id]); if (!shown.length) return "";
+  const o = shown[0], from = team(o.from);
+  const side = (list) => {
+    const ps = list.filter((a) => a.k === "p"), rest = list.filter((a) => a.k !== "p");
+    return `<div class="tp-cards">${ps.map((a) => `<div class="tp-c">${card(a.id, { size: "sm", info: true, tag: " " })}<span class="tiny mute">${(pl(a.id) || {}).contract ? (pl(a.id).contract + " season" + (pl(a.id).contract === 1 ? "" : "s") + " left") : ""}</span></div>`).join("")}</div>
+      ${rest.map((a) => `<div class="pill">${a.k === "i" ? esc((st.items[a.id] || {}).name || a.id) : coins(a.amt)}</div>`).join(" ")}${list.length ? "" : `<span class="mute">Nothing</span>`}`;
+  };
+  return `<div class="gamble tradepop" role="dialog" aria-label="Trade offer"><div class="gamble-in">
+    <div class="tiny mute" style="text-transform:uppercase;letter-spacing:.12em">Trade offer${shown.length > 1 ? ` · ${shown.length} waiting` : ""}</div>
+    <h2>${esc(from.owner || from.name)} wants a deal</h2>
+    <p class="lead">${esc(from.name)} have sent you an offer. ${S.window && S.window.open ? S.window.left <= 1 ? "The window shuts at the next kick-off." : `The window is open for ${S.window.left} more matchdays.` : ""}</p>
+    <div class="tp-grid"><div><h4>You get</h4>${side(o.give)}</div><div class="tp-arrow">⇄</div><div><h4>You give</h4>${side(o.get)}</div></div>
+    <div class="row mt" style="justify-content:flex-end;gap:10px"><button class="btn sm ghost" data-act="tpLater" data-id="${o.id}">Decide later</button><button class="btn" data-act="trNo" data-id="${o.id}">Decline</button><button class="btn pri big" data-act="trYes" data-id="${o.id}">Accept</button></div></div></div>`;
 }

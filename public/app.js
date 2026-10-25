@@ -9,7 +9,7 @@ import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen 
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 import { pcardHandlers, pcardSync } from "./pcard.js";
-import { winHandlers } from "./transfers.js";
+import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
 
 const app = $("#app");
@@ -307,7 +307,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);
