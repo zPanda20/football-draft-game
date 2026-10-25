@@ -480,6 +480,15 @@ t("kits: an alt is only an away kit, and colour clashes send one side to its thi
   }
   assert.ok(clashes > 100 && away > home && home > 0, `swaps happen and the away side goes first: ${clashes} ${away} ${home}`);
 });
+t("position fit: right line and right flank cost nothing, a wide player alone in the middle a little, the wrong flank a bit more", async () => {
+  const { fitMult, slotSides, FORMATIONS } = await import("../engine/roster.js"); const P = (await import("../engine/params.js")).DEFAULT_PARAMS;
+  assert.deepEqual(slotSides(FORMATIONS["2-2-1"]), [-1, 1, -1, 1, 0]); assert.deepEqual(slotSides(FORMATIONS["3-1-1"]), [-1, 0, 1, 0, 0]); assert.deepEqual(slotSides(FORMATIONS["1-3-1"]), [0, -1, 0, 1, 0]);
+  const f = (pos, slot, side) => fitMult(pos, slot, P, side);
+  assert.equal(f("LB", "CB", -1), 1, "left back, left side of a pair"); assert.equal(f("RB", "CB", 1), 1); assert.equal(f("CB", "CB", 1), 1);
+  assert.ok(f("LB", "CB", 0) < 1 && f("LB", "CB", 0) > 0.95, "left back as the only defender: slight"); assert.ok(f("LB", "CB", 1) < f("LB", "CB", 0) && f("LB", "CB", 1) > 0.9, "wrong flank is worse, still small");
+  assert.equal(f("LM", "CM", -1), 1); assert.ok(f("LW", "ST", -1) === 1 && f("LW", "ST", 0) < 1 && f("CAM", "ST", 0) < f("LW", "ST", 0), "forwards on their side are free; other lines cost more");
+  assert.ok(f("CDM", "CAM", 0) > 0.95 && f("CB", "ST", 0) < 0.8, "same line is light, defender up front is heavy");
+});
 t("data update: real STA, three added players, draft-1 rookies moved out of the pool, keepers barely tire, clubs carry country/continent/fans", async () => {
   const { drainPerHalf } = await import("../engine/roster.js"); const P = withParams();
   const names = new Set(D.players.map((p) => p.name)); for (const n of ["Vózinha", "Hélio Varela", "Sidny Lopes Cabral"]) assert.ok(names.has(n), n);

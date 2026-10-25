@@ -2,7 +2,7 @@
 // window), takes the new lineups through next({home, away}), then plays the second half. Every random number is drawn
 // up front in a fixed order, so the same seed gives the same match whatever the managers change at half-time.
 import { makeRng, gauss } from "./rng.js";
-import { SLOT_W, GROUP, FORMATIONS, effective, fatigue, fitMult, drainPerHalf, chooseForFormation, bestLineup } from "./roster.js";
+import { SLOT_W, GROUP, FORMATIONS, slotSides, effective, fatigue, fitMult, drainPerHalf, chooseForFormation, bestLineup } from "./roster.js";
 
 const sig = (x) => 1 / (1 + Math.exp(-x));
 const GHOST = { id: -1, pos: "CM", ovr: 40, sta: 50, pac: 40, sho: 40, pas: 40, dri: 40, def: 40, phy: 40, r: { off: 40, def: 40, ctl: 40, gk: 40 }, name: "Empty slot" };
@@ -28,12 +28,12 @@ export function sanitizeLineup(lineup, roster, P) {
 // What a team is worth right now, split into attack / control / defence / goalkeeping (effective points).
 export function teamNow(side, stamOf, P, fx = {}) {
   const t = fx.team || {}, pl = fx.player || {};
-  const slots = FORMATIONS[side.lineup.formation];
+  const slots = FORMATIONS[side.lineup.formation], sides = slotSides(slots);
   let a = 0, c = 0, d = 0, wa = 0, wc = 0, wd = 0;
   const who = [], grp = { back: { n: 0 }, mid: { n: 0 }, fwd: { n: 0 } };
   slots.forEach((slot, i) => {
     const p = side.byId.get(side.lineup.out[i]) || GHOST;
-    const f = fatigue(stamOf(p), P), fit = fitMult(p.pos, slot, P), [sa, sd, sc] = SLOT_W[slot];
+    const f = fatigue(stamOf(p), P), fit = fitMult(p.pos, slot, P, sides[i]), [sa, sd, sc] = SLOT_W[slot];
     const ab = pl[p.id]?.all || 0;
     const off = (p.r.off + (pl[p.id]?.off || 0) + ab) * fit * f, def = (p.r.def + ab) * fit * f, ctl = (p.r.ctl + ab) * fit * f;
     a += sa * off; wa += sa; d += sd * def; wd += sd; c += sc * ctl; wc += sc;

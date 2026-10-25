@@ -30,13 +30,18 @@ function layout(slots) {
   }
   return pos;
 }
-function fit(pos, slot) {
+// Which side of the pitch a slot is on (mirrors slotSides in engine/roster.js): a pair of the same slot is left then right.
+const sidesOf = (slots) => slots.map((s, i) => (WIDTH[s] ? WIDTH[s] : slots.filter((x) => x === s).length === 2 ? (slots.indexOf(s) === i ? -1 : 1) : 0));
+const LINE = { GK: "gk", CB: "back", LB: "back", RB: "back", CDM: "mid", CM: "mid", LM: "mid", RM: "mid", CAM: "mid", LW: "fwd", RW: "fwd", ST: "fwd" };
+function fit(pos, slot, side = 0) {
   const F = st.cat.fit, xy = st.cat.xy;
   if (slot === "GK") return pos === "GK" ? 1 : F.outfieldInGoal;
   if (pos === slot) return 1;
   if (pos === "GK") return F.gkInOutfield;
-  const [d1, w1] = xy[pos], [d2, w2] = xy[slot];
-  return Math.max(F.floor, 1 - F.perUnit * Math.hypot(d1 - d2, (w1 - w2) * F.widthWeight));
+  const [d1, w1] = xy[pos], [d2, w2] = xy[slot], dd = Math.abs(d1 - d2), sw = w2 || side;
+  const miss = w1 === 0 ? (w2 !== 0 ? 1 : 0) : sw === w1 ? 0 : sw === 0 ? 1 : 2;
+  if (LINE[pos] === LINE[slot]) return Math.max(F.floor, 1 - F.lineUnit * Math.max(0, dd - 0.5) - F.sideUnit * miss);
+  return Math.max(F.floor, 1 - F.perUnit * Math.hypot(dd, miss * F.widthWeight));
 }
 // How much a tired player is held back (about, in rating points). Mirrors engine fatigue().
 const tiredLoss = (ovr, stam) => Math.round(ovr * st.cat.rules.fatigueK * (1 - clamp(stam, 0, 100) / 100));
@@ -200,10 +205,10 @@ function itemsTray(S, l) {
     <div class="ichips">${owned.map(chip).join("")}</div></div>`;
 }
 function pitch(S, l, stamOf) {
-  const slots = S.formations[l.formation], pos = layout(slots);
+  const slots = S.formations[l.formation], pos = layout(slots), sides = sidesOf(slots);
   const sel = st.ui.mSel;
   const one = (slotName, pid, i, at) => {
-    const p = pid != null ? pl(pid) : null, f = p ? fit(p.pos, slotName) : 1, s = p ? Math.round(stamOf(pid)) : 0;
+    const p = pid != null ? pl(pid) : null, f = p ? fit(p.pos, slotName, sides[i]) : 1, s = p ? Math.round(stamOf(pid)) : 0;
     const isSel = sel && ((sel.kind === "slot" && sel.val === i) || (sel.kind === "p" && p && sel.val === pid));
     const loss = p ? tiredLoss(p.ovr, s) : 0;
     const isel = st.ui.itemSel && st.items[st.ui.itemSel], worn = p && S.me ? wornBy(S, pid, activeNow(S)) : [];

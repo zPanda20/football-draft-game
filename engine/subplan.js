@@ -4,7 +4,7 @@
 //   when: "always" | "tired" (the player coming off is below the tired line) | "losing" | "drawing" | "winning"
 // A plan only ever uses what is there: a swap whose player is not on the pitch, or whose replacement is suspended, already
 // playing or the wrong kind (outfield player for the keeper, or the reverse), is skipped. Pure functions, no randomness.
-import { FORMATIONS, fitMult, fatigue } from "./roster.js";
+import { FORMATIONS, slotSides, fitMult, fatigue } from "./roster.js";
 
 export const WHEN = ["always", "tired", "losing", "drawing", "winning"];
 export const MAX_SUBS = 4;
@@ -25,7 +25,7 @@ export function applyPlan(plan, lineup, recs, score, P) {
   const lu = { formation: lineup.formation, gk: lineup.gk, out: lineup.out.slice() };
   const changes = [];
   if (!plan || plan.on === false) return { lineup: { ...lu, bench: benchOf(lu, recs) }, changes };
-  const by = new Map(recs.map((p) => [p.id, p])), slots = FORMATIONS[lu.formation];
+  const by = new Map(recs.map((p) => [p.id, p])), slots = FORMATIONS[lu.formation], sides = slotSides(slots);
   const inXI = () => new Set([lu.gk, ...lu.out].filter((x) => x != null));
   const below = (plan.tired && plan.tired.below) || 45, lead = score[0] - score[1];
   const holds = { always: () => true, tired: (p) => p.stam < below, losing: () => lead < 0, drawing: () => lead === 0, winning: () => lead > 0 };
@@ -43,12 +43,12 @@ export function applyPlan(plan, lineup, recs, score, P) {
     swap(s.out, s.in, s.when || "always");
   }
   if (plan.tired && plan.tired.on) {
-    const worth = (p, slot) => fitMult(p.pos, slot, P) * p.ovr * fatigue(p.stam, P);
+    const worth = (p, slot, side) => fitMult(p.pos, slot, P, side) * p.ovr * fatigue(p.stam, P);
     const order = lu.out.map((id, k) => ({ id, k })).filter((e) => e.id != null && by.has(e.id) && !swapped.has(e.id) && by.get(e.id).stam < below).sort((a, b) => by.get(a.id).stam - by.get(b.id).stam);
     for (const e of order) {
-      const cur = by.get(e.id), slot = slots[e.k], x = inXI();
-      const cand = recs.filter((p) => !x.has(p.id) && !swapped.has(p.id) && p.pos !== "GK" && p.stam > cur.stam).map((p) => ({ p, w: worth(p, slot) })).sort((a, b) => b.w - a.w || a.p.id - b.p.id)[0];
-      if (cand && cand.w > worth(cur, slot)) swap(e.id, cand.p.id, "tired");
+      const cur = by.get(e.id), slot = slots[e.k], side = sides[e.k], x = inXI();
+      const cand = recs.filter((p) => !x.has(p.id) && !swapped.has(p.id) && p.pos !== "GK" && p.stam > cur.stam).map((p) => ({ p, w: worth(p, slot, side) })).sort((a, b) => b.w - a.w || a.p.id - b.p.id)[0];
+      if (cand && cand.w > worth(cur, slot, side)) swap(e.id, cand.p.id, "tired");
     }
   }
   return { lineup: { ...lu, bench: benchOf(lu, recs) }, changes };

@@ -27,13 +27,27 @@ export const FORMATIONS = {
 };
 export const FORMATION_NAMES = Object.keys(FORMATIONS);
 
-// Rating multiplier for playing a position in a slot of a different role.
-export function fitMult(pos, slot, P) {
+// Which side of the pitch each slot of a formation is on: -1 left, 0 middle, +1 right. LB/LM/LW and RB/RM/RW are wide by name;
+// a pair of the same slot (CB CB, CM CM, ST ST) is a left one and a right one, in the order they are listed.
+export function slotSides(slots) {
+  return slots.map((s, i) => {
+    if (XY[s][1] !== 0) return XY[s][1];
+    const same = slots.filter((x) => x === s);
+    return same.length === 2 ? (slots.indexOf(s) === i ? -1 : 1) : 0;
+  });
+}
+
+// Rating multiplier for playing a position in a slot of a different role. In the right line (defence, midfield, attack) the
+// cost is small (nothing for a half-step like LB/CB), and nothing at all if the player is on his own flank (a left back as the left centre-back of a pair; a
+// central defender fits either side of a pair). A wide player alone in the middle loses a little; the wrong flank a bit more.
+// Between lines the cost is the distance on the pitch.
+export function fitMult(pos, slot, P, side = 0) {
   if (pos === slot) return 1;
   if (pos === "GK") return P.fit.gkInOutfield;
-  const [d1, w1] = XY[pos], [d2, w2] = XY[slot];
-  const d = Math.hypot(d1 - d2, (w1 - w2) * P.fit.widthWeight);
-  return Math.max(P.fit.floor, 1 - P.fit.perUnit * d);
+  const [d1, w1] = XY[pos], [d2, w2] = XY[slot], dd = Math.abs(d1 - d2), sw = w2 || side;
+  const miss = w1 === 0 ? (w2 !== 0 ? 1 : 0) : sw === w1 ? 0 : sw === 0 ? 1 : 2;
+  if (GROUP[pos] === GROUP[slot]) return Math.max(P.fit.floor, 1 - P.fit.lineUnit * Math.max(0, dd - 0.5) - P.fit.sideUnit * miss);
+  return Math.max(P.fit.floor, 1 - P.fit.perUnit * Math.hypot(dd, miss * P.fit.widthWeight));
 }
 
 // Per-player role ratings, built from OVR and the six stats. Keepers' six columns are dive, handling, kicking,
@@ -57,9 +71,9 @@ export const fatigue = (s, P) => 1 - P.stamina.fatigueK * (1 - Math.max(0, Math.
 export const drainPerHalf = (p, P) => (p.pos === "GK" ? P.stamina.gk.base + P.stamina.gk.slope * Math.max(0, P.stamina.gk.below - p.sta) : P.stamina.drainPerHalf * (1.5 - p.sta / 100));
 
 // Raw (unstretched) score of a player in an outfield slot, at stamina factor f.
-export function slotRaw(p, slot, P, f = 1) {
+export function slotRaw(p, slot, P, f = 1, side = 0) {
   const [wa, wd, wc] = SLOT_W[slot];
-  return ((wa * p.r.off + wd * p.r.def + wc * p.r.ctl) / (wa + wd + wc)) * fitMult(p.pos, slot, P) * f;
+  return ((wa * p.r.off + wd * p.r.def + wc * p.r.ctl) / (wa + wd + wc)) * fitMult(p.pos, slot, P, side) * f;
 }
 export function gkRaw(p, P, f = 1) { return p.r.gk * (p.pos === "GK" ? 1 : P.fit.outfieldInGoal) * f; }
 
@@ -71,7 +85,7 @@ function avgFactor(p, P) {
 
 // Best five outfielders for a formation (exact, by dynamic programming over subsets) plus the best keeper.
 export function chooseForFormation(players, formation, P, { fixedGk = null } = {}) {
-  const slots = FORMATIONS[formation];
+  const slots = FORMATIONS[formation], sides = slotSides(slots);
   let gk = fixedGk ?? null;
   if (gk == null && players.length) {
     let best = -1;
@@ -80,7 +94,7 @@ export function chooseForFormation(players, formation, P, { fixedGk = null } = {
   const cands = players.filter((p) => p !== gk);
   const n = Math.min(cands.length, 9), C = cands.slice(0, n);
   // dp[i][mask] = best total after filling slots 0..i-1 using the players in mask
-  const M = C.map((p) => slots.map((s) => slotRaw(p, s, P, avgFactor(p, P))));
+  const M = C.map((p) => slots.map((s, i) => slotRaw(p, s, P, avgFactor(p, P), sides[i])));
   const size = 1 << n;
   const dp = [new Float64Array(size).fill(-1e9)]; dp[0][0] = 0;
   const from = [];
@@ -109,8 +123,8 @@ export function chooseForFormation(players, formation, P, { fixedGk = null } = {
   } else {
     // short roster: greedy fill
     const used = new Set();
-    slots.forEach((s, i) => { let b = null, bv = -1; for (const p of C) if (!used.has(p) && slotRaw(p, s, P, 1) > bv) { bv = slotRaw(p, s, P, 1); b = p; } if (b) { used.add(b); out[i] = b; } });
-    bestV = out.reduce((a, p, i) => a + (p ? slotRaw(p, slots[i], P, avgFactor(p, P)) : 40), 0);
+    slots.forEach((s, i) => { let b = null, bv = -1; for (const p of C) if (!used.has(p) && slotRaw(p, s, P, 1, sides[i]) > bv) { bv = slotRaw(p, s, P, 1, sides[i]); b = p; } if (b) { used.add(b); out[i] = b; } });
+    bestV = out.reduce((a, p, i) => a + (p ? slotRaw(p, slots[i], P, avgFactor(p, P), sides[i]) : 40), 0);
   }
   const gkScore = gk ? gkRaw(gk, P, avgFactor(gk, P)) : 40;
   const score = (bestV + gkScore) / (slots.length + 1);

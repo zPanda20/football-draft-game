@@ -5,7 +5,7 @@ export const DEFAULT_PARAMS = {
   blendOvr: 0.5,                                    // a player's role score is this share OVR, the rest the role's stat mix
 
   // ---- position fit (see roster.js) ----
-  fit: { perUnit: 0.055, floor: 0.45, gkInOutfield: 0.45, outfieldInGoal: 0.40, widthWeight: 0.7 },
+  fit: { perUnit: 0.055, lineUnit: 0.02, sideUnit: 0.03, floor: 0.45, gkInOutfield: 0.45, outfieldInGoal: 0.40, widthWeight: 0.7 },
 
   // ---- match ----
   match: {
