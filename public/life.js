@@ -122,8 +122,24 @@ export function newsAsk(S) {
   return a.map((n) => `<div class="card newsask"><div class="tiny mute" style="text-transform:uppercase;letter-spacing:.08em">${esc(n.icon)} A story about ${esc(n.name)} is ready</div><b>${esc(n.head)}</b><p class="small mute" style="margin:4px 0 8px">${esc(n.sub)}</p>
     <div class="row" style="gap:8px"><button class="btn pri" data-act="newsYes" data-id="${n.id}">Let it run</button><button class="btn" data-act="newsNo" data-id="${n.id}">Keep it quiet</button></div></div>`).join("");
 }
+// The Daily Whistle as a front page: the newest story big, with the older ones in columns underneath.
+export function frontPage(S, { cols = 6 } = {}) {
+  const l = ((S.news && S.news.list) || []).slice().sort((a, b) => (b.pub || 0) - (a.pub || 0));
+  const art = (k) => st.cat.art && st.cat.art.news && st.cat.art.news[k];
+  const masthead = (() => { const u = st.cat.art && st.cat.art.ui && st.cat.art.ui.masthead; return u ? `<img src="${esc(u)}" alt="The Daily Whistle">` : `<div class="fp-title">The Daily Whistle</div>`; })();
+  const where = S.season ? `Season ${S.seasonNo} · Matchday ${S.season.day + 1}` : "";
+  const meta = `<div class="fp-meta"><span>${where}</span><span>Est. in the dressing room</span><span>${l.length} ${l.length === 1 ? "story" : "stories"} so far</span></div>`;
+  if (!l.length) return `<div class="frontpage">${`<div class="fp-mast">${masthead}</div>`}${meta}<p class="fp-sub" style="padding:18px 16px;border:0">Quiet week. Nothing to report. The editor has gone for lunch.</p></div>`;
+  const [lead, ...rest] = l, pic = art(lead.kind);
+  const by = (n) => `${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}`;
+  return `<div class="frontpage"><div class="fp-mast">${masthead}</div>${meta}
+    <div class="fp-lead"><div><div class="fp-head">${esc(lead.head)}</div><p class="fp-sub">${esc(lead.sub)}</p><div class="tiny" style="margin-top:6px;letter-spacing:.1em;text-transform:uppercase;color:#7a6f55">${by(lead)} · season ${lead.season}, matchday ${lead.day + 1}</div></div>
+      <div class="fp-pic" ${pic ? `style="background-image:url('${esc(pic)}')"` : ""}>${pic ? "" : esc(lead.kind === "steroids" ? "💉" : lead.icon)}<em>${esc(KIND[lead.kind] || "News")}</em></div></div>
+    ${rest.length ? `<div class="fp-cols">${rest.slice(0, cols).map((n) => `<div class="fp-col"><small>${esc(KIND[n.kind] || "News")} · S${n.season} MD${n.day + 1}</small><b>${esc(n.head)}</b><span>${esc(n.sub.length > 120 ? n.sub.slice(0, 118) + "…" : n.sub)}</span></div>`).join("")}</div>` : ""}</div>`;
+}
 export function newsCard(S) {
   const l = S.news && S.news.list; if (!l || !l.length) return "";
+  if (["md.result", "season.end", "season.intro"].includes(S.step)) return frontPage(S, { cols: 3 });
   return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div></div>`).join("")}</div></div>`;
 }
 

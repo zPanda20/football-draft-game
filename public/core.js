@@ -192,12 +192,21 @@ export function myClub() {
 }
 export function applyTheme() {
   const c = myClub(), r = document.documentElement.style;
-  r.setProperty("--acc", c ? lift(c.c1, c.c2) : "#3ddc84");
+  const acc = c ? lift(c.c1, c.c2) : "#3ddc84";
+  r.setProperty("--acc", acc);
+  r.setProperty("--acc-ink", lumOf(acc) > 0.22 ? "#06130c" : "#ffffff");           // readable text on a button in the club colour
+  r.setProperty("--c1", c ? c.c1 : "#1f7a40"); r.setProperty("--c2", c ? c.c2 : "#ffd23f");
   const w = c && art(c, "wallpaper"), bg = document.getElementById("bg");
   if (bg) { bg.style.setProperty("--wall", w ? `url("${w}")` : "none"); bg.classList.toggle("wall", !!w); }
 }
+const lumOf = (h) => { const v = [1, 3, 5].map((i) => parseInt(String(h).slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
 // the club's main colour if it shows on the dark interface, otherwise its second colour, otherwise the main colour lightened
 function lift(a, b) {
   const lum = (h) => { const v = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-  return lum(a) > 0.12 ? a : lum(b) > 0.12 ? b : lighten(a, 0.5);
+  if (lum(a) > 0.12) return a;
+  let x = a; for (let k = 0.12; k <= 0.36 && lum(x) < 0.14; k += 0.06) x = lighten(a, k);   // the club's own colour, lifted only as far as the dark interface needs
+  if (lum(x) >= 0.14) return x;
+  if (lum(b) > 0.12) return b;
+  for (let k = 0.42; k <= 0.7 && lum(x) < 0.14; k += 0.07) x = lighten(a, k);
+  return x;
 }

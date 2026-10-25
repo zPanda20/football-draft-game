@@ -29,12 +29,12 @@ function progress(S) {
 }
 
 function cardFor(c, i, chosenIdx, locked, fresh, needGk = false) {
-  const cls = `pickable ${chosenIdx === i ? "chosen" : ""} ${locked && chosenIdx === i ? "locked" : ""} ${locked && chosenIdx !== i ? "dim" : ""} ${fresh ? "flip" : ""}`;
+  const tier = c.t === "p" ? tierOf(pl(c.id).ovr) : "", cls = `pickable ${chosenIdx === i ? "chosen" : ""} ${locked && chosenIdx === i ? "locked" : ""} ${locked && chosenIdx !== i ? "dim" : ""} ${fresh ? "flip3d t-" + tier : ""}`;
   const style = fresh ? ` style="animation-delay:${i * 0.18}s"` : "";
   const attr = locked ? "" : `data-act="pickc" data-idx="${i}"`;
   const inner = c.t === "p" ? card(c.id, { size: "lg", cls: "" }) : itemCard(c.id, { cls: "" });
   const need = needGk && c.t === "p" && pl(c.id).pos === "GK" ? `<div class="needgk">YOUR KEEPER</div>` : "";
-  return `<div class="${cls}" ${attr}${style}>${need}${inner}</div>`;
+  return `<div class="${cls}" ${attr}${style}>${fresh ? `<div class="fback">?</div>` : ""}${need}${inner}</div>`;
 }
 
 export function draftView(S, ctx) {

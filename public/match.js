@@ -1,9 +1,11 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card, longName, userTags } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card, longName, userTags, lum } from "./core.js";
 import { transfersView, winOpen, winCountdown, incomingOffers } from "./transfers.js";
 import { ratings, ratingClass } from "./rating.js";
 import { storeCard } from "./store.js";
 import { statsHandlers, playerStats, awardsCard } from "./stats.js";
+import { frontPage } from "./life.js";
+import { goalCall } from "./skin.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // A team with its kit right next to the crest (side 0 = home kit, 1 = away kit).
@@ -285,6 +287,11 @@ function lineupEditor(S, half) {
   const row = (p) => p.susp ? `<div class="benchrow g-${posGroup(p.pos)} dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span><button class="pinfo" data-act="pcard" data-id="${p.id}" title="Full player card" aria-label="Open full card">i</button></div>` : `<div class="benchrow g-${posGroup(p.pos)} ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
     <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span>
     <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span><button class="pinfo" data-act="pcard" data-id="${p.id}" title="Full player card" aria-label="Open full card">i</button></div>`;
+  const tile = (p) => {
+    const sv = Math.round(stamOf(p.id)), loss = tiredLoss(p.ovr, sv), cls = p.susp ? "dim" : sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : "";
+    return `<div class="tcard ${cls}" ${p.susp ? "" : `data-act="mplayer" data-id="${p.id}" draggable="true"`}>${card(p.id, { size: "sm", info: true, tag: p.susp ? `Susp. ${p.susp}` : " " })}
+      <div class="tstam"><i class="${sv < 35 ? "low" : sv < 60 ? "mid" : ""}" style="width:${sv}%"></i></div><div class="tmeta" style="padding:0 6px 4px;color:var(--mute)"><span>${sv}%</span>${loss >= 2 ? `<span class="tdn">−${loss}</span>` : ""}</div></div>`;
+  };
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
@@ -294,7 +301,7 @@ function lineupEditor(S, half) {
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
     ${half ? planBanner(S) : subPlanCard(S, l)}
     ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
-    <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div class="tiny mute" style="margin:2px 2px 0"><b>Bench</b> (${roster.length}) · sorted by position</div><div data-keep="bench" style="max-height:450px;overflow:auto">${roster.map(row).join("") || `<div class="tiny mute" style="padding:8px">Nobody on the bench.</div>`}</div></div></div></div>`;
+    <div class="pitchfirst mt">${swapHint(sel)}${pitch(S, l, stamOf)}<div class="tray"><div class="th"><b>Bench</b><span>${roster.length} player${roster.length === 1 ? "" : "s"} · drag a card onto the pitch to swap, or tap two players</span></div><div class="tl" data-keep="bench">${roster.map(tile).join("") || `<div class="tiny mute" style="padding:8px">Nobody on the bench.</div>`}</div></div></div></div>`;
 }
 
 // ---------- playback ----------
@@ -369,12 +376,13 @@ function statsPanel(m, now) {
   const poll = pts.length ? `<polyline points="${pts.map((q) => q.map((n) => n.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="${HOME_C}" stroke-width="2.4" stroke-linejoin="round"/>` : "";
   const area = pts.length ? `<polygon points="${pts[0][0].toFixed(1)},${PH / 2} ${pts.map((q) => q.map((n) => n.toFixed(1)).join(",")).join(" ")} ${pts[pts.length - 1][0].toFixed(1)},${PH / 2}" fill="${HOME_C}" opacity=".14"/>` : "";
   const poss = `<svg viewBox="0 0 ${W} ${PH}" class="mchart short" role="img" aria-label="Possession over time (home share, 20 to 80 percent)"><line x1="${45 * bw}" y1="0" x2="${45 * bw}" y2="${PH}" stroke="currentColor" opacity=".25" stroke-dasharray="3 3"/><line x1="0" y1="${PH / 2}" x2="${W}" y2="${PH / 2}" stroke="currentColor" opacity=".3"/>${area}${poll}</svg>`;
-  const ph = Math.round(possAt(k, now) * 100), shots = [0, 0]; for (const e of k.ev) if (e.type === "goal" || e.type === "save") shots[e.team]++;
+  const ph = Math.round(possAt(k, now) * 100), shots = [0, 0], xg = [0, 0]; for (const e of k.ev) if (e.type === "goal" || e.type === "save") { shots[e.team]++; xg[e.team] += e.xg || 0; }
   return `<div class="mstat"><div class="mrow"><span class="lg"><i style="background:${HOME_C}"></i>${esc(team(m.a).name)}</span><b class="mtitle">Momentum</b><span class="lg"><i style="background:${AWAY_C}"></i>${esc(team(m.b).name)}</span></div>${mom}
     <div class="axis"><span>0'</span><span>HT</span><span>90'</span></div>
     <div class="mrow mt"><b class="num">${ph}%</b><b class="mtitle">Possession</b><b class="num">${100 - ph}%</b></div>
     <div class="pbar"><i style="width:${ph}%;background:${HOME_C}"></i><i style="width:${100 - ph}%;background:${AWAY_C}"></i></div>${poss}
-    <div class="mrow mt"><b class="num">${shots[0]}</b><b class="mtitle">Shots</b><b class="num">${shots[1]}</b></div></div>`;
+    <div class="mrow mt"><b class="num">${shots[0]}</b><b class="mtitle">Shots</b><b class="num">${shots[1]}</b></div>
+    <div class="xgbar"><div class="mrow"><b class="num">${xg[0].toFixed(2)}</b><b class="mtitle">Expected goals</b><b class="num">${xg[1].toFixed(2)}</b></div><div class="xb"><i style="width:${xg[0] + xg[1] > 0 ? (xg[0] / (xg[0] + xg[1])) * 100 : 50}%;background:${HOME_C}"></i><i style="width:${xg[0] + xg[1] > 0 ? (xg[1] / (xg[0] + xg[1])) * 100 : 50}%;background:${AWAY_C}"></i></div></div></div>`;
 }
 
 // ---------- line-ups with live ratings ----------
@@ -421,7 +429,14 @@ export function playbackTick() {
     const s = matchState(m, half, t);
     if (n.dataset.pb === "score") {
       const txt = `${s.sc[0]} – ${s.sc[1]}`;
-      if (n.textContent !== txt) { if (n.textContent) { n.classList.remove("goalflash"); void n.offsetWidth; n.classList.add("goalflash"); } n.textContent = txt; }
+      if (n.textContent !== txt) {
+        if (n.textContent) {
+          n.classList.remove("goalflash"); void n.offsetWidth; n.classList.add("goalflash");
+          const bar = n.closest(".sbar");
+          if (bar) { bar.classList.remove("burst"); void bar.offsetWidth; bar.classList.add("burst"); const g = s.events.filter((e) => e.type === "goal").pop(); if (g) goalCall(nm(g.player), team(g.team ? m.b : m.a).name, g.minute); }
+        }
+        n.textContent = txt;
+      }
     } else if (n.dataset.pb === "ticker") {
       const html = s.events.slice().reverse().map((e) => evLine(m, e)).join("") || `<span class="mute small">${half ? "Second half under way." : "Kick-off."}</span>`;
       if (n.dataset.last !== html) { n.innerHTML = html; n.dataset.last = html; }
@@ -439,13 +454,18 @@ function focusK(S) {
   if (st.ui.focusDay !== R.day) { st.ui.focusDay = R.day; st.ui.focus = null; }
   return st.ui.focus != null && R.matches[st.ui.focus] ? st.ui.focus : mine >= 0 ? mine : 0;
 }
+// The broadcast scoreboard: both clubs in their colours with crest and kit, the score in the middle, the clock under it.
+function scoreboard(S, m, k) {
+  const [HC, AC] = matchColors(club(team(m.a)), club(team(m.b))), ink = (c) => (lum(c) > 0.4 ? "#10151b" : "#ffffff");
+  const half = S.step === "md.half1" ? "First half" : S.step === "md.half" ? "Half-time" : S.step === "md.half2" ? "Second half" : "Full time";
+  const one = (ti, opp, side, cls) => `<div class="sbs ${cls}">${crest(team(ti), 52)}${shirt(club(team(ti)), kitOf(ti, opp, side), 46)}<span class="tn">${esc(team(ti).name)}</span></div>`;
+  return `<div class="sbar" id="sbar" data-k="${k}" style="--hc:${HC};--ac:${AC};--hn:${ink(HC)};--an:${ink(AC)}">${one(m.a, m.b, 0, "h")}<div class="mid"><div class="sc" data-pb="score" data-k="${k}"></div><div class="clk" data-pb="clock" data-k="${k}"></div><div class="half">${half}</div></div>${one(m.b, m.a, 1, "a")}</div>`;
+}
 function playbackView(S) {
   const R = S.reveal, me = S.me;
   const mine = focusK(S);
   const m = R.matches[mine] || null;
-  const big = m ? `<div class="card"><div class="row"><h3 style="margin:0">${S.step === "md.half1" || S.step === "md.half" ? "First half" : "Second half"}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${mine}"></span></div>
-    <div class="bigmatch"><div class="tm"><div class="tmhead">${crest(team(m.a), 44)}${shirt(club(team(m.a)), kitOf(m.a, m.b, 0), 52)}</div>${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm"><div class="tmhead">${crest(team(m.b), 44)}${shirt(club(team(m.b)), kitOf(m.b, m.a, 1), 52)}</div>${esc(team(m.b).name)}</div></div>
-    <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
+  const big = m ? `${scoreboard(S, m, mine)}<div class="card"><div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
     <div class="card"><h3>Line-ups and ratings</h3><div data-pb="lineups" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
 }
@@ -489,24 +509,60 @@ function hubBar(S, title, back = "hubback", backText = "← Menu") {
   const me = S.me, ready = me && S.teams[me.teamId].ready;
   return `<div class="card hubbar"><button class="btn sm" data-act="${back}">${backText}</button><h3 style="margin:0">${esc(title)}</h3><div class="grow"></div>${me ? `<button class="btn ${ready ? "" : "pri"}" data-act="mready">${ready ? "Ready ✓ (undo)" : "Ready"}</button>` : ""}</div>`;
 }
+// Last five results of a club, newest on the right.
+function formDots(S, ti) {
+  const res = S.sched ? S.sched.results.filter(([, a, b]) => a === ti || b === ti).sort((x, y) => x[0] - y[0]).slice(-5) : [];
+  const dots = res.map(([d, a, b, ga, gb]) => { const mine = a === ti ? ga : gb, th = a === ti ? gb : ga, o = mine > th ? "W" : mine < th ? "L" : "D"; return `<i class="${o}" title="Matchday ${d + 1}: ${ga}–${gb}">${o}</i>`; });
+  while (dots.length < 5) dots.unshift(`<i class="n">–</i>`);
+  return `<span class="form">${dots.join("")}</span>`;
+}
+const ordinal = (n) => n + (["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || "th");
+// The one thing worth your attention right now.
+function biggestDecision(S, me, t) {
+  if (me) {
+    const l = me.lineup, tired = l ? [l.gk, ...l.out].filter((id) => id != null && pl(id) && pl(id).stam < 50).length : 0;
+    if (winOpen(S) && incomingOffers(S)) return { ic: "🔁", text: `${incomingOffers(S)} trade offer${incomingOffers(S) === 1 ? " is" : "s are"} waiting for you.`, to: "transfers" };
+    if (winOpen(S) && S.window.left <= 1) return { ic: "⏳", text: "Last chance: the transfer window shuts at the next kick-off.", to: "transfers" };
+    if (tired >= 3) return { ic: "🔋", text: `${tired} of your starters are tired. Rotate the squad or accept the drop in form.`, to: "team" };
+    if (me.fin && me.fin.expiring.length) return { ic: "📝", text: `${me.fin.expiring.length} contract${me.fin.expiring.length === 1 ? "" : "s"} run out this season (about ${Math.round(me.fin.cheapest)} coins to keep ${me.fin.expiring.length === 1 ? "him" : "them"}).`, to: "finance" };
+    if (S.store && S.store.open && Object.values(S.store.stock || {}).some((n) => n > 0) && me.coins >= 60) return { ic: "🛒", text: "A rare item is in the store and you can afford a look.", to: "store" };
+    if (winOpen(S)) return { ic: "🔁", text: `The transfer window is open: ${winCountdown(S)}.`, to: "transfers" };
+    return { ic: "✅", text: t && t.ready ? "You are locked in. Waiting for the rest of the room." : "Nothing urgent. Check your line-up and press Ready.", to: t && t.ready ? null : "team", ok: true };
+  }
+  return { ic: "👀", text: "Waiting for the managers.", to: null, ok: true };
+}
 function hubHome(S) {
-  const me = S.me, d = S.season.day, fx = (S.season.fixtures || []).find(([a, b]) => me && (a === me.teamId || b === me.teamId));
+  const me = S.me, d = S.season.day, myTi = me ? me.teamId : S.pm && S.pm.team != null ? S.pm.team : null;
+  const fx = myTi != null ? (S.season.fixtures || []).find(([a, b]) => a === myTi || b === myTi) : null;
   const t = me ? S.teams[me.teamId] : null, ready = t && t.ready;
-  const rank = t ? (S.table || []).findIndex((r) => r.i === t.id) : -1, row = rank >= 0 ? S.table[rank] : null;
+  const rank = myTi != null ? (S.table || []).findIndex((r) => r.i === myTi) : -1, row = rank >= 0 ? S.table[rank] : null;
   const have = me ? me.coins : S.pm ? S.pm.coins : 0, rare = S.store && S.store.open && Object.values(S.store.stock || {}).some((n) => n > 0);
   const tile = (to, ic, name, sub, cls = "") => `<button class="hubtile ${cls}" data-act="hubgo" data-to="${to}"><span class="ic">${ic}</span><b>${name}</b><span class="sub">${sub}</span></button>`;
-  const next = fx ? `<div class="hubnext">${tchipK(fx[0], 0, 26, fx[1])}<span class="mute">v</span>${tchipK(fx[1], 1, 26, fx[0])}</div>${kitNote(fx)}` : "";
+  const side = (ti, opp, k) => { const tm = team(ti), r = (S.table || []).findIndex((x) => x.i === ti), tr = r >= 0 ? S.table[r] : null;
+    return `<div class="hh-side ${ti === myTi ? "mine" : ""}">${crest(tm, 64)}<div class="kits">${shirt(club(tm), kitOf(ti, opp, k), 46)}</div><div class="tn">${esc(tm.name)}</div><div class="sub">${tr ? `${ordinal(r + 1)} · ${tr.pts} pts` : "–"}</div>${formDots(S, ti)}</div>`; };
+  const hero = fx ? `<div class="hh-vs">${side(fx[0], fx[1], 0)}<div class="hh-mid">V<small>${myTi === fx[0] ? "HOME" : myTi === fx[1] ? "AWAY" : "NEXT"}</small></div>${side(fx[1], fx[0], 1)}</div>${kitNote(fx)}` : "";
+  const dec = biggestDecision(S, me, t), info = [];
+  const winTxt = winOpen(S) ? `Window open · ${S.window.left} matchday${S.window.left === 1 ? "" : "s"} left` : "";
   const tiles = [
-    me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items${Object.values(me.items || {}).some((n) => n > 0) ? "" : ""}`) : "",
-    tile("standings", "🏆", "Standings", row ? `${rank + 1}${["st", "nd", "rd"][rank] || "th"} · ${row.pts} pts · table, results, Golden Boot` : "Table, results, Golden Boot, other teams"),
-    tile("stats", "📊", "Player stats", "Every player's season: goals, assists, ratings, awards"),
-    me && me.fin ? tile("finance", "💰", "Finance", `${me.fin.expiring.length ? `${me.fin.expiring.length} contract${me.fin.expiring.length === 1 ? "" : "s"} expiring · about ${Math.round(me.fin.cheapest)} to keep them` : "Nothing expiring this year"}`) : "",
     winOpen(S) ? tile("transfers", "🔁", "Transfers", `${winCountdown(S)}${incomingOffers(S) ? ` · <span class="rarepip">${incomingOffers(S)} offer${incomingOffers(S) === 1 ? "" : "s"} for you</span>` : ""}`, "windowtile") : "",
-    tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item in stock</span>" : ""}`),
-    me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : ready ? "Ready" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
+    me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items`) : "",
+    tile("standings", "🏆", "Standings", row ? `${ordinal(rank + 1)} · ${row.pts} pts` : "Table &amp; results"),
+    me && me.fin ? tile("finance", "💰", "Finance", me.fin.expiring.length ? `${me.fin.expiring.length} expiring` : "All set") : "",
+    tile("stats", "📊", "Stats", "Goals, ratings, awards"),
+    tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item</span>" : ""}`),
+    tile("news", "📰", "News", ((S.news && S.news.list) || []).length ? `${S.news.list.length} stor${S.news.list.length === 1 ? "y" : "ies"}` : "The Daily Whistle"),
+    me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
   ].join("");
-  return `<div class="card hubhead"><div class="row wrap"><h3 style="margin:0">Matchday ${d + 1} of ${S.season.total}</h3><div class="grow"></div><span class="mute small">Next match</span></div>${next}</div>
-    <div class="hubgrid">${tiles}</div>${fixturesPreview(S)}`;
+  return `<div class="card hub-hero"><div class="hh-top"><span>Matchday ${d + 1} of ${S.season.total}</span>${winTxt ? `<span class="win">${winTxt}</span>` : ""}</div>${hero}
+    <div class="hh-foot">${myTi != null ? `<span class="hh-rank">${row ? ordinal(rank + 1) : "–"}<small>${row ? `${row.pts} pts · ${row.w}-${row.d}-${row.l}` : ""}</small></span>` : ""}<span class="grow"></span><span class="coin">${Math.round(have)}<i></i></span></div>
+    ${dec.to ? `<button class="decision ${dec.ok ? "ok" : ""}" data-act="${dec.to === "mready" ? "mready" : "hubgo"}" data-to="${dec.to}"><span class="di">${dec.ic}</span><span><b>${dec.ok ? "All good" : "Needs you"}</b><span class="dt">${dec.text}</span></span></button>` : `<div class="decision ${dec.ok ? "ok" : ""}"><span class="di">${dec.ic}</span><span><b>${dec.ok ? "All good" : "Needs you"}</b><span class="dt">${dec.text}</span></span></div>`}</div>
+    <div class="hubgrid compact">${tiles}</div>${fixturesPreview(S)}`;
+}
+// Phone: the menu lives in a bar at the bottom of the screen, on every menu page.
+function hubDock(S) {
+  const me = S.me, ready = me && S.teams[me.teamId].ready, hub = st.ui.hub || "home";
+  const b = (to, ic, name, extra = "") => `<button class="${hub === to ? "on" : ""}" data-act="${to === "home" ? "hubback" : "hubgo"}" data-to="${to}"><span class="ic">${ic}</span>${name}${extra}</button>`;
+  return `<nav class="hubdock">${b("home", "🏠", "Home")}${me ? b("team", "📋", "Team") : ""}${b("standings", "🏆", "Table")}${winOpen(S) ? b("transfers", "🔁", "Window", incomingOffers(S) ? `<i class="dotb"></i>` : "") : me && me.fin ? b("finance", "💰", "Money") : b("stats", "📊", "Stats")}${b("news", "📰", "News")}${me ? `<button class="rd ${ready ? "done" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span>${ready ? "Ready" : "Go"}</button>` : ""}</nav>`;
 }
 function teamViewer(S, i) {
   const t = team(i), c = club(t), row = (S.table || []).findIndex((r) => r.i === i), tr = row >= 0 ? S.table[row] : null;
@@ -560,13 +616,16 @@ function financeView(S) {
 function hubView(S) {
   if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.ui.itemSel = null; }
   const hub = st.ui.hub;
-  if (!hub || (hub === "team" && !S.me)) return hubHome(S);
-  if (hub === "team") return hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
-  if (hub === "finance" && S.me && S.me.fin) return hubBar(S, "Finance") + financeView(S);
-  if (hub === "transfers") return hubBar(S, "Transfers") + transfersView(S);
-  if (hub === "stats") return hubBar(S, "Player stats") + playerStats(S);
-  if (hub === "store") return hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
-  return standingsView(S);
+  let body;
+  if (!hub || (hub === "team" && !S.me)) body = hubHome(S);
+  else if (hub === "team") body = hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
+  else if (hub === "finance" && S.me && S.me.fin) body = hubBar(S, "Finance") + financeView(S);
+  else if (hub === "transfers") body = hubBar(S, "Transfers") + transfersView(S);
+  else if (hub === "stats") body = hubBar(S, "Player stats") + playerStats(S);
+  else if (hub === "news") body = hubBar(S, "The Daily Whistle") + frontPage(S, { cols: 9 });
+  else if (hub === "store") body = hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
+  else body = standingsView(S);
+  return body + hubDock(S);
 }
 
 // ---------- the whole view ----------

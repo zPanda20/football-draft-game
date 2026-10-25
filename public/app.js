@@ -10,6 +10,7 @@ import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js"
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 import { pcardHandlers, pcardSync } from "./pcard.js";
 import { winHandlers } from "./transfers.js";
+import { phaseBanner } from "./skin.js";
 
 const app = $("#app");
 app.innerHTML = `<div id="top"></div><div id="body"></div><div id="hostbar"></div>`;
@@ -309,18 +310,19 @@ function render() {
   if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
-  const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);
+  const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);
   const typed = $$("input[id]").filter((n) => n.type !== "checkbox" && n.type !== "range").map((n) => [n.id, n.value]);
   const fo = document.activeElement && document.activeElement.id;
   if (main !== lastMain) { mw.innerHTML = main; lastMain = main; }
   if (side !== lastSide) { sw.innerHTML = side; lastSide = side; }
   el.host.innerHTML = hostBar(S);
-  for (const [k, top] of keep) { const n = $(`[data-keep="${k}"]`); if (n) n.scrollTop = top; }
+  for (const [k, top, left] of keep) { const n = $(`[data-keep="${k}"]`); if (n) { n.scrollTop = top; n.scrollLeft = left; } }
   for (const [id, val] of typed) { const n = document.getElementById(id); if (n && n.value !== val) n.value = val; }
   if (fo && $("#" + fo) && document.activeElement !== $("#" + fo)) $("#" + fo).focus();
   const log = $("#chatlog"); if (log) log.scrollTop = log.scrollHeight;
   if (st.ui.lastStep !== S.step) { st.ui.lastStep = S.step; window.scrollTo(0, 0); }
-  playbackTick(); pcardSync();
+  document.body.dataset.view = S.step === "lobby" ? "lobby" : S.step === "md.lineup" ? "hub" : /^md\./.test(S.step) ? "match" : "other";
+  playbackTick(); pcardSync(); phaseBanner(S);
 }
 st.render = render;
 window.__st = st;
