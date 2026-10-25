@@ -242,8 +242,8 @@
    "slug": "france-national",
    "name": "French National Team",
    "short": "FRA",
-   "c1": "#0055a4",
-   "c2": "#ef4135",
+   "c1": "#223a9a",
+   "c2": "#9db8b3",
    "kind": "code",
    "unlock": "baguette"
   },
@@ -251,7 +251,7 @@
    "slug": "italy-national",
    "name": "Italian National Team",
    "short": "ITA",
-   "c1": "#0064c8",
+   "c1": "#2f67c2",
    "c2": "#ffffff",
    "kind": "code",
    "unlock": "pineapple"
@@ -269,8 +269,8 @@
    "slug": "usa-national",
    "name": "US National Team",
    "short": "USA",
-   "c1": "#0a2a5e",
-   "c2": "#bf0a30",
+   "c1": "#ffffff",
+   "c2": "#2b3050",
    "kind": "code",
    "unlock": "guns"
   },

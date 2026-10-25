@@ -87,14 +87,15 @@ const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 export const lum = (h) => { const v = rgb(h).map((x) => x / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
 export const colorDist = (a, b) => { const [r1, g1, b1] = rgb(a), [r2, g2, b2] = rgb(b); return Math.sqrt(2 * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + 3 * (b1 - b2) ** 2); };
 const lighten = (h, k = 0.45) => "#" + rgb(h).map((x) => Math.round(x + (255 - x) * k).toString(16).padStart(2, "0")).join("");
-// The two colours a match is drawn in: the home side's main colour, and the away side's main colour unless it is too
-// close to the home side's (or too dark to see), in which case the away side's secondary colour.
+// The two colours a match is drawn in: the home side's main colour (c1, its home kit), and the away side's away colour
+// (c2, its away kit) unless that is too close to the home side's, in which case its main colour. A colour too dark to
+// read on the page (black, navy, port wine) is drawn a little lighter, not swapped for another one.
 export function matchColors(home, away) {
-  const vis = (h) => lum(h) > 0.07, ok = (a, b) => colorDist(a, b) > 160;
-  const h = home ? (vis(home.c1) ? home.c1 : vis(home.c2) ? home.c2 : lighten(home.c1)) : "#3ddc84";
+  const ok = (a, b) => colorDist(a, b) > 160, show = (h) => (lum(h) > 0.07 ? h : lighten(h, 0.35));
+  const h = home ? show(home.c1) : "#3ddc84";
   if (!away) return [h, "#ffb020"];
-  const cands = [away.c1, away.c2].filter(vis);
-  const a = cands.find((c) => ok(c, h)) || cands.sort((x, y) => colorDist(y, h) - colorDist(x, h))[0] || lighten(away.c1);
+  const cands = [show(away.c2), show(away.c1)];
+  const a = cands.find((c) => ok(c, h)) || cands.sort((x, y) => colorDist(y, h) - colorDist(x, h))[0];
   return [h, ok(a, h) ? a : "#ffb020"];
 }
 // A kit next to a crest: the club's uploaded kit if there is one, else a simple shirt in its colours.
@@ -153,8 +154,8 @@ export function applyTheme() {
   const w = c && art(c, "wallpaper"), bg = document.getElementById("bg");
   if (bg) { bg.style.setProperty("--wall", w ? `url("${w}")` : "none"); bg.classList.toggle("wall", !!w); }
 }
-// the club's main colour if it shows on the dark interface, otherwise its second colour
+// the club's main colour if it shows on the dark interface, otherwise its second colour, otherwise the main colour lightened
 function lift(a, b) {
   const lum = (h) => { const v = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-  return lum(a) > 0.12 ? a : lum(b) > 0.12 ? b : "#3ddc84";
+  return lum(a) > 0.12 ? a : lum(b) > 0.12 ? b : lighten(a, 0.5);
 }

@@ -4,7 +4,7 @@
   "name": "Juventus",
   "short": "JUV",
   "c1": "#111111",
-  "c2": "#ffffff",
+  "c2": "#6f9ec2",
   "kind": "main",
   "aliases": [
    "Juventus"
@@ -14,8 +14,8 @@
   "slug": "juventus-throwback",
   "name": "Juventus Throwback",
   "short": "JUT",
-  "c1": "#1a1a1a",
-  "c2": "#f2e6b8",
+  "c1": "#111111",
+  "c2": "#d98d92",
   "kind": "throwback",
   "base": "juventus",
   "label": "Throwback"
@@ -24,8 +24,8 @@
   "slug": "inter",
   "name": "Inter",
   "short": "INT",
-  "c1": "#0a3d91",
-  "c2": "#101010",
+  "c1": "#143ea8",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Inter",
@@ -37,8 +37,8 @@
   "slug": "inter-throwback",
   "name": "Inter Throwback",
   "short": "INT",
-  "c1": "#101010",
-  "c2": "#0a3d91",
+  "c1": "#2d62b3",
+  "c2": "#ffffff",
   "kind": "throwback",
   "base": "inter",
   "label": "Throwback"
@@ -48,7 +48,7 @@
   "name": "Real Madrid",
   "short": "RMA",
   "c1": "#ffffff",
-  "c2": "#febe10",
+  "c2": "#1f265f",
   "kind": "main",
   "aliases": [
    "Real Madrid",
@@ -60,7 +60,7 @@
   "name": "Barcelona",
   "short": "BAR",
   "c1": "#a50044",
-  "c2": "#004d98",
+  "c2": "#c2bce4",
   "kind": "main",
   "aliases": [
    "Barcelona",
@@ -71,8 +71,8 @@
   "slug": "lille",
   "name": "Lille",
   "short": "LIL",
-  "c1": "#e01e13",
-  "c2": "#1b2a5c",
+  "c1": "#d9131c",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Lille",
@@ -83,8 +83,8 @@
   "slug": "psg",
   "name": "PSG",
   "short": "PSG",
-  "c1": "#004170",
-  "c2": "#da291c",
+  "c1": "#1f2f66",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "PSG",
@@ -95,8 +95,8 @@
   "slug": "psg-twd",
   "name": "PSG (TWD)",
   "short": "PST",
-  "c1": "#1a1a17",
-  "c2": "#9d1c1c",
+  "c1": "#f2f2f2",
+  "c2": "#a4333f",
   "kind": "alt",
   "base": "psg",
   "label": "Alt · TWD",
@@ -106,8 +106,8 @@
   "slug": "london-city",
   "name": "London City",
   "short": "LCL",
-  "c1": "#0b1f4b",
-  "c2": "#c9a227",
+  "c1": "#18a5c2",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "London City",
@@ -119,7 +119,7 @@
   "name": "Chelsea",
   "short": "CHE",
   "c1": "#034694",
-  "c2": "#ffffff",
+  "c2": "#f3db3f",
   "kind": "main",
   "aliases": [
    "Chelsea"
@@ -141,8 +141,8 @@
   "slug": "washington-spirit",
   "name": "Washington Spirit",
   "short": "WAS",
-  "c1": "#0d1b3e",
-  "c2": "#c8102e",
+  "c1": "#111111",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Washington Spirit"
@@ -152,8 +152,8 @@
   "slug": "louisville",
   "name": "Louisville",
   "short": "LOU",
-  "c1": "#3b1e6d",
-  "c2": "#c3b0e6",
+  "c1": "#6d4998",
+  "c2": "#c4d0ca",
   "kind": "main",
   "aliases": [
    "Louisville",
@@ -164,8 +164,8 @@
   "slug": "portland",
   "name": "Portland",
   "short": "POR",
-  "c1": "#a6192e",
-  "c2": "#111111",
+  "c1": "#111111",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Portland",
@@ -176,8 +176,8 @@
   "slug": "gotham",
   "name": "Gotham FC",
   "short": "GOT",
-  "c1": "#74c4e6",
-  "c2": "#101820",
+  "c1": "#111111",
+  "c2": "#70a7cd",
   "kind": "main",
   "aliases": [
    "Gotham FC",
@@ -188,8 +188,8 @@
   "slug": "parma",
   "name": "Parma",
   "short": "PAR",
-  "c1": "#fcd116",
-  "c2": "#0b3d91",
+  "c1": "#ffffff",
+  "c2": "#f4d21f",
   "kind": "main",
   "aliases": [
    "Parma"
@@ -199,8 +199,8 @@
   "slug": "venezia",
   "name": "Venezia",
   "short": "VEN",
-  "c1": "#f07f13",
-  "c2": "#0b4d2b",
+  "c1": "#111111",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Venezia"
@@ -210,8 +210,8 @@
   "slug": "flamengo",
   "name": "Flamengo",
   "short": "FLA",
-  "c1": "#c8102e",
-  "c2": "#111111",
+  "c1": "#dc1a22",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Flamengo"
@@ -221,8 +221,8 @@
   "slug": "petro-atletico",
   "name": "Petro Atlético",
   "short": "PET",
-  "c1": "#f2c200",
-  "c2": "#111111",
+  "c1": "#e0bf2a",
+  "c2": "#2b59d1",
   "kind": "main",
   "aliases": [
    "Petro Atlético",
@@ -244,8 +244,8 @@
   "slug": "corinthians",
   "name": "Corinthians",
   "short": "COR",
-  "c1": "#111111",
-  "c2": "#ffffff",
+  "c1": "#ffffff",
+  "c2": "#111111",
   "kind": "main",
   "aliases": [
    "Corinthians"
@@ -255,8 +255,8 @@
   "slug": "malaga",
   "name": "Málaga",
   "short": "MAL",
-  "c1": "#1e73be",
-  "c2": "#ffffff",
+  "c1": "#1587d3",
+  "c2": "#e8262a",
   "kind": "main",
   "aliases": [
    "Málaga",
@@ -268,8 +268,8 @@
   "slug": "bayern",
   "name": "Bayern",
   "short": "BAY",
-  "c1": "#dc052d",
-  "c2": "#0066b2",
+  "c1": "#cf1f2e",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Bayern",
@@ -294,7 +294,7 @@
   "name": "Bodø/Glimt",
   "short": "BOD",
   "c1": "#ffd800",
-  "c2": "#111111",
+  "c2": "#1b1f3a",
   "kind": "main",
   "aliases": [
    "Bodø/Glimt",
@@ -305,8 +305,8 @@
   "slug": "porto",
   "name": "Porto",
   "short": "PTO",
-  "c1": "#003c8f",
-  "c2": "#ffffff",
+  "c1": "#1f4b9a",
+  "c2": "#6b1d3e",
   "kind": "main",
   "aliases": [
    "Porto",
@@ -318,7 +318,7 @@
   "name": "Sporting",
   "short": "SCP",
   "c1": "#00804a",
-  "c2": "#ffffff",
+  "c2": "#a8d321",
   "kind": "main",
   "aliases": [
    "Sporting",
@@ -329,8 +329,8 @@
   "slug": "as-monaco",
   "name": "AS Monaco",
   "short": "MON",
-  "c1": "#e30613",
-  "c2": "#ffffff",
+  "c1": "#d8192e",
+  "c2": "#6a3040",
   "kind": "main",
   "aliases": [
    "AS Monaco",
@@ -341,8 +341,8 @@
   "slug": "ogc-nice",
   "name": "OGC Nice",
   "short": "NIC",
-  "c1": "#c8102e",
-  "c2": "#111111",
+  "c1": "#e32224",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "OGC Nice",
@@ -353,7 +353,7 @@
   "slug": "monza",
   "name": "Monza",
   "short": "MNZ",
-  "c1": "#d6001c",
+  "c1": "#cc1622",
   "c2": "#ffffff",
   "kind": "main",
   "aliases": [
@@ -377,7 +377,7 @@
   "slug": "fiorentina-throwback",
   "name": "Fiorentina Throwback",
   "short": "FIT",
-  "c1": "#6a2c91",
+  "c1": "#5f39b0",
   "c2": "#f4e9c9",
   "kind": "throwback",
   "base": "fiorentina",
@@ -400,8 +400,8 @@
   "slug": "aston-villa",
   "name": "Aston Villa",
   "short": "AVL",
-  "c1": "#670e36",
-  "c2": "#95bfe5",
+  "c1": "#701230",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Aston Villa"
@@ -447,8 +447,8 @@
   "slug": "ac-milan",
   "name": "AC Milan",
   "short": "MIL",
-  "c1": "#fb090b",
-  "c2": "#111111",
+  "c1": "#d31a1f",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "AC Milan",
@@ -470,7 +470,7 @@
   "slug": "como",
   "name": "Como",
   "short": "COM",
-  "c1": "#0f4c9c",
+  "c1": "#1a4b96",
   "c2": "#ffffff",
   "kind": "main",
   "aliases": [
@@ -482,7 +482,7 @@
   "slug": "wrexham",
   "name": "Wrexham",
   "short": "WRE",
-  "c1": "#c8102e",
+  "c1": "#c0191f",
   "c2": "#ffffff",
   "kind": "main",
   "aliases": [
@@ -495,7 +495,7 @@
   "name": "Zamalek",
   "short": "ZAM",
   "c1": "#ffffff",
-  "c2": "#c8102e",
+  "c2": "#2f5fd0",
   "kind": "main",
   "aliases": [
    "Zamalek",
@@ -506,8 +506,8 @@
   "slug": "al-ahly",
   "name": "Al Ahly",
   "short": "AHL",
-  "c1": "#c8102e",
-  "c2": "#ffffff",
+  "c1": "#d22b2b",
+  "c2": "#3b3b3d",
   "kind": "main",
   "aliases": [
    "Al Ahly",
@@ -518,8 +518,8 @@
   "slug": "cape-town-fc",
   "name": "Cape Town FC",
   "short": "CPT",
-  "c1": "#2ea6e0",
-  "c2": "#0b2a4a",
+  "c1": "#35559c",
+  "c2": "#b7a6c4",
   "kind": "main",
   "aliases": [
    "Cape Town FC",
@@ -531,7 +531,7 @@
   "name": "Young Boys",
   "short": "YB",
   "c1": "#ffd100",
-  "c2": "#111111",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Young Boys",
@@ -542,8 +542,8 @@
   "slug": "fc-tokyo",
   "name": "FC Tokyo",
   "short": "TOK",
-  "c1": "#0b3d91",
-  "c2": "#d6001c",
+  "c1": "#1d3a85",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "FC Tokyo"
@@ -553,8 +553,8 @@
   "slug": "cerezo-osaka",
   "name": "Cerezo Osaka",
   "short": "CER",
-  "c1": "#e6007e",
-  "c2": "#0b2a6b",
+  "c1": "#cd3273",
+  "c2": "#ffffff",
   "kind": "main",
   "aliases": [
    "Cerezo Osaka"
