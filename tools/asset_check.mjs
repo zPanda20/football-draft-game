@@ -9,7 +9,8 @@ let have = 0, total = 0;
 console.log("club".padEnd(24) + STEMS.map((s) => s.padEnd(11)).join(""));
 for (const c of clubs) {
   const dir = join(ROOT, "public", "assets", "teams", c.slug), files = existsSync(dir) ? new Set(readdirSync(dir).map((f) => f.toLowerCase())) : new Set();
-  const row = STEMS.map((s) => { total++; const ok = EXT.some((e) => files.has(s + "." + e)); if (ok) have++; return (ok ? "yes" : "-").padEnd(11); });
+  // an alt that is only a new away kit (kitsFrom: "base") needs just that one file; the rest comes from the main club
+  const row = STEMS.map((s) => { if (c.kitsFrom === "base" && s !== "kit-away") return "(main)".padEnd(11); total++; const ok = EXT.some((e) => files.has(s + "." + e)); if (ok) have++; return (ok ? "yes" : "-").padEnd(11); });
   console.log(c.slug.padEnd(24) + row.join(""));
 }
 console.log(`\n${have} of ${total} files in place. Drop files into public/assets/teams/<club>/ using these names (png, webp, svg or jpg).`);

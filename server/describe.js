@@ -8,7 +8,7 @@ import { POSITIONS, SLOT_W, XY } from "../engine/roster.js";
 // reload is enough): badge, wallpaper, kit-home, kit-away, kit-third, as png / webp / svg / jpg.
 export const ART_FILES = { badge: "badge", wallpaper: "wallpaper", kitHome: "kit-home", kitAway: "kit-away", kitThird: "kit-third" };
 const EXTS = ["png", "webp", "svg", "jpg", "jpeg"];
-let artCache = { at: 0, v: null };
+let artCache = { at: 0, dir: null, v: null };
 // Optional portrait photos for created footballers: drop images into public/assets/faces/.
 export function listFaces(publicDir) {
   const dir = join(publicDir, "assets", "faces"); if (!existsSync(dir)) return [];
@@ -31,7 +31,7 @@ export function playerPics(publicDir) {
   return out;
 }
 export function clubsWithArt(clubs, publicDir) {
-  if (artCache.v && Date.now() - artCache.at < 4000) return artCache.v;
+  if (artCache.v && artCache.dir === publicDir && Date.now() - artCache.at < 4000) return artCache.v;
   const out = clubs.map((c) => {
     const dir = join(publicDir, "assets", "teams", c.slug), art = {};
     if (existsSync(dir)) {
@@ -43,7 +43,7 @@ export function clubsWithArt(clubs, publicDir) {
     }
     return { ...c, art };
   });
-  artCache = { at: Date.now(), v: out };
+  artCache = { at: Date.now(), dir: publicDir, v: out };
   return out;
 }
 

@@ -10,6 +10,7 @@ const srv = spawn("node", ["server/index.js"], { env: { ...process.env, PORT, TE
 await new Promise((r) => srv.stdout.on("data", (d) => String(d).includes("http://localhost") && r()));
 
 const log = [], seen = new Set();
+const planSeen = { n: 0 };
 function client(name, host) {
   const token = "tok-" + name, ws = new WebSocket(`ws://localhost:${PORT}/ws`);
   const c = { ws, token, s: null, name };
@@ -31,6 +32,9 @@ function client(name, host) {
         else send({ t: "pass" });
       } else if (!me.bid) send({ t: "pass" });
     }
+    if (s.step === "md.lineup" && name === "Ana" && !(me.plan && me.plan.tired && me.plan.tired.on) && me.lineup) { const l = me.lineup, xi = new Set([l.gk, ...l.out]), bench = s.teams[me.teamId].players.find((id) => !xi.has(id) && s.pd[id] && s.pd[id].pos !== "GK");
+      send({ t: "plan", plan: { on: true, tired: { on: true, below: 80 }, subs: bench != null ? [{ out: l.out[0], in: bench, when: "always" }] : [] } }); }
+    if (s.step === "md.half" && name === "Ana" && me.match && me.match.halftime.plan && !me.match.halftime.plan.over) planSeen.n++;
     if ((s.step === "md.lineup" || s.step === "md.half") && !s.teams[me.teamId].ready) send({ t: "ready" });
     if (s.step === "off.resign" && !s.teams[me.teamId].ready) { for (const r of me.resign || []) if (me.coins >= r.fees[0]) send({ t: "resign", id: r.id, len: 1 }); send({ t: "ready" }); }
     if (s.step === "off.rookie.turn" && me.myTurn && s.rookies.avail.length) send({ t: "rookie", id: s.rookies.avail[0] });
@@ -50,8 +54,11 @@ while (Date.now() - t0 < 240000) {
   await new Promise((r) => setTimeout(r, 300));
   if (host.s && host.s.step === "season.end") { if (host.s.final) break; if (!host.s.contSent || host.s.contSent !== host.s.seasonNo) { host.send({ t: "continue" }); host.s.contSent = host.s.seasonNo; await new Promise((r) => setTimeout(r, 400)); } }
 }
-const s = host.s;
-const ok = s && s.step === "season.end" && s.final && s.seasonNo === 2;
+const s = host.s; 
+const aw = s && s.reveal && s.reveal.awards, hist = s && s.history.every((h) => h.awards && h.awards.ballon.length && h.awards.boot.length);
+const xs = s ? Object.values(s.pd).filter((d) => d.x) : [], mo = xs.reduce((n, d) => n + d.x[11], 0);
+console.log("my roster", s && s.teams[s.me.teamId].players.length, "| plan applied at half-time in", planSeen.n, "matches | awards:", aw ? ["ballon", "boot", "playmaker", "glove"].map((k) => k + "=" + (aw[k][0] ? aw[k][0].name : "-")).join(", ") : "none", "| potm awards on screen:", mo);
+const ok = s && s.step === "season.end" && s.final && s.seasonNo === 2 && planSeen.n > 0 && aw && aw.ballon.length > 0 && aw.boot.length > 0 && hist && xs.length > 0 && xs.every((d) => d.x.length === 14);
 console.log("steps seen:", [...seen].join(", "));
 console.log("final step:", s && s.step, "| season:", s && s.seasonNo, "| teams:", s && s.N, "| matchdays:", s && s.season.total, "| history:", s && s.history.length);
 if (s) console.log("champion:", s.teams[s.reveal.champion].name, "| my coins:", s.me.coins, "| my roster:", s.teams[s.me.teamId].players.length);

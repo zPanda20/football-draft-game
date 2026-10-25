@@ -371,17 +371,108 @@ t("player life: activities move energy, love, money and followers; stories follo
 });
 t("unlocks: codes open plates, plates gate clubs, and the codes stay on the server", async () => {
   const { findPlate, clubAllowed, clubUnlock } = await import("../engine/unlocks.js"); const { buildCatalog } = await import("../server/describe.js");
-  const want = { "Ka-Chow": "kachow", "grandpa": "grandpa", "SISTER FEI": "sisterfei", "Baguette": "baguette", "Pineapple on Pizza": "pineapple", "Tequila e Tacos": "tacos", "Guns": "guns", "MAGA": "maga", "Way Back": "wayback", "Jackson Wang": "jacksonwang", "Into the Woods": "woods", "Jack": "woods", "FIFA": "fifa", "Latifi Into the Wall": "latifi", "Freedom": "strawhat".replace("strawhat", "freedom"), "NFL": "nfl", "Choom": "choom" };
+  const want = { "Ka-Chow": "kachow", "grandpa": "grandpa", "SISTER FEI": "sisterfei", "Baguette": "baguette", "Pineapple on Pizza": "pineapple", "Tequila e Tacos": "tacos", "Guns": "guns", "MAGA": "maga", "Way Back": "wayback", "Jackson Wang": "jacksonwang", "The Doctor": "thedoctor", "Valentino Rossi": "thedoctor", "VR46": "thedoctor", "Into the Woods": "woods", "Jack": "woods", "FIFA": "fifa", "Latifi Into the Wall": "latifi", "Freedom": "strawhat".replace("strawhat", "freedom"), "NFL": "nfl", "Choom": "choom" };
   for (const [code, id] of Object.entries(want)) assert.equal(findPlate(D.plates, code)?.id, id, code);
   assert.equal(findPlate(D.plates, "nothing"), null);
   const byName = (n) => D.clubs.find((c) => c.name === n); for (const n of ["Lightning McQueen FC", "Turtle FC", "Holy Freak FC", "French National Team", "Italian National Team", "Mexican National Team", "US National Team", "Trump FC", "Forest FC", "Jonny Football FC", "Max Verstappen FC", "Strawhat FC"]) assert.ok(byName(n), n);
   const tr = byName("Trump FC"); assert.equal(tr.c1.slice(1, 3) > "b0", true); assert.ok(D.clubs.filter((c) => c.unlock === "nfl").length >= 5 && D.clubs.filter((c) => c.unlock === "choom").length >= 5);
-  const mine = new Set(); assert.ok(!clubAllowed(byName("Turtle FC"), mine) && !clubAllowed(D.clubs.find((c) => c.kind === "throwback"), mine) && !clubAllowed(D.clubs.find((c) => c.slug === "psg-twd"), mine) && clubAllowed(D.clubs.find((c) => c.slug === "psg"), mine) && clubAllowed(D.clubs.find((c) => c.kind === "alt" && c.slug !== "psg-twd"), mine));
+  const mine = new Set(); assert.ok(!clubAllowed(byName("Turtle FC"), mine) && !clubAllowed(D.clubs.find((c) => c.kind === "throwback"), mine) && !clubAllowed(D.clubs.find((c) => c.slug === "psg-twd"), mine) && !clubAllowed(D.clubs.find((c) => c.slug === "inter-vr46"), mine) && clubAllowed(D.clubs.find((c) => c.slug === "psg"), mine) && clubAllowed(D.clubs.find((c) => c.kind === "alt" && !c.unlock), mine));
+  assert.equal(clubUnlock(D.clubs.find((c) => c.slug === "inter-vr46")), "thedoctor");
   mine.add("wayback"); assert.ok(clubAllowed(D.clubs.find((c) => c.kind === "throwback"), mine)); assert.equal(clubUnlock(byName("Turtle FC")), "grandpa");
   assert.ok(!JSON.stringify(buildCatalog(D, withParams())).toLowerCase().includes("ka-chow"), "codes are not in the catalogue");
   const { Room } = await import("../server/room.js"); const r = new Room({ code: "UNLK", D, hostToken: "h", onChange() {}, onSave() {} }); r.addPlayer("h", "Host");
   r.setClub("h", "turtle-fc"); assert.equal(r.players.get("h").club, null, "locked club cannot be picked"); r.redeem("h", "grandpa"); r.setClub("h", "turtle-fc"); assert.equal(r.players.get("h").club, "turtle-fc");
   r.setUnlocks("h", ["wayback", "bogus"]); assert.deepEqual([...r.players.get("h").unlocks], ["wayback"]);
+});
+
+t("season stats and awards: one Player of the Match a game, awards come from the season's numbers", async () => {
+  const { seasonAwards, seasonLeaders, playerOfTheMatch } = await import("../engine/game.js");
+  const g = createGame({ D, N: 10, seed: 77 }); runDraft(g); runMarket(g); const res = playSeason(g, {});
+  const rows = Object.values(g.stats), days = res.days;
+  assert.equal(rows.reduce((x, y) => x + (y.mo || 0), 0), res.results.length, "exactly one Player of the Match in every match");
+  assert.ok(rows.every((x) => (x.w || 0) <= x.gp && (x.cs || 0) <= (x.gk || 0) && (x.gk || 0) <= x.gp), "wins, clean sheets and games in goal never exceed games played");
+  assert.equal(playerOfTheMatch({ 5: { r: 7, g: 0, a: 0, xg: 0 }, 3: { r: 7, g: 1, a: 0, xg: 0 }, 9: { r: 6.5, g: 3, a: 0, xg: 1 } }), 3, "ties on rating go to goal contributions");
+  const A = seasonAwards(g, days), W = g.P.awards.weights;
+  assert.ok(Math.abs(Object.values(W).reduce((x, y) => x + y, 0) - 1) < 1e-9, "Ballon d'Or weights add up to one");
+  assert.ok(A.ballon.length === 5 && A.ballon.every((r, i, l) => i === 0 || r.score <= l[i - 1].score), "Ballon d'Or list is ranked");
+  assert.ok(A.ballon.every((r) => r.gp >= A.need), "only players with enough games can win it");
+  const top = topScorers(g, 1)[0]; assert.equal(A.boot[0].id, top.id); assert.equal(A.boot[0].g, Math.max(...rows.map((x) => x.g)));
+  assert.equal(A.playmaker[0].a, Math.max(...rows.map((x) => x.a)));
+  assert.ok(A.glove.length && A.glove.every((r) => r.cs <= A.glove[0].cs && r.cs >= 1), "Golden Glove goes to a keeper with the most clean sheets");
+  const L = seasonLeaders(g, 5); assert.ok(L.mo.length && L.mo[0].mo >= L.mo[L.mo.length - 1].mo, "Player of the Match leaders");
+  const a2 = seasonAwards(g, days); assert.deepEqual(a2, A, "awards are deterministic");
+});
+t("news: at most one story a week, the bigger one wins, certain events still happen", async () => {
+  const L = await import("../engine/life.js");
+  const g = createGame({ D, N: 10, seed: 12 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Test Pro", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.gender = "M"; p.coins = 9000; const lf = L.ensureLife(g, p);
+  for (let d = 0; d < 10; d++) L.runActivity(g, p, "date", { day: d });
+  // a wedding and a steroid ban in the same week: only the ban is printed, the marriage still happens
+  const w = L.runActivity(g, p, "date", { marry: true, day: 30 }); assert.ok(lf.married && w.stories.length === 1 && w.stories[0].kind === "wedding");
+  const fol = lf.fol; const s = L.steroidStory(g, { pid: p.id, team: null, games: 10 });
+  assert.ok(s && s.kind === "steroids"); assert.equal(g.news.find((n) => n.id === w.stories[0].id).status, "replaced", "the smaller story is overwritten");
+  assert.equal(g.news.filter((n) => n.status === "live" && n.day === 30).length, 1, "one live story that week");
+  assert.equal(lf.fol, fol, "the wedding's follower bump is kept: it happened");
+  // the other way round: the ban is already printed, the wedding headline does not appear
+  const g2 = createGame({ D, N: 10, seed: 13 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
+  const q = createUserPlayer(g2, { token: "u", name: "Other Pro", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "M"; q.coins = 9000; const lq = L.ensureLife(g2, q);
+  for (let d = 0; d < 10; d++) L.runActivity(g2, q, "date", { day: d });
+  g2.weekDay = 30; assert.ok(L.steroidStory(g2, { pid: q.id, team: null, games: 10 }));
+  const w2 = L.runActivity(g2, q, "date", { marry: true, day: 30 }); assert.ok(lq.married && w2.stories.length === 0, "married, but the headline lost the week");
+  assert.equal(L.steroidStory(g2, { pid: q.id, team: null, games: 10 }), null, "a second story of the same size does not print");
+  // a new week, a new story; and with every random chance at one there is never more than one story a week
+  const g3 = createGame({ D, N: 10, seed: 14 }); g3.md = { day: 0, total: 40 }; g3.P.life.wada = 0; for (const k of Object.keys(g3.P.life.chance)) g3.P.life.chance[k] = 1; g3.P.life.maxStories = 99;
+  const z = createUserPlayer(g3, { token: "z", name: "Busy Bee", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); z.gender = "M"; z.coins = 99999; L.ensureLife(g3, z);
+  for (const id of ["car-m3", "house-flat", "yacht"]) L.buyLife(g3, z, id);
+  const acts = ["party", "train", "date", "rest", "party", "party", "balance", "date"]; let printed = 0;
+  for (let d = 0; d < 30; d++) { z.coins = 99999; const out = L.runActivity(g3, z, acts[d % acts.length], { day: d }); assert.ok(out.stories.length <= 1, "day " + d); printed += out.stories.length; }
+  const perDay = new Map(); for (const n of g3.news) if (n.status === "live" || n.status === "pending") perDay.set(n.day, (perDay.get(n.day) || 0) + 1);
+  assert.ok([...perDay.values()].every((c) => c <= 1) && printed > 5, "never more than one live story in a week; plenty over the season");
+});
+t("substitution plan: swaps and tired rules apply on their own, only with what is there", async () => {
+  const { applyPlan, cleanPlan, emptyPlan } = await import("../engine/subplan.js"); const { halftimeRecs } = await import("../engine/game.js");
+  const g = createGame({ D, N: 10, seed: 31 }); runDraft(g); runMarket(g);
+  const m = beginMatch(g, 0, 1, "plan"), recs = halftimeRecs(m, 0), lu = m.lineups[0], P = g.P;
+  const ids = new Set(recs.map((p) => p.id)), xi = new Set([lu.gk, ...lu.out]), bench = recs.filter((p) => !xi.has(p.id) && p.pos !== "GK");
+  const mid = lu.out[2], sub = bench[0].id, uniq = (l) => new Set([l.gk, ...l.out]).size === 6;
+  let r = applyPlan({ ...emptyPlan(), subs: [{ out: mid, in: sub, when: "losing" }] }, lu, recs, [0, 1], P);
+  assert.equal(r.changes.length, 1); assert.ok(r.lineup.out.includes(sub) && !r.lineup.out.includes(mid) && uniq(r.lineup), "losing: the swap happens");
+  assert.equal(r.lineup.out.indexOf(sub), lu.out.indexOf(mid), "the substitute takes the slot of the player he replaces");
+  assert.equal(applyPlan({ ...emptyPlan(), subs: [{ out: mid, in: sub, when: "losing" }] }, lu, recs, [1, 0], P).changes.length, 0, "winning: no swap");
+  assert.equal(applyPlan({ ...emptyPlan(), on: false, subs: [{ out: mid, in: sub, when: "always" }] }, lu, recs, [0, 0], P).changes.length, 0, "plan off");
+  assert.equal(applyPlan({ ...emptyPlan(), subs: [{ out: sub, in: mid, when: "always" }] }, lu, recs, [0, 0], P).changes.length, 0, "the player coming off must be on the pitch");
+  const keeperIn = recs.find((p) => p.pos === "GK" && p.id !== lu.gk);
+  assert.equal(applyPlan({ ...emptyPlan(), subs: [{ out: lu.gk, in: sub, when: "always" }] }, lu, recs, [0, 0], P).changes.length, 0, "an outfield player cannot replace the keeper");
+  if (keeperIn) assert.equal(applyPlan({ ...emptyPlan(), subs: [{ out: lu.gk, in: keeperIn.id, when: "always" }] }, lu, recs, [0, 0], P).lineup.gk, keeperIn.id);
+  assert.equal(applyPlan({ ...emptyPlan(), subs: [{ out: mid, in: sub, when: "always" }] }, lu, recs.filter((p) => p.id !== sub), [0, 0], P).changes.length, 0, "a suspended or missing substitute is skipped");
+  // the tired rule: the most tired starter is swapped for the best fresh bench player, and only when that is an improvement
+  const tired = recs.map((p) => (p.id === mid ? { ...p, stam: 20 } : p.id === sub ? { ...p, stam: 100 } : { ...p, stam: Math.min(p.stam, 90) }));
+  r = applyPlan({ ...emptyPlan(), tired: { on: true, below: 45 } }, lu, tired, [0, 0], P);
+  assert.ok(uniq(r.lineup) && r.changes.every((c) => c.why === "tired") && (!r.changes.length || !r.lineup.out.includes(r.changes[0].out)), "tired rule keeps a valid XI");
+  assert.equal(applyPlan({ ...emptyPlan(), tired: { on: true, below: 45 } }, lu, recs.map((p) => ({ ...p, stam: 100 })), [0, 0], P).changes.length, 0, "nobody tired: nothing to do");
+  // cleaning what a browser sends, and a match that plays the planned second half
+  const cp = cleanPlan({ on: true, tired: { on: 1, below: 5 }, subs: [{ out: mid, in: 999999, when: "bogus" }, { out: mid, in: sub, when: "winning" }, 1, 2, 3, 4] }, [...ids]);
+  assert.equal(cp.tired.below, 20); assert.equal(cp.subs.length, 4); assert.equal(cp.subs[0].in, null); assert.equal(cp.subs[0].when, "always"); assert.equal(cp.subs[1].when, "winning");
+  r = applyPlan({ ...emptyPlan(), subs: [{ out: mid, in: sub, when: "always" }] }, lu, recs, m.ht.score, P);
+  const res = finishMatch(g, m, [r.lineup, null]); assert.ok(res.lineups[0].out.includes(sub) && !res.lineups[0].out.includes(mid) && res.played[0].includes(sub), "the planned substitute plays the second half");
+});
+t("kits: an alt is only an away kit, and colour clashes send one side to its third kit", async () => {
+  const core = await import("../public/core.js"); const { clubsWithArt } = await import("../server/describe.js"); const { join } = await import("node:path");
+  const clubs = clubsWithArt(D.clubs, join(process.cwd(), "public")); core.st.clubBy = Object.fromEntries(clubs.map((c) => [c.slug, c]));
+  const by = (s) => core.st.clubBy[s], tail = (u) => (u || "").split("?")[0];
+  assert.ok(tail(core.art(by("psg-twd"), "kitAway")).endsWith("/psg-twd/kit-away.png") && tail(core.art(by("psg-twd"), "kitHome")).endsWith("/psg/kit-home.png") && tail(core.art(by("psg-twd"), "kitThird")).endsWith("/psg/kit-third.png"), "PSG TWD: its own away kit, the main set otherwise");
+  assert.ok(tail(core.art(by("inter-vr46"), "kitAway")).endsWith("/inter-vr46/kit-away.png") && tail(core.art(by("inter-vr46"), "kitHome")).endsWith("/inter/kit-home.png") && tail(core.art(by("inter-vr46"), "badge")).endsWith("/inter/badge.png"), "The Doctor: the same");
+  assert.ok(tail(core.art(by("inter-throwback"), "kitHome")).endsWith("/inter-throwback/kit-home.png"), "throwbacks keep their own full set");
+  assert.equal(by("psg-twd").c1, by("psg").c1); assert.equal(core.kitColor(by("inter-vr46"), "kitThird"), by("inter").c3);
+  const k = core.kitsFor(by("real-madrid"), by("bayern")); assert.deepEqual([k.h, k.a, k.swap, k.clash], ["kitHome", "kitThird", "away", false], "white v white: the away side changes to its third");
+  assert.deepEqual(core.kitsFor(by("bayern"), by("real-madrid")), { h: "kitHome", a: "kitAway", swap: null, clash: false }, "no clash: home v away as normal");
+  let clashes = 0, away = 0, home = 0;
+  for (const a of clubs) for (const b of clubs) {
+    if ((a.base || a.slug) === (b.base || b.slug)) continue;
+    const x = core.kitsFor(a, b); assert.equal(x.clash, false, `${a.slug} v ${b.slug} still clash`);
+    if (core.colorDist(a.c1, b.c2) <= core.CLASH) { clashes++; if (x.swap === "away") away++; if (x.swap === "home") home++; }
+  }
+  assert.ok(clashes > 100 && away > home && home > 0, `swaps happen and the away side goes first: ${clashes} ${away} ${home}`);
 });
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

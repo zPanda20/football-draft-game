@@ -378,3 +378,79 @@ svg.kit{display:inline-block;flex:none}
 .newsban.wada.go .nb-in{flex:1 1 0;max-width:880px;max-height:70vh;opacity:1;margin-left:22px}
 @keyframes wadapop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 @media(max-width:640px){.newsban.wada.go{flex-direction:column}.newsban.wada.go .nb-wada{flex-basis:auto;width:150px}.newsban.wada.go .nb-in{margin:12px 0 0}}
+
+/* ---- player stats table ---- */
+.tbwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
+table.tb.stats{min-width:760px}
+table.tb.stats th.sortable{cursor:pointer;user-select:none;white-space:nowrap}table.tb.stats th.sortable:hover,table.tb.stats th.sortable.on{color:var(--text)}
+table.tb.stats td.on{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+table.tb.stats td .bootn{white-space:nowrap}
+table.tb.stats td.mute{color:var(--mute)}
+
+/* ---- season awards ---- */
+.awards .awgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:760px){.awards .awgrid{grid-template-columns:1fr}}
+.award{position:relative;border:1px solid var(--line);border-radius:14px;padding:14px;background:linear-gradient(170deg,var(--panel2),var(--panel));animation:awardIn .7s calc(var(--i) * .45s + .15s) cubic-bezier(.2,.9,.25,1) both}
+.award.hero{grid-column:1/-1;border-color:color-mix(in srgb,var(--acc2) 70%,var(--line));background:radial-gradient(520px 200px at 12% 0%,color-mix(in srgb,var(--acc2) 22%,transparent),transparent 70%),linear-gradient(170deg,var(--panel2),var(--panel));box-shadow:0 0 0 1px color-mix(in srgb,var(--acc2) 30%,transparent),0 10px 34px rgba(0,0,0,.45)}
+.award.mine{box-shadow:inset 3px 0 0 var(--acc)}
+.award .ahead{display:flex;gap:10px;align-items:center;margin-bottom:10px}.award .ahead b{font-size:15px;letter-spacing:.02em}.award .aico{font-size:26px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.award.hero .ahead b{font-size:19px;color:var(--acc2);text-transform:uppercase;letter-spacing:.08em}.award.hero .aico{font-size:34px}
+.award .awin{display:flex;gap:12px;align-items:center}
+.award .aname{font-size:20px;font-weight:900;line-height:1.1}.award.hero .aname{font-size:clamp(22px,4vw,32px)}
+.award .aface{display:grid;place-items:center;width:46px;height:46px;border-radius:12px;font-weight:900;font-size:18px;color:#10151b;background:var(--silver);flex:none}.award .aface.gold{background:var(--gold)}.award .aface.ruby{background:var(--ruby);color:#fff}
+.award .anum{margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}.award .anum b{font-size:30px;font-weight:900;color:var(--acc2);line-height:1}.award.hero .anum b{font-size:44px}
+.award .anum small{color:var(--mute);font-size:11px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:230px}
+.award .abars{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px 14px;margin:12px 0 2px}
+.award .abar{display:grid;gap:3px;font-size:11px;color:var(--mute)}.award .abar i{display:block;height:6px;border-radius:3px;background:#0006;overflow:hidden;position:relative}
+.award .abar i::after{content:"";position:absolute;inset:0;width:var(--w);background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:3px;transform-origin:left;animation:barGrow 1s 1.9s cubic-bezier(.2,.8,.2,1) both}
+.award .aruns{margin-top:10px;border-top:1px solid var(--line);padding-top:6px;display:grid;gap:2px}
+.award .arun{display:flex;gap:8px;align-items:center;font-size:13px;padding:3px 4px;border-radius:6px}.award .arun.me{background:color-mix(in srgb,var(--acc) 14%,transparent)}.award .arun .grow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.award .arun>span:last-child{display:flex;gap:6px;align-items:center;font-variant-numeric:tabular-nums}.award .arun small{color:var(--mute);display:inline-flex;gap:6px;align-items:center}.award .arun b{color:var(--text)}
+@keyframes awardIn{from{opacity:0;transform:translateY(22px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.award.hero .aname{animation:heroName 1.1s calc(var(--i) * .45s + .5s) both}
+@keyframes heroName{0%{opacity:0;letter-spacing:.3em}60%{opacity:1}100%{letter-spacing:normal}}
+
+/* ---- plate unlock: thunder, lightning, the plate slams down ---- */
+.pfx{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;cursor:pointer;background:radial-gradient(60% 55% at 50% 48%,#0b1220 0%,#04070c 62%,#000 100%);animation:pfxIn .3s both}
+.pfx.out{animation:pfxOut .38s both}
+@keyframes pfxIn{from{opacity:0}to{opacity:1}}@keyframes pfxOut{to{opacity:0}}
+.pfx-flash{position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 45%,#fff,#bcd8ff 60%,#6aa8ff);opacity:0;pointer-events:none;animation:pfxFlash 1.2s .35s both}
+@keyframes pfxFlash{0%{opacity:0}5%{opacity:.95}12%{opacity:.08}20%{opacity:.8}30%{opacity:.04}46%{opacity:.5}100%{opacity:0}}
+.pfx-bolts{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.pfx-bolts .b{fill:none;stroke:#f3f8ff;stroke-width:3.2;stroke-linejoin:miter;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;opacity:0;filter:drop-shadow(0 0 5px #9fd0ff) drop-shadow(0 0 16px #4f9bff);animation:pfxBolt 1s .3s both}
+.pfx-bolts .b2{animation-delay:.4s;stroke-width:2.4}.pfx-bolts .b3{animation-delay:.5s;stroke-width:2.6}
+@keyframes pfxBolt{0%{stroke-dashoffset:1;opacity:1}22%{stroke-dashoffset:0;opacity:1}34%{opacity:.1}46%{opacity:1}62%{opacity:.25}72%{opacity:.9}100%{stroke-dashoffset:0;opacity:0}}
+.pfx-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;animation:pfxShake .55s 1.28s both}
+@keyframes pfxShake{0%,100%{transform:none}12%{transform:translate(-9px,5px)}26%{transform:translate(8px,-6px)}40%{transform:translate(-6px,-3px)}56%{transform:translate(5px,4px)}74%{transform:translate(-2px,2px)}}
+.pfx-plate{position:relative;margin:80px 0 84px;transform:scale(2.2);transform-origin:center;border-radius:12px;animation:pfxDrop .8s .6s cubic-bezier(.3,.7,.2,1) both;filter:drop-shadow(0 0 22px rgba(255,214,102,.55))}
+.pfx-plate .plate{min-width:150px;overflow:hidden}
+.pfx-plate .plate.on{animation:none}
+@keyframes pfxDrop{0%{opacity:0;transform:translateY(-95vh) rotate(-18deg) scale(2.6)}55%{opacity:1;transform:translateY(14px) rotate(5deg) scale(2.3)}78%{transform:translateY(-6px) rotate(-1.5deg) scale(2.15)}100%{opacity:1;transform:scale(2.2)}}
+.pfx-sheen{position:absolute;inset:0;border-radius:10px;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.9) 50%,transparent 62%);transform:translateX(-130%);animation:pfxSheen 1.1s 1.5s ease-in-out both;mix-blend-mode:soft-light}
+@keyframes pfxSheen{to{transform:translateX(130%)}}
+.pfx-ring{position:absolute;left:50%;top:calc(50% - 90px);width:14px;height:14px;margin:-7px;border:3px solid #ffe7a0;border-radius:50%;opacity:0;animation:pfxRing 1s 1.28s ease-out both}
+.pfx-ring.r2{border-color:#9fd0ff;animation-delay:1.4s}
+@keyframes pfxRing{0%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(46)}}
+.pfx-sparks i{position:absolute;left:50%;top:calc(50% - 90px);width:var(--s);height:var(--s);margin:calc(var(--s) / -2);border-radius:50%;background:#ffd86b;box-shadow:0 0 8px #ffb020,0 0 14px #fff4c4;opacity:0;animation:pfxSpark .95s calc(1.3s + var(--t)) cubic-bezier(.1,.7,.3,1) both}
+@keyframes pfxSpark{0%{opacity:1;transform:rotate(var(--a)) translateX(0)}70%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateX(var(--d)) translateY(26px)}}
+.pfx-text{position:relative;width:max-content;max-width:92vw;text-align:center;pointer-events:none}
+.pfx-kick{font-size:13px;font-weight:800;letter-spacing:.5em;color:#9fd0ff;text-indent:.5em;animation:pfxText .7s 1.55s both}
+.pfx-name{font-size:clamp(26px,6vw,46px);font-weight:900;line-height:1.1;margin-top:4px;background:linear-gradient(180deg,#fff6cf,#f3c94d 55%,#b98a1c);-webkit-background-clip:text;background-clip:text;color:transparent;animation:pfxText .8s 1.7s both;filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}
+.pfx-sub{font-size:14px;color:var(--mute);margin-top:6px;animation:pfxText .8s 1.9s both}
+@keyframes pfxText{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+.pfx-hint{position:absolute;bottom:22px;left:0;right:0;text-align:center;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);animation:pfxText .6s 2.6s both}
+@media(max-width:640px){.pfx-plate{transform:scale(1.6);margin:60px 0 64px}@keyframes pfxDrop{0%{opacity:0;transform:translateY(-95vh) rotate(-18deg) scale(1.9)}55%{opacity:1;transform:translateY(10px) rotate(5deg) scale(1.7)}78%{transform:translateY(-4px) rotate(-1.5deg) scale(1.55)}100%{opacity:1;transform:scale(1.6)}}}
+@media(prefers-reduced-motion:reduce){.pfx-flash,.pfx-bolts,.pfx-ring,.pfx-sparks,.pfx-sheen{display:none}.pfx-stage{animation:none}.pfx-plate{animation:none;transform:scale(1.8);margin:60px 0 70px;opacity:1}.pfx-kick,.pfx-name,.pfx-sub,.pfx-hint{animation-duration:.01s;animation-delay:0s}.award,.award.hero .aname{animation:none}.award .abar i::after{animation:none}}
+
+/* ---- substitution plan ---- */
+.plancard .dim{opacity:.45;pointer-events:none}
+.tiredrule{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.subrow{margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.subrow.warn{border-color:var(--warn)}
+.subsel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end}
+.subsel label{display:grid;gap:2px;min-width:0}.subsel select{width:100%;min-width:0}
+@media(max-width:700px){.subsel{grid-template-columns:1fr 1fr}.subsel .x{justify-self:end}}
+.subwarn{color:var(--warn);margin-top:6px}
+.plannote{padding:10px 12px;border:1px solid var(--acc);border-radius:10px;background:color-mix(in srgb,var(--acc) 9%,var(--panel2))}.plannote.over{border-color:var(--line);background:var(--panel2)}
+.plannote .chgs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px}.plannote .chg{font-size:13px}.plannote .neg{color:var(--bad)}.plannote .pos{color:var(--good)}

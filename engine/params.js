@@ -135,9 +135,11 @@ export const DEFAULT_PARAMS = {
     wada: 0.04, wadaBan: 2,                         // Party: chance of a flagged test, and the ban in matches
     sponsor: { per: 2000, cap: 40 },                // coins a matchday = followers / per, up to cap
     wedding: { dates: 10, cost: 60 },
-    boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3,
+    boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3, perWeek: 1,
     chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1 },
   },
+  // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----
+  awards: { minShare: 0.5, gloveShare: 0.4, base: 6.0, ovrFloor: 60, weights: { rating: 0.30, contrib: 0.25, potm: 0.17, wins: 0.20, star: 0.08 } },
   steroids: { chance: 0.22, stock: 1, price: 300, catchChance: 0.51, ban: 10 },
 };
 

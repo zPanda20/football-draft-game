@@ -19,9 +19,11 @@ export function buildIndex() {
 }
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 export const clubByName = (name) => (st.clubAlias && st.clubBy[st.clubAlias[norm(name)]]) || null;
-// A piece of team art (badge, wallpaper, kitHome...). Badges and wallpapers fall back to the main club for a throwback or alt.
+// A piece of team art (badge, wallpaper, kitHome...). Badges and wallpapers fall back to the main club for a throwback or
+// alt. An alt marked kitsFrom "base" (PSG TWD, Inter The Doctor) is only a new away kit: every other kit is the main club's.
 export function art(c, kind) {
-  for (let x = c, n = 0; x && n < 3; x = x.base && (kind === "badge" || kind === "wallpaper") ? st.clubBy[x.base] : null, n++) if (x.art && x.art[kind]) return x.art[kind];
+  const all = c && c.kitsFrom === "base";
+  for (let x = c, n = 0; x && n < 3; x = x.base && (kind === "badge" || kind === "wallpaper" || all) ? st.clubBy[x.base] : null, n++) if (x.art && x.art[kind]) return x.art[kind];
   return null;
 }
 export const team = (id) => (st.S && st.S.teams ? st.S.teams[id] : null);
@@ -87,24 +89,48 @@ const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 export const lum = (h) => { const v = rgb(h).map((x) => x / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
 export const colorDist = (a, b) => { const [r1, g1, b1] = rgb(a), [r2, g2, b2] = rgb(b); return Math.sqrt(2 * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + 3 * (b1 - b2) ** 2); };
 const lighten = (h, k = 0.45) => "#" + rgb(h).map((x) => Math.round(x + (255 - x) * k).toString(16).padStart(2, "0")).join("");
-// The two colours a match is drawn in: the home side's main colour (c1, its home kit), and the away side's away colour
-// (c2, its away kit) unless that is too close to the home side's, in which case its main colour. A colour too dark to
-// read on the page (black, navy, port wine) is drawn a little lighter, not swapped for another one.
+// ---------- kits and colour clashes ----------
+// A club's colours are its kits': c1 = home, c2 = away, c3 = third (where it has one). An alt that only brings a new
+// away kit takes the rest from its main club.
+export function kitColor(c, kind) {
+  if (!c) return null;
+  if (kind === "kitHome") return c.c1;
+  if (kind === "kitAway") return c.c2;
+  const base = c.kitsFrom === "base" && c.base ? st.clubBy[c.base] : null;
+  return c.c3 || (base && base.c3) || null;
+}
+export const CLASH = 175;      // weighted colour distance at or below which two shirts are too alike
+// Which kits two clubs wear in a match: home in its home kit and away in its away kit unless they clash (or are close),
+// then the away side changes to its third kit; if that does not help, the home side changes to its third; if neither does,
+// the pair of kits that sit furthest apart. swap says who changed: "away", "home" or null.
+export function kitsFor(home, away) {
+  const base = { h: "kitHome", a: "kitAway", swap: null, clash: false };
+  if (!home || !away) return base;
+  const d = (hk, ak) => { const x = kitColor(home, hk), y = kitColor(away, ak); return x && y ? colorDist(x, y) : -1; };
+  if (d("kitHome", "kitAway") > CLASH) return base;
+  for (const [hk, ak, swap] of [["kitHome", "kitThird", "away"], ["kitThird", "kitAway", "home"]]) if (d(hk, ak) > CLASH) return { h: hk, a: ak, swap, clash: false };
+  const ks = ["kitHome", "kitAway", "kitThird"];
+  let best = { h: "kitHome", a: "kitAway", dist: d("kitHome", "kitAway") };
+  for (const hk of ks) for (const ak of ks) { const x = d(hk, ak); if (x > best.dist) best = { h: hk, a: ak, dist: x }; }
+  return { h: best.h, a: best.a, swap: best.h === "kitHome" && best.a === "kitAway" ? null : best.a !== "kitAway" ? "away" : "home", clash: best.dist <= CLASH };
+}
+// The two colours a match is drawn in: the colours of the kits each side wears. A colour too dark to read on the page
+// (black, navy, port wine) is drawn a little lighter, not swapped for another one.
 export function matchColors(home, away) {
-  const ok = (a, b) => colorDist(a, b) > 160, show = (h) => (lum(h) > 0.07 ? h : lighten(h, 0.35));
-  const h = home ? show(home.c1) : "#3ddc84";
-  if (!away) return [h, "#ffb020"];
-  const cands = [show(away.c2), show(away.c1)];
-  const a = cands.find((c) => ok(c, h)) || cands.sort((x, y) => colorDist(y, h) - colorDist(x, h))[0];
-  return [h, ok(a, h) ? a : "#ffb020"];
+  const show = (h) => (lum(h) > 0.07 ? h : lighten(h, 0.35));
+  if (!home) return ["#3ddc84", "#ffb020"];
+  if (!away) return [show(home.c1), "#ffb020"];
+  const k = kitsFor(home, away), h = show(kitColor(home, k.h) || home.c1), a = show(kitColor(away, k.a) || away.c2);
+  return [h, colorDist(a, h) > 120 ? a : "#ffb020"];
 }
 // A kit next to a crest: the club's uploaded kit if there is one, else a simple shirt in its colours.
-// side 0 = home kit, 1 = away kit (a plain shirt swaps its colours so the two sides differ).
+// side 0 = home kit, 1 = away kit, or a kit name ("kitHome", "kitAway", "kitThird"). A plain shirt swaps its colours for the away kit.
 export function shirt(c, side = 0, h = 22) {
-  const up = c && art(c, side ? "kitAway" : "kitHome");
+  const kind = typeof side === "string" ? side : side ? "kitAway" : "kitHome";
+  const up = c && (art(c, kind) || (kind === "kitThird" ? art(c, "kitAway") : null));
   if (up) return `<img class="kit k1" src="${esc(up)}" alt="" style="height:${h}px">`;
   let a = c ? c.c1 : "#777", b = c ? c.c2 : "#ddd";
-  if (side) [a, b] = [b, a];
+  if (kind === "kitAway") [a, b] = [b, a]; else if (kind === "kitThird") { a = (c && kitColor(c, "kitThird")) || b; b = c ? c.c1 : "#ddd"; }
   return `<svg class="kit k1" viewBox="0 0 100 100" style="height:${h}px;width:${h}px" aria-hidden="true"><path d="M30 8L4 26l10 16 12-6v52h48V36l12 6 10-16L70 8c-4 8-12 12-20 12S34 16 30 8z" fill="${a}" stroke="rgba(0,0,0,.55)" stroke-width="4" stroke-linejoin="round"/><path d="M38 40h24v7H38z" fill="${b}" opacity=".9"/></svg>`;
 }
 export function chip(t, size = 22, owner = false) {

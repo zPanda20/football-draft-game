@@ -1,11 +1,22 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, pl, tierOf, posGroup, flag, miniPlayer, remaining, card } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card } from "./core.js";
 import { ratings, ratingClass } from "./rating.js";
 import { storeCard } from "./store.js";
+import { statsHandlers, playerStats, awardsCard } from "./stats.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // A team with its kit right next to the crest (side 0 = home kit, 1 = away kit).
-const tchipK = (ti, side, size = 18) => { const t = team(ti); return `<span class="tchip">${crest(t, size)}${shirt(club(t), side, size + 6)}<span class="n">${esc(t.name)}</span></span>`; };
+// opp = the other team of the match: with it the kit is the one the side really wears (a colour clash sends one side to its third kit).
+const kitOf = (ti, opp, side) => { if (opp == null || !team(opp)) return side; const k = side ? kitsFor(club(team(opp)), club(team(ti))) : kitsFor(club(team(ti)), club(team(opp))); return side ? k.a : k.h; };
+// "Away side in its third kit": shown under your next fixture when the colours would have clashed.
+const KITNAME = { kitHome: "home", kitAway: "away", kitThird: "third" };
+function kitNote(fx) {
+  const a = team(fx[0]), b = team(fx[1]); if (!a || !b) return "";
+  const k = kitsFor(club(a), club(b)); if (!k.swap && !k.clash) return "";
+  const who = k.swap === "home" ? a : b, kit = k.swap === "home" ? k.h : k.a;
+  return `<div class="tiny mute c mt">${k.swap ? `${esc(who.name)} change to their ${KITNAME[kit]} kit: the colours are too close.` : "The colours are close, but there is no kit that fixes it."}</div>`;
+}
+const tchipK = (ti, side, size = 18, opp = null) => { const t = team(ti); return `<span class="tchip">${crest(t, size)}${shirt(club(t), kitOf(ti, opp, side), size + 6)}<span class="n">${esc(t.name)}</span></span>`; };
 
 // ---------- pitch geometry and position fit (mirrors engine/roster.js) ----------
 const ROW = { GK: 0, CB: 1, LB: 1, RB: 1, CDM: 2, CM: 3, LM: 3, RM: 3, CAM: 4, LW: 4, RW: 4, ST: 5 };
@@ -96,6 +107,7 @@ function activeNow(S) {
   return S.me.active ?? owned.map((id) => st.items[id]).filter((i) => !i.banned).sort((x, y) => y.price - x.price).slice(0, st.cat.rules.activeCap).map((i) => i.id);
 }
 export const matchHandlers = {
+  ...statsHandlers,
   cont() { send({ t: "continue" }); },
   mslot(a) {
     if (st.ui.itemSel) { const l = lineupOf(st.S), pid = +a.i < 0 ? l.gk : l.out[+a.i]; if (pid != null) return attachItem(st.ui.itemSel, pid); }
@@ -129,7 +141,18 @@ export const matchHandlers = {
     send({ t: "items", ids: activeNow(st.S), equip: eq });
   },
   mgift(a) { send({ t: "gift", id: a.id, pid: +a.pid }); },
+  planskip() { send({ t: "planSkip" }); },
+  plantoggle() { const p = curPlan(); sendPlan({ ...p, on: !p.on }); },
+  plantired(a, el) { const p = curPlan(); sendPlan({ ...p, tired: { ...p.tired, on: !!el.checked } }); },
+  plantiredbelow(a) { const p = curPlan(); sendPlan({ ...p, tired: { ...p.tired, below: +a.value } }); },
+  planadd() { const p = curPlan(); if (p.subs.length < 4) sendPlan({ ...p, subs: [...p.subs, { out: null, in: null, when: "always" }] }); },
+  plandel(a) { const p = curPlan(); sendPlan({ ...p, subs: p.subs.filter((x, i) => i !== +a.i) }); },
+  plansub(a) { const p = curPlan(); sendPlan({ ...p, subs: p.subs.map((x, i) => (i === +a.i ? { ...x, [a.f]: a.f === "when" ? a.value : a.value === "" ? null : +a.value } : x)) }); },
 };
+// ---------- substitution plan ----------
+const curPlan = () => { const p = st.S.me.plan; return p ? { on: p.on !== false, tired: { on: !!p.tired.on, below: p.tired.below }, subs: p.subs.map((x) => ({ ...x })) } : { on: true, tired: { on: false, below: 45 }, subs: [] }; };
+const sendPlan = (plan) => send({ t: "plan", plan });
+const WHEN_L = { always: "always", tired: "if he is tired", losing: "if we are losing", drawing: "if it is level", winning: "if we are winning" };
 
 // ---------- league table ----------
 export function tablePanel(S, limit = 99, click = false) {
@@ -206,6 +229,42 @@ const FORM_INFO = {
   "1-2-2": ["The All-Out Attack", "Two strikers, runners behind them: lots of shots at both ends. Needs PACE and DRIBBLE up front and a quick centre-back."],
   "2-2-1 wide": ["Wide Play", "Fullbacks and wingers stretch the pitch for more shots, but leave gaps to counter. Beats a central overload; the block pulls apart."],
 };
+function subPlanCard(S, l) {
+  const me = S.me, plan = curPlan(), t = team(me.teamId), xi = new Set([l.gk, ...l.out]);
+  const roster = t.players.map((id) => pl(id)).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+  const opt = (sel, first, second, lf, ls) => `<option value="">Choose a player</option><optgroup label="${lf}">${first.map((p) => `<option value="${p.id}" ${sel === p.id ? "selected" : ""} ${p.susp ? "disabled" : ""}>${esc(p.name)} · ${p.pos} ${p.ovr}${p.susp ? " (suspended)" : ""}</option>`).join("")}</optgroup><optgroup label="${ls}">${second.map((p) => `<option value="${p.id}" ${sel === p.id ? "selected" : ""} ${p.susp ? "disabled" : ""}>${esc(p.name)} · ${p.pos} ${p.ovr}${p.susp ? " (suspended)" : ""}</option>`).join("")}</optgroup>`;
+  const starters = roster.filter((p) => xi.has(p.id)), bench = roster.filter((p) => !xi.has(p.id));
+  const issue = (s) => {
+    if (s.out == null || s.in == null) return "Pick both players";
+    const o = pl(s.out), n = pl(s.in); if (!o || !n) return "That player has left";
+    if (!xi.has(s.out)) return `${o.name.split(" ").slice(-1)[0]} is not in the starting XI, so this is skipped`;
+    if (xi.has(s.in)) return `${n.name.split(" ").slice(-1)[0]} is already starting`;
+    if ((s.out === l.gk) !== (n.pos === "GK")) return "Only a keeper can replace the keeper";
+    return "";
+  };
+  const rows = plan.subs.map((s, i) => { const w = issue(s);
+    return `<div class="subrow ${w ? "warn" : ""}"><div class="subsel"><label><span class="tiny mute">Off</span><select data-change="plansub" data-i="${i}" data-f="out">${opt(s.out, starters, bench, "Starting XI", "Bench")}</select></label>
+      <label><span class="tiny mute">On</span><select data-change="plansub" data-i="${i}" data-f="in">${opt(s.in, bench, starters, "Bench", "Starting XI")}</select></label>
+      <label><span class="tiny mute">When</span><select data-change="plansub" data-i="${i}" data-f="when">${Object.entries(WHEN_L).map(([k, v]) => `<option value="${k}" ${s.when === k ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></label>
+      <button class="x" data-act="plandel" data-i="${i}" title="Remove this substitution">✕</button></div>${w ? `<div class="tiny subwarn">${esc(w)}</div>` : ""}</div>`; }).join("");
+  const n = plan.subs.length + (plan.tired.on ? 1 : 0);
+  return `<div class="card plancard mt"><div class="row wrap"><h3 style="margin:0">Substitution plan</h3><span class="pill ${plan.on && n ? "good" : ""} tiny">${!plan.on ? "off" : n ? `${n} rule${n === 1 ? "" : "s"} set` : "nothing planned"}</span><div class="grow"></div><button class="btn sm ${plan.on ? "on" : ""}" data-act="plantoggle">${plan.on ? "Plan on" : "Plan off"}</button></div>
+    <p class="tiny mute" style="margin:6px 0 8px">Changes made at half-time for you. At the break you see them already applied and can change anything, or undo the plan, before you press Ready. It stays set for every match until you change it.</p>
+    <div class="${plan.on ? "" : "dim"}">
+    <label class="tiredrule"><input type="checkbox" data-change="plantired" ${plan.tired.on ? "checked" : ""}> <span>Swap tired players for the best fresh player on the bench, below</span>
+      <select data-change="plantiredbelow">${[...new Set([30, 40, 45, 50, 60, 70, plan.tired.below])].sort((a, b) => a - b).map((v) => `<option value="${v}" ${plan.tired.below === v ? "selected" : ""}>${v}% stamina</option>`).join("")}</select></label>
+    ${rows}
+    <div class="row mt" style="gap:8px"><button class="btn sm" data-act="planadd" ${plan.subs.length >= 4 ? "disabled" : ""}>+ Add a substitution</button><span class="tiny mute">${plan.subs.length}/4 · the plan only uses players who are fit and on the right side of the line-up when the match starts</span></div></div></div>`;
+}
+// At half-time: what the plan did, and the way to take it back.
+function planBanner(S) {
+  const h = S.me.match && S.me.match.halftime, p = S.me.plan; if (!h) return "";
+  const pt = h.plan, anyRule = p && p.on !== false && (p.subs.length || p.tired.on);
+  if (!pt) return anyRule ? `<div class="plannote mt"><b>Substitution plan:</b> no change was needed this half.</div>` : "";
+  const list = pt.changes.map((c) => { const o = pl(c.out), n = pl(c.in); return `<span class="chg"><span class="neg">▼ ${esc(o ? o.name : "?")}</span> <span class="pos">▲ ${esc(n ? n.name : "?")}</span> <span class="tiny mute">${c.why === "tired" ? "tired" : c.why === "always" ? "planned" : WHEN_L[c.why]}</span></span>`; }).join("");
+  const state = pt.skipped ? `<span class="tiny mute">Plan skipped for this match.</span>` : pt.over ? `<span class="tiny mute">You changed the line-up after the plan.</span>` : `<span class="tiny mute">Will happen at the restart unless you change it.</span>`;
+  return `<div class="plannote mt ${pt.over ? "over" : ""}"><div class="row wrap" style="gap:8px"><b>Substitution plan</b>${state}<div class="grow"></div>${pt.over ? "" : `<button class="btn sm" data-act="planskip">Undo plan</button>`}</div><div class="chgs">${list}</div></div>`;
+}
 function lineupEditor(S, half) {
   const me = S.me, t = team(me.teamId);
   const l = half ? me.match.halftime.lineup : me.lineup;
@@ -223,6 +282,7 @@ function lineupEditor(S, half) {
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
       ${half ? `<button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button>` : ""}</div>
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
+    ${half ? planBanner(S) : subPlanCard(S, l)}
     ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
     <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div data-keep="bench" style="max-height:470px;overflow:auto">${roster.map(row).join("")}</div></div></div></div>`;
 }
@@ -314,7 +374,7 @@ function ratedSides(m, half) {
 }
 function lineupsPanel(m, half, now, final) {
   const evs = (m.all || m.events || []).filter((e) => e.minute <= now), R = ratings(evs, ratedSides(m, half), { final, half2: !!half });
-  const best = final ? Object.keys(R).sort((a, b) => R[b].r - R[a].r)[0] : null;
+  const best = final ? (m.potm != null ? String(m.potm) : Object.keys(R).sort((a, b) => R[b].r - R[a].r)[0]) : null;
   const col = (i) => {
     const first = (half ? m.first : m.lineups)[i], second = half ? m.lineups[i] : null;
     const order = [first.gk, ...first.out, ...(second ? [second.gk, ...second.out] : [])].filter((x, k, a) => x != null && a.indexOf(x) === k);
@@ -360,7 +420,7 @@ export function playbackTick() {
 }
 function fixtureRows(S, ms) {
   const me = S.me ? S.me.teamId : -1;
-  return ms.map((m, k) => `<div class="fixture ${m.a === me || m.b === me ? "mine" : ""} ${k === focusK(S) ? "focus" : ""}" data-act="mfocus" data-k="${k}" title="Show this match"><div class="l">${tchipK(m.a, 0)}</div><div class="score" data-pb="score" data-k="${k}"></div><div>${tchipK(m.b, 1)}</div></div>`).join("");
+  return ms.map((m, k) => `<div class="fixture ${m.a === me || m.b === me ? "mine" : ""} ${k === focusK(S) ? "focus" : ""}" data-act="mfocus" data-k="${k}" title="Show this match"><div class="l">${tchipK(m.a, 0, 18, m.b)}</div><div class="score" data-pb="score" data-k="${k}"></div><div>${tchipK(m.b, 1, 18, m.a)}</div></div>`).join("");
 }
 function focusK(S) {
   const R = S.reveal;
@@ -374,7 +434,7 @@ function playbackView(S) {
   const mine = focusK(S);
   const m = R.matches[mine] || null;
   const big = m ? `<div class="card"><div class="row"><h3 style="margin:0">${S.step === "md.half1" || S.step === "md.half" ? "First half" : "Second half"}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${mine}"></span></div>
-    <div class="bigmatch"><div class="tm"><div class="tmhead">${crest(team(m.a), 44)}${shirt(club(team(m.a)), 0, 52)}</div>${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm"><div class="tmhead">${crest(team(m.b), 44)}${shirt(club(team(m.b)), 1, 52)}</div>${esc(team(m.b).name)}</div></div>
+    <div class="bigmatch"><div class="tm"><div class="tmhead">${crest(team(m.a), 44)}${shirt(club(team(m.a)), kitOf(m.a, m.b, 0), 52)}</div>${esc(team(m.a).name)}</div><div class="sc" data-pb="score" data-k="${mine}"></div><div class="tm"><div class="tmhead">${crest(team(m.b), 44)}${shirt(club(team(m.b)), kitOf(m.b, m.a, 1), 52)}</div>${esc(team(m.b).name)}</div></div>
     <div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
     <div class="card"><h3>Line-ups and ratings</h3><div data-pb="lineups" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
@@ -387,7 +447,7 @@ export function bootPanel(S, limit = 5, title = "Golden Boot") {
   return `<div class="card"><h3>${title}</h3><table class="tb"><tr><th>#</th><th>Player</th><th class="n">Goals</th></tr>${b.map((x, k) => { const p = pl(x.id), t = team(x.team);
     return `<tr class="${x.team === me ? "me" : ""} ${k === 0 ? "leader" : ""}"><td>${k + 1}</td><td><div class="bootn">${t ? crest(t, 14) : ""}<b>${p ? esc(p.name) : "?"}</b></div></td><td class="n"><b>${x.g}</b></td></tr>`; }).join("")}</table></div>`;
 }
-const LEAD = [["g", "Golden Boot", "Goals"], ["a", "Assists", "Assists"], ["kp", "Chances created", "KP"], ["tk", "Tackles", "Tackles"], ["ic", "Interceptions", "Int."], ["sv", "Keeper saves", "Saves"], ["rt", "Average rating", "Rating"]];
+const LEAD = [["g", "Golden Boot", "Goals"], ["a", "Assists", "Assists"], ["kp", "Chances created", "KP"], ["tk", "Tackles", "Tackles"], ["ic", "Interceptions", "Int."], ["sv", "Keeper saves", "Saves"], ["mo", "Player of the Match", "Awards"], ["rt", "Average rating", "Rating"]];
 export function leadersPanel(S, limit = 10) {
   const L = S.leaders || {}, key = st.ui.lead || "g", cur = LEAD.find((x) => x[0] === key) || LEAD[0], rows = (L[cur[0]] || []).slice(0, limit), me = S.me ? S.me.teamId : -1;
   const tabs = LEAD.map(([k, name]) => `<button class="btn sm ${k === cur[0] ? "on" : ""}" data-act="lead" data-k="${k}">${name}</button>`).join("");
@@ -402,14 +462,14 @@ function scorerLines(m, side) {
 }
 function resRows(ms, me, focus = null) {
   return ms.map((m, i) => `<div class="resrow ${m.a === me || m.b === me ? "mine" : ""} ${i === focus ? "focus" : ""}" ${focus != null ? `data-act="mfocus" data-k="${i}"` : ""}>
-    <div class="side l">${tchipK(m.a, 0, 20)}<div class="scs">${scorerLines(m, 0)}</div></div>
+    <div class="side l">${tchipK(m.a, 0, 20, m.b)}<div class="scs">${scorerLines(m, 0)}</div></div>
     <div class="fscore">${m.score[0]} – ${m.score[1]}</div>
-    <div class="side r">${tchipK(m.b, 1, 20)}<div class="scs">${scorerLines(m, 1)}</div></div></div>`).join("");
+    <div class="side r">${tchipK(m.b, 1, 20, m.a)}<div class="scs">${scorerLines(m, 1)}</div></div></div>`).join("");
 }
 function resultsView(S) {
   const R = S.reveal, me = S.me ? S.me.teamId : -1, k = focusK(S), m = R.matches[k];
   return `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1} results</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="${k}">FT</span></div><div class="mt">${resRows(R.matches, me, k)}</div></div>
-    <div class="card"><h3>${tchipK(m.a, 0, 20)} <span class="mute">v</span> ${tchipK(m.b, 1, 20)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>
+    <div class="card"><h3>${tchipK(m.a, 0, 20, m.b)} <span class="mute">v</span> ${tchipK(m.b, 1, 20, m.a)} · full time</h3><div data-pb="mstats" data-k="${k}"></div></div>
     <div class="card"><h3>Ratings</h3><div data-pb="lineups" data-k="${k}"></div></div>`;
 }
 
@@ -425,10 +485,11 @@ function hubHome(S) {
   const rank = t ? (S.table || []).findIndex((r) => r.i === t.id) : -1, row = rank >= 0 ? S.table[rank] : null;
   const have = me ? me.coins : S.pm ? S.pm.coins : 0, rare = S.store && S.store.open && Object.values(S.store.stock || {}).some((n) => n > 0);
   const tile = (to, ic, name, sub, cls = "") => `<button class="hubtile ${cls}" data-act="hubgo" data-to="${to}"><span class="ic">${ic}</span><b>${name}</b><span class="sub">${sub}</span></button>`;
-  const next = fx ? `<div class="hubnext">${tchipK(fx[0], 0, 26)}<span class="mute">v</span>${tchipK(fx[1], 1, 26)}</div>` : "";
+  const next = fx ? `<div class="hubnext">${tchipK(fx[0], 0, 26, fx[1])}<span class="mute">v</span>${tchipK(fx[1], 1, 26, fx[0])}</div>${kitNote(fx)}` : "";
   const tiles = [
     me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items${Object.values(me.items || {}).some((n) => n > 0) ? "" : ""}`) : "",
     tile("standings", "🏆", "Standings", row ? `${rank + 1}${["st", "nd", "rd"][rank] || "th"} · ${row.pts} pts · table, results, Golden Boot` : "Table, results, Golden Boot, other teams"),
+    tile("stats", "📊", "Player stats", "Every player's season: goals, assists, ratings, awards"),
     me && me.fin ? tile("finance", "💰", "Finance", `${me.fin.expiring.length ? `${me.fin.expiring.length} contract${me.fin.expiring.length === 1 ? "" : "s"} expiring · about ${Math.round(me.fin.cheapest)} to keep them` : "Nothing expiring this year"}`) : "",
     tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item in stock</span>" : ""}`),
     me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : ready ? "Ready" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
@@ -442,7 +503,7 @@ function teamViewer(S, i) {
   const fit = ps.filter((p) => !p.susp), gk = fit.filter((p) => p.pos === "GK").sort((a, b) => b.ovr - a.ovr)[0];
   const out = fit.filter((p) => p !== gk).sort((a, b) => b.ovr - a.ovr).slice(0, 5), start = new Set([gk, ...out].filter(Boolean).map((p) => p.id));
   const lines = (list) => list.map((p) => `<div class="benchrow tv ${p.susp ? "dim" : ""}"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}${p.user ? " · created player" : ""}</span></span>
-    ${p.x ? `<span class="tiny mute" title="This season: games, goals, assists, average rating">${p.x[0]} gp · ${p.x[1]}G ${p.x[2]}A · <b>${p.x[7].toFixed(1)}</b></span>` : ""}<span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
+    ${p.x ? `<span class="tiny mute" title="This season: games, goals, assists, Player of the Match awards, average rating">${p.x[0]} gp · ${p.x[1]}G ${p.x[2]}A${p.x[11] ? ` · ⭐${p.x[11]}` : ""} · <b>${p.x[7].toFixed(1)}</b></span>` : ""}<span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
   const byOvr = (a, b) => b.ovr - a.ovr, starters = ps.filter((p) => start.has(p.id)).sort((a, b) => (a.pos === "GK" ? -1 : b.pos === "GK" ? 1 : byOvr(a, b))), bench = ps.filter((p) => !start.has(p.id)).sort(byOvr);
   return `${hubBar(S, t.name, "closeteam", "← Standings")}<div class="card"><div class="row wrap" style="gap:14px">${crest(t, 48)}${shirt(c, 0, 56)}<div class="grow"><b style="font-size:20px">${esc(t.name)}</b><div class="mute small">${t.owner ? "Managed by " + esc(t.owner) : "CPU manager"}${tr ? ` · ${row + 1}${["st", "nd", "rd"][row] || "th"} · ${tr.pts} pts (${tr.w}-${tr.d}-${tr.l})` : ""} · ${ps.length}/${t.cap} players</div></div></div>
     <h3 class="mt">Likely line-up</h3><div class="col" style="gap:3px">${lines(starters)}</div>
@@ -472,6 +533,7 @@ function hubView(S) {
   if (!hub || (hub === "team" && !S.me)) return hubHome(S);
   if (hub === "team") return hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
   if (hub === "finance" && S.me && S.me.fin) return hubBar(S, "Finance") + financeView(S);
+  if (hub === "stats") return hubBar(S, "Player stats") + playerStats(S);
   if (hub === "store") return hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
   return standingsView(S);
 }
@@ -494,23 +556,19 @@ export function matchView(S, ctx) {
     case "md.result": main = resultsView(S); break;
     case "season.end": {
       const R = S.reveal, champ = team(R.champion);
-      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(champ.name)}</div><div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${bootWinner(S)}${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${bootPanel(S, 10, "Golden Boot, final table")}${R.final ? finalCard(S) : ""}`;
+      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(champ.name)}</div><div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${playerStats(S)}${R.final ? finalCard(S) : ""}`;
       break;
     }
     default: main = `<div class="card">…</div>`;
   }
   return { main, side };
 }
-function bootWinner(S) {
-  const h = (S.history || []).slice(-1)[0], b = h && h.boot; if (!b) return "";
-  return `<p class="mt" style="font-weight:800">⚽ Golden Boot: ${esc(b.name)} (${esc(team(b.team) ? team(b.team).name : "")}) · ${b.g} goals</p>`;
-}
 function finalCard(S) {
   const h = S.history || [], wins = new Map();
   for (const x of h) wins.set(x.champion, (wins.get(x.champion) || 0) + 1);
-  return `<div class="card"><h3>Hall of champions</h3><table class="tb"><tr><th>Season</th><th>Champion</th><th class="n">Points</th><th>Golden Boot</th></tr>${h.map((x) => `<tr><td>${x.season}</td><td>${chip(team(x.champion), 18, true)}</td><td class="n">${x.pts}</td><td>${x.boot ? esc(x.boot.name) + " <span class=\"mute\">(" + x.boot.g + ")</span>" : "–"}</td></tr>`).join("")}</table><p class="mute small mt">That was the last season of this game.</p></div>`;
+  return `<div class="card"><h3>Hall of champions</h3><table class="tb"><tr><th>Season</th><th>Champion</th><th class="n">Points</th><th>Golden Boot</th><th>Ballon d'Or</th></tr>${h.map((x) => `<tr><td>${x.season}</td><td>${chip(team(x.champion), 18, true)}</td><td class="n">${x.pts}</td><td>${x.boot ? esc(x.boot.name) + " <span class=\"mute\">(" + x.boot.g + ")</span>" : "–"}</td><td>${x.awards && x.awards.ballon && x.awards.ballon[0] ? esc(x.awards.ballon[0].name) : "–"}</td></tr>`).join("")}</table><p class="mute small mt">That was the last season of this game.</p></div>`;
 }
 function fixturesPreview(S) {
   const fx = S.season.fixtures || [], me = S.me ? S.me.teamId : -1;
-  return `<div class="card"><h3>Matchday ${S.season.day + 1} fixtures</h3>${fx.map(([a, b]) => `<div class="fixture ${a === me || b === me ? "mine" : ""}"><div class="l">${tchipK(a, 0)}</div><div class="score mute">v</div><div>${tchipK(b, 1)}</div></div>`).join("")}</div>`;
+  return `<div class="card"><h3>Matchday ${S.season.day + 1} fixtures</h3>${fx.map(([a, b]) => `<div class="fixture ${a === me || b === me ? "mine" : ""}"><div class="l">${tchipK(a, 0, 18, b)}</div><div class="score mute">v</div><div>${tchipK(b, 1, 18, a)}</div></div>`).join("")}</div>`;
 }

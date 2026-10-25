@@ -100,36 +100,39 @@ const pick = (r, arr) => arr[Math.floor(r() * arr.length)];
 const carOf = (L) => { const c = L.own.cars.map(shopItem).sort((a, b) => b.price - a.price)[0]; return c ? c.name : "car"; };
 const partnerOf = (L) => (L.partner ? L.partner.name : "a mystery companion");
 
-// Story table. `g` stories always run when their condition is met; the rest need a roll and share the season cap.
+// Story table. `g` stories always happen when their condition is met; the rest need a roll and share the season cap.
+// At most `P.life.perWeek` (one) story is printed a week for the whole league. When several qualify, the one with the higher
+// `prio` is printed and the others are overwritten: steroids 5, wedding 4, boring 3, then scandals and fun. A `g` story that
+// is overwritten still happens (the ban, the marriage, its follower and love-life effects); only its headline is dropped.
 // Each build() returns { head, sub, fx: { fol, love, coins } }.
 const STORIES = [
-  { id: "boring", g: true, kind: "boring", icon: "😴", when: (c) => c.act === "balance" && c.L.cnt.balance === c.P.boringAt,
+  { id: "boring", g: true, prio: 3, kind: "boring", icon: "😴", when: (c) => c.act === "balance" && c.L.cnt.balance === c.P.boringAt,
     build: (c) => ({ head: `MOST BORING ${who(c.p).toUpperCase()} IN THE LEAGUE?`, sub: `${c.p.name} has had a perfectly balanced week ${c.P.boringAt} times this season. Team-mates: "${he(c.p)}'s fine. ${he(c.p)}'s just... fine."`, fx: { fol: -400 } }) },
-  { id: "wedding", g: true, kind: "wedding", icon: "💍", when: (c) => c.wedding,
+  { id: "wedding", g: true, prio: 4, kind: "wedding", icon: "💍", when: (c) => c.wedding,
     build: (c) => ({ head: `WEDDING BELLS: ${c.p.name.toUpperCase()} SAYS "I DO"`, sub: `${c.p.name} and ${partnerOf(c.L)} tie the knot after ${c.L.partner.dates} dates. The ${club(c.game, c.p)} dressing room is "emotional". Honeymoon: one rest day.`, fx: { fol: 3000, love: 25 } }) },
-  { id: "wada", g: true, kind: "steroids", icon: "🧪", when: (c) => c.wada,
+  { id: "wada", g: true, prio: 5, kind: "steroids", icon: "🧪", when: (c) => c.wada,
     build: (c) => ({ head: `WADA FLAG: ${c.p.name.toUpperCase()} SIDELINED`, sub: `${c.p.name} (${club(c.game, c.p)}) misses the next ${c.P.wadaBan} matches after a flagged test. Camp insists "it was the protein shake".`, fx: { fol: -2500 } }) },
-  { id: "drunk", chance: (c) => c.P.chance.drunk, kind: "drunk", icon: "🚨", when: (c) => c.act === "party" && c.L.own.cars.length > 0 && c.L.cnt.party >= c.P.drunkAt && !c.L.flags.drunk,
+  { id: "drunk", prio: 2, chance: (c) => c.P.chance.drunk, kind: "drunk", icon: "🚨", when: (c) => c.act === "party" && c.L.own.cars.length > 0 && c.L.cnt.party >= c.P.drunkAt && !c.L.flags.drunk,
     build: (c) => ({ head: `${c.p.name.toUpperCase()} IN DRINK-DRIVING SCANDAL`, sub: `The ${carOf(c.L)} was found on the wrong side of the road. ${club(c.game, c.p)} are "very disappointed" and a fine is on the way.`, fx: { fol: -2500, coins: -30 }, flag: "drunk" }) },
-  { id: "proud", chance: (c) => c.P.chance.proud, kind: "proud", icon: "👏", approval: true, when: (c) => c.act === "train" && !c.L.flags.proud,
+  { id: "proud", prio: 1, chance: (c) => c.P.chance.proud, kind: "proud", icon: "👏", approval: true, when: (c) => c.act === "train" && !c.L.flags.proud,
     build: (c) => ({ head: `"SO PROUD OF ${his(c.p).toUpperCase()} WORK RATE": ${club(c.game, c.p).toUpperCase()} PRAISE ${c.p.name.toUpperCase()}`, sub: `Last one in, last one out. The coaching staff say ${c.p.name} is "setting the standard" at ${club(c.game, c.p)}.`, fx: { fol: 900 }, flag: "proud" }) },
-  { id: "monaco", chance: (c) => c.P.chance.monaco, kind: "yacht", icon: "🛥️", when: (c) => c.act === "party" && !!c.L.own.yacht && !c.game.newsFlags["monaco" + c.game.season],
+  { id: "monaco", prio: 2, chance: (c) => c.P.chance.monaco, kind: "yacht", icon: "🛥️", when: (c) => c.act === "party" && !!c.L.own.yacht && !c.game.newsFlags["monaco" + c.game.season],
     build: (c) => ({ head: `${c.p.name.toUpperCase()} HOSTS THE MONACO GP YACHT PARTY`, sub: `The paddock turns up, a driver DJs, and nobody remembers who won the race. Champagne bill: "undisclosed, and large".`, fx: { fol: 5000, coins: -80 }, gflag: "monaco" }) },
-  { id: "trouble", chance: (c) => c.P.chance.trouble, kind: "trouble", icon: "💔", when: (c) => c.act === "party" && c.married,
+  { id: "trouble", prio: 1, chance: (c) => c.P.chance.trouble, kind: "trouble", icon: "💔", when: (c) => c.act === "party" && c.married,
     build: (c) => ({ head: `TROUBLE IN PARADISE FOR ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}`, sub: `Another late night out and a very quiet breakfast. Friends say "they are working through it". The dog has picked a side.`, fx: { fol: 700, love: -30 } }) },
-  { id: "jet", chance: (c) => c.P.chance.fun, kind: "fun", icon: "✈️", when: (c) => c.act === "train" && c.L.own.plane && !c.L.flags.jet,
+  { id: "jet", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "✈️", when: (c) => c.act === "train" && c.L.own.plane && !c.L.flags.jet,
     build: (c) => ({ head: `${c.p.name.toUpperCase()} LANDS PRIVATE JET AT TRAINING GROUND`, sub: `Groundstaff were "mildly concerned" as the plane taxied past the cones. The gaffer is not amused. The fans are.`, fx: { fol: 1800 }, flag: "jet" }) },
-  { id: "yachtdate", chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛥️", when: (c) => c.act === "date" && !!c.L.own.yacht && c.L.partner && c.L.partner.dates >= 3 && !c.L.flags.yachtdate,
+  { id: "yachtdate", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛥️", when: (c) => c.act === "date" && !!c.L.own.yacht && c.L.partner && c.L.partner.dates >= 3 && !c.L.flags.yachtdate,
     build: (c) => ({ head: `LOVE ON THE WATER: ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}`, sub: `A sunset, a very long deck and one tiny sofa. Photographers on jet skis got the shots.`, fx: { fol: 1100, love: 8 }, flag: "yachtdate" }) },
-  { id: "kebab", chance: (c) => c.P.chance.fun, kind: "fun", icon: "🍟", when: (c) => c.act === "date" && !!c.L.partner && !c.L.flags.kebab,
+  { id: "kebab", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🍟", when: (c) => c.act === "date" && !!c.L.partner && !c.L.flags.kebab,
     build: (c) => ({ head: `CHIPS AND LOVE: ${c.p.name.toUpperCase()} SPOTTED WITH ${partnerOf(c.L).toUpperCase()}`, sub: `Sharing a tray of chips at 11pm. Staff say the ${club(c.game, c.p)} ${c.p.pos} tipped well and asked for extra sauce.`, fx: { fol: 800 }, flag: "kebab" }) },
-  { id: "owner", chance: (c) => c.P.chance.fun, kind: "fun", icon: "🎧", when: (c) => c.act === "party" && !!nightclub(c.L) && !c.L.flags.owner,
+  { id: "owner", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🎧", when: (c) => c.act === "party" && !!nightclub(c.L) && !c.L.flags.owner,
     build: (c) => ({ head: `OWNER'S SET: ${c.p.name.toUpperCase()} TAKES OVER THE DECKS AT ${(c.L.clubName || "OFFSIDE").toUpperCase()}`, sub: `A 3am set of nothing but stadium anthems goes viral. Management (also ${c.p.name}) approve the overtime.`, fx: { fol: 2500 }, flag: "owner" }) },
-  { id: "sleep", chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛌", when: (c) => c.act === "rest" && c.L.cnt.rest >= c.P.sleepAt && !c.L.flags.sleep,
+  { id: "sleep", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛌", when: (c) => c.act === "rest" && c.L.cnt.rest >= c.P.sleepAt && !c.L.flags.sleep,
     build: (c) => ({ head: `${c.p.name.toUpperCase()} HAS BEEN IN BED SINCE TUESDAY`, sub: `A fourteen-hour nap before the next fixture. The physio calls it "elite recovery". The sofa is jealous.`, fx: { fol: 350 }, flag: "sleep" }) },
-  { id: "gym", chance: (c) => c.P.chance.fun, kind: "fun", icon: "💪", when: (c) => c.act === "train" && c.L.cnt.train >= c.P.gymAt && !c.L.flags.gym,
+  { id: "gym", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "💪", when: (c) => c.act === "train" && c.L.cnt.train >= c.P.gymAt && !c.L.flags.gym,
     build: (c) => ({ head: `GYM RAT ALERT: ${c.p.name.toUpperCase()} LOCKED IN THE GYM`, sub: `Cleaners found ${him(c.p)} still doing calf raises at midnight. The floodlights were switched off "as a hint".`, fx: { fol: 500 }, flag: "gym" }) },
-  { id: "wild", chance: (c) => c.P.chance.wild, kind: "party", icon: "🍾", when: (c) => c.act === "party",
+  { id: "wild", prio: 1, chance: (c) => c.P.chance.wild, kind: "party", icon: "🍾", when: (c) => c.act === "party",
     build: (c, r) => ({ head: pick(r, [`WILD NIGHT OUT: ${c.p.name.toUpperCase()} SPOTTED AT 4AM`, `${c.p.name.toUpperCase()} DANCES ON A TABLE. IT HOLDS.`, `STARS OUT: ${c.p.name.toUpperCase()} LEADS THE CONGA LINE`]), sub: pick(r, [`Witnesses say the ${club(c.game, c.p)} ${c.p.pos} was "in great spirits" and had lost one shoe.`, `Fans filmed it all. The group chat has not recovered.`, `A kebab was involved. So was a traffic cone.`]), fx: { fol: 1500 } }) },
 ];
 const kindIcon = Object.fromEntries(STORIES.map((s) => [s.kind, s.icon]));
@@ -138,16 +141,38 @@ export { kindIcon };
 // A club buying a nightclub is news on its own.
 export function purchaseStory(game, p, it) {
   const L = ensureLife(game, p);
-  if (it.cat === "club") return mk(game, p, { kind: "club", icon: "🪩", head: `${p.name.toUpperCase()} OPENS "${(L.clubName || "OFFSIDE").toUpperCase()}"`, sub: `${it.name} opening night: velvet rope, a trophy cabinet behind the bar and a menu with a "Hat-trick Hotdog". The ${club(game, p)} squad have a booth.`, fx: { fol: 2500 } });
-  if (it.cat === "plane") return mk(game, p, { kind: "fun", icon: "✈️", head: `${p.name.toUpperCase()} BUYS A PRIVATE PLANE`, sub: `It has a bed, a PlayStation and one very confused flight attendant. Away days just got a lot more comfortable.`, fx: { fol: 3000 } });
+  if (it.cat === "club") return mk(game, p, { prio: 2, kind: "club", icon: "🪩", head: `${p.name.toUpperCase()} OPENS "${(L.clubName || "OFFSIDE").toUpperCase()}"`, sub: `${it.name} opening night: velvet rope, a trophy cabinet behind the bar and a menu with a "Hat-trick Hotdog". The ${club(game, p)} squad have a booth.`, fx: { fol: 2500 } });
+  if (it.cat === "plane") return mk(game, p, { prio: 1, kind: "fun", icon: "✈️", head: `${p.name.toUpperCase()} BUYS A PRIVATE PLANE`, sub: `It has a bed, a PlayStation and one very confused flight attendant. Away days just got a lot more comfortable.`, fx: { fol: 3000 } });
   return null;
 }
+// ---- the weekly news slot ----
+const weekSlot = (game) => { const key = game.season + ":" + (game.weekDay ?? (game.md ? game.md.day : 0)); if (!game.weekNews || game.weekNews.key !== key) game.weekNews = { key, ids: [] }; return game.weekNews; };
+// Can a story of this priority be printed this week? { free } when there is room, { replace: story } when it would
+// overwrite a smaller one, null when the week is already taken by something at least as big.
+export function weekRoom(game, prio) {
+  const held = weekSlot(game).ids.map((id) => (game.news || []).find((n) => n.id === id)).filter((n) => n && (n.status === "live" || n.status === "pending"));
+  if (held.length < (game.P.life.perWeek || 1)) return { free: true };
+  const low = held.slice().sort((a, b) => a.prio - b.prio || a.id - b.id)[0];
+  return low.prio < prio ? { replace: low } : null;
+}
+function overwrite(game, n) {
+  n.status = "replaced"; n.approver = null;
+  const p = game.players[n.pid], L = p && p.life;
+  if (!n.abs) {                                             // a random story that never ran: undo what it did
+    if (p && n.fx) applyFx(game, p, { fol: -(n.fx.fol || 0), love: -(n.fx.love || 0), coins: -(n.fx.coins || 0) });
+    if (L) { L.sCount = Math.max(0, (L.sCount || 0) - 1); if (n.flag) delete L.flags[n.flag]; }
+    if (n.gflag && game.newsFlags) delete game.newsFlags[n.gflag + n.season];
+  }
+}
 function mk(game, p, s) {
+  const room = weekRoom(game, s.prio ?? 0); if (!room) return null;
+  if (room.replace) overwrite(game, room.replace);
   game.newsSeq = (game.newsSeq || 0) + 1; game.pubSeq = game.pubSeq || 0;
   const status = s.approval && p.team != null && game.teams[p.team].human ? "pending" : "live";
-  const n = { id: game.newsSeq, season: game.season, day: game.md ? game.md.day : 0, kind: s.kind, icon: s.icon, pid: p.id, name: p.name, team: p.team, clubName: club(game, p), head: s.head, sub: s.sub, status, approver: status === "pending" ? p.team : null };
+  const n = { id: game.newsSeq, season: game.season, day: game.weekDay ?? (game.md ? game.md.day : 0), kind: s.kind, icon: s.icon, pid: p.id, name: p.name, team: p.team, clubName: club(game, p), head: s.head, sub: s.sub, status, approver: status === "pending" ? p.team : null, prio: s.prio ?? 0, abs: !!s.abs, fx: s.fx || null, flag: s.flag || null, gflag: s.gflag || null };
   if (status === "live") n.pub = ++game.pubSeq;
   (game.news = game.news || []).push(n); if (game.news.length > 60) game.news.shift();
+  weekSlot(game).ids.push(n.id);
   if (s.fx) applyFx(game, p, s.fx);
   return n;
 }
@@ -160,7 +185,7 @@ function applyFx(game, p, fx) {
 // Any player caught for steroids is news, whoever controls him.
 export function steroidStory(game, d) {
   const p = game.players[d.pid], t = d.team != null ? game.teams[d.team].name : "No club";
-  return mk(game, p, { kind: "steroids", icon: "🧪", head: `DOPING SHOCK: ${p.name.toUpperCase()} BANNED`, sub: `${t}'s ${p.pos} fails a drugs test and is out for ${d.games} games. The lab says the sample was "very clear". Not in a good way.` });
+  return mk(game, p, { prio: 5, abs: true, kind: "steroids", icon: "🧪", head: `DOPING SHOCK: ${p.name.toUpperCase()} BANNED`, sub: `${t}'s ${p.pos} fails a drugs test and is out for ${d.games} games. The lab says the sample was "very clear". Not in a good way.` });
 }
 // A story waiting on a manager: yes publishes, no buries it.
 export function decideStory(game, id, yes) {
@@ -174,6 +199,7 @@ export const dropPending = (game) => { for (const n of game.news || []) if (n.st
 // Resolve one matchday's choice for one user player. Returns { act, cost, stories, wada }.
 export function runActivity(game, p, act, { marry = false, day = 0 } = {}) {
   const P = game.P.life, L = ensureLife(game, p);
+  game.weekDay = day;
   if (blocked(game, p, act, { marry })) { act = "balance"; marry = false; }
   const a = P.acts[act], r = makeRng(game.seed, "life", p.id, game.season, day);
   const cost = actCost(game, p, act) + (marry ? WEDDING_COST(game) : 0);
@@ -203,14 +229,24 @@ export function runActivity(game, p, act, { marry = false, day = 0 } = {}) {
   const c = { game, p, act, L, P, r, married: L.married, wedding: !!marry, wada };
   if (marry) L.married = true;
   const out = [];
+  // Everything that qualifies this week; the biggest story is the one printed (see the story table).
+  const cands = [];
   for (const s of STORIES) {
     if (!s.when(c)) continue;
     if (!s.g) { if (L.sCount >= P.maxStories) continue; if (r() >= s.chance(c)) continue; }
+    cands.push(s);
+  }
+  cands.sort((a, b) => b.prio - a.prio);
+  let printed = false;
+  for (const s of cands) {
+    const can = !printed && weekRoom(game, s.prio);
+    if (!can && !s.g) continue;                                                // a random story that loses the week simply does not happen
     const b = s.build(c, r);
     if (b.flag) L.flags[b.flag] = true; if (b.gflag) (game.newsFlags = game.newsFlags || {})[b.gflag + game.season] = true;
+    if (!can) { if (b.fx) applyFx(game, p, b.fx); continue; }                  // a certain event overwritten by a bigger one still happens, quietly
     if (!s.g) L.sCount++;
-    out.push(mk(game, p, { kind: s.kind, icon: s.icon, approval: s.approval, ...b }));
-    if (!s.g) break;                                                           // at most one random story a week
+    const n = mk(game, p, { kind: s.kind, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
+    if (n) { out.push(n); printed = true; }
   }
   L.last = { act, cost, day, wed: !!marry };
   L.act = null;

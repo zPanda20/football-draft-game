@@ -170,7 +170,8 @@ export const usermodeMethods = {
   // Everyone's chosen week plays out just before the match: money, energy, love, followers, and whatever it makes the papers print.
   resolveLife() {
     const g = this.game; dropPending(g);
-    for (const u of this.userPlayers()) {
+    const us = this.userPlayers(), k = us.length ? Math.max(0, this.mdIdx) % us.length : 0;   // one story a week for the league: take turns who is looked at first
+    for (const u of [...us.slice(k), ...us.slice(0, k)]) {
       const p = g.players[u.pid]; if (!p || p.retired) continue;
       const L = ensureLife(g, p), ch = L.act || { act: "balance", marry: false };
       if (p.team == null) p.stam = 100;

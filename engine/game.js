@@ -178,12 +178,18 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
   }
   res.dope = [];
   res.firstLineups = m.lineups;
-  const rated = matchRatings(res.events, ratingSides(m.lineups, res.lineups), { final: true });
+  const rsides = ratingSides(m.lineups, res.lineups), rated = matchRatings(res.events, rsides, { final: true });
   res.ratings = Object.fromEntries(Object.entries(rated).map(([id, o]) => [id, o.r]));
+  res.potm = playerOfTheMatch(rated);
   game.stats = game.stats || {};
   for (const [id, o] of Object.entries(rated)) {
-    const x = (game.stats[id] = game.stats[id] || { gp: 0, g: 0, a: 0, kp: 0, sh: 0, sv: 0, tk: 0, ic: 0, xg: 0, ga: 0, rt: 0 });
+    const x = (game.stats[id] = game.stats[id] || { gp: 0, g: 0, a: 0, kp: 0, sh: 0, sv: 0, tk: 0, ic: 0, xg: 0, ga: 0, rt: 0, mo: 0, w: 0, cs: 0, gk: 0 });
     x.gp++; x.rt += o.r; for (const k of ["g", "a", "kp", "sh", "sv", "tk", "ic", "xg", "ga"]) x[k] += o[k];
+    const mine = res.score[o.side], theirs = res.score[1 - o.side], inGoal = rsides[o.side].group[id] === "gk";
+    x.mo = (x.mo || 0) + (+id === res.potm ? 1 : 0);
+    x.w = (x.w || 0) + (mine > theirs ? 1 : 0);
+    x.gk = (x.gk || 0) + (inGoal ? 1 : 0);
+    x.cs = (x.cs || 0) + (inGoal && theirs === 0 ? 1 : 0);
     x.team = m.sides[o.side].id;
   }
   game.goals = game.goals || {};
@@ -298,15 +304,59 @@ export function runOffseason(game, D, hooks = {}) {
   return out;
 }
 
-// Season scoring table: [{id, g, team}] best first (ties: the lower id, so it is stable).
+// Player of the match: the best rating, then goal contributions, then expected goals, then the lower id (stable).
+export function playerOfTheMatch(rated) {
+  const rows = Object.entries(rated).map(([id, o]) => ({ id: +id, r: o.r, gc: o.g + o.a, xg: o.xg }));
+  rows.sort((a, b) => b.r - a.r || b.gc - a.gc || b.xg - a.xg || a.id - b.id);
+  return rows.length ? rows[0].id : null;
+}
+
+// Season scoring table: [{id, g, team}] best first (ties: more assists, then fewer games, then the lower id, so it is stable).
 export function topScorers(game, n = 10) {
-  return Object.entries(game.goals || {}).map(([id, e]) => ({ id: +id, g: e.g, team: e.team })).sort((a, b) => b.g - a.g || a.id - b.id).slice(0, n);
+  const S = game.stats || {};
+  return Object.entries(game.goals || {}).map(([id, e]) => ({ id: +id, g: e.g, team: e.team, a: S[id] ? S[id].a : 0, gp: S[id] ? S[id].gp : 0 }))
+    .sort((a, b) => b.g - a.g || b.a - a.a || a.gp - b.gp || a.id - b.id).slice(0, n).map(({ id, g, team }) => ({ id, g, team }));
+}
+
+// ---- season awards: Ballon d'Or, Golden Boot, Playmaker, Golden Glove ----
+// Ballon d'Or: each part is scored against the best in the league (0 to 1) and weighted: average rating (above a 6.0
+// baseline), goals + assists, Player of the Match awards, matches won while playing, and a little star power (overall).
+// Only players with enough games count. Returns lists, best first, with the numbers behind each name.
+export function seasonAwards(game, days = 0) {
+  const A = game.P.awards, S = game.stats || {};
+  const rows = Object.entries(S).filter(([, x]) => x.gp > 0).map(([id, x]) => {
+    const p = game.players[id];
+    return { id: +id, name: p ? p.name : "?", team: x.team, gp: x.gp, g: x.g, a: x.a, kp: x.kp, sv: x.sv, ga: x.ga, tk: x.tk, ic: x.ic, mo: x.mo || 0, w: x.w || 0, cs: x.cs || 0, gk: x.gk || 0, rt: x.rt / x.gp, ovr: p ? p.ovr : 0 };
+  });
+  const most = Math.max(0, ...rows.map((r) => r.gp)), need = Math.max(1, Math.min(most, Math.ceil((days || most) * A.minShare)));
+  const elig = rows.filter((r) => r.gp >= need);
+  const top = (list, key, n) => list.slice().sort(key).slice(0, n);
+  const out = { need, ballon: [], boot: [], playmaker: [], glove: [] };
+  if (!elig.length) return out;
+  const mx = (f) => Math.max(1e-9, ...elig.map(f)), floor = A.ovrFloor, ovrMax = Math.max(floor + 1, ...elig.map((r) => r.ovr));
+  const rtMax = Math.max(0.01, mx((r) => r.rt) - A.base), gcMax = mx((r) => r.g + r.a), moMax = mx((r) => r.mo), wMax = mx((r) => r.w);
+  const W = A.weights;
+  const scored = elig.map((r) => {
+    const parts = { rating: Math.max(0, (r.rt - A.base) / rtMax), contrib: (r.g + r.a) / gcMax, potm: r.mo / moMax, wins: r.w / wMax, star: Math.max(0, (r.ovr - floor) / (ovrMax - floor)) };
+    const score = 100 * (W.rating * parts.rating + W.contrib * parts.contrib + W.potm * parts.potm + W.wins * parts.wins + W.star * parts.star);
+    return { ...r, rt: +r.rt.toFixed(2), score: +score.toFixed(1), parts: Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, +v.toFixed(2)])) };
+  });
+  out.ballon = top(scored, (a, b) => b.score - a.score || b.rt - a.rt || a.id - b.id, 5);
+  out.boot = top(rows.filter((r) => r.g > 0), (a, b) => b.g - a.g || b.a - a.a || a.gp - b.gp || a.id - b.id, 5);
+  out.playmaker = top(rows.filter((r) => r.a > 0), (a, b) => b.a - a.a || b.kp - a.kp || b.rt - a.rt || a.id - b.id, 5);
+  const gkNeed = Math.max(1, Math.ceil((days || most) * A.gloveShare));
+  const sp = (r) => (r.sv + r.ga ? r.sv / (r.sv + r.ga) : 0);
+  out.glove = top(rows.filter((r) => r.gk >= gkNeed), (a, b) => b.cs - a.cs || sp(b) - sp(a) || b.rt - a.rt || a.id - b.id, 5).map((r) => ({ ...r, sp: +sp(r).toFixed(3) }));
+  // the numbers sent to the browser: keep it small
+  const slim = (r) => ({ id: r.id, name: r.name, team: r.team, gp: r.gp, g: r.g, a: r.a, kp: r.kp, mo: r.mo, w: r.w, cs: r.cs, sv: r.sv, ga: r.ga, rt: +r.rt.toFixed(2), ...(r.score != null ? { score: r.score, parts: r.parts } : {}), ...(r.sp != null ? { sp: r.sp } : {}) });
+  for (const k of ["ballon", "boot", "playmaker", "glove"]) out[k] = out[k].map(slim);
+  return out;
 }
 
 // Season leaders for the stats pages: top n of each box-score column (rating needs a few games to count).
-export const LEADER_KEYS = ["g", "a", "kp", "tk", "ic", "sv", "rt"];
+export const LEADER_KEYS = ["g", "a", "kp", "tk", "ic", "sv", "mo", "rt"];
 export function seasonLeaders(game, n = 10) {
-  const rows = Object.entries(game.stats || {}).map(([id, x]) => ({ id: +id, team: x.team, gp: x.gp, g: x.g, a: x.a, kp: x.kp, tk: x.tk, ic: x.ic, sv: x.sv, xg: +x.xg.toFixed(1), rt: x.gp ? +(x.rt / x.gp).toFixed(2) : 0 }));
+  const rows = Object.entries(game.stats || {}).map(([id, x]) => ({ id: +id, team: x.team, gp: x.gp, g: x.g, a: x.a, kp: x.kp, tk: x.tk, ic: x.ic, sv: x.sv, mo: x.mo || 0, xg: +x.xg.toFixed(1), rt: x.gp ? +(x.rt / x.gp).toFixed(2) : 0 }));
   const out = {};
   for (const k of LEADER_KEYS) {
     const pool = k === "rt" ? rows.filter((r) => r.gp >= Math.min(3, Math.max(...rows.map((q) => q.gp), 0))) : rows.filter((r) => r[k] > 0);

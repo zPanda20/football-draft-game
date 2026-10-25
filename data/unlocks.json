@@ -208,6 +208,23 @@
     "psg-twd"
    ],
    "kind": "variant"
+  },
+  {
+   "id": "thedoctor",
+   "name": "The Doctor",
+   "codes": [
+    "the doctor",
+    "doctor",
+    "valentino rossi",
+    "rossi",
+    "vr46",
+    "vr 46"
+   ],
+   "hint": "Number 46. Yellow, always yellow.",
+   "clubs": [
+    "inter-vr46"
+   ],
+   "kind": "variant"
   }
  ],
  "clubs": [

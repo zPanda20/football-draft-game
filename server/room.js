@@ -1,6 +1,6 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
 import { makeRng, shuffle } from "../engine/rng.js";
-import { topScorers, seasonLeaders, groupsOf, financeOutlook, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
+import { topScorers, seasonLeaders, seasonAwards, groupsOf, financeOutlook, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
@@ -9,6 +9,7 @@ import { steroidStory, ensureLife } from "../engine/life.js";
 import { clubAllowed } from "../engine/unlocks.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
+import { cleanPlan, applyPlan } from "../engine/subplan.js";
 import { expiring, availableRookies } from "../engine/offseason.js";
 import { offseasonMethods } from "./offseason.js";
 import { usermodeMethods } from "./usermode.js";
@@ -390,9 +391,9 @@ export class Room {
     const g = this.game;
     this.mdIdx++;
     if (this.mdIdx >= this.days.length) return this.endSeason();
-    g.md = { day: this.mdIdx, total: this.days.length };
+    g.md = { day: this.mdIdx, total: this.days.length }; g.weekDay = this.mdIdx;
     this.ready = new Set(); this.live = null; this.efforts = new Map();
-    for (const t of g.teams) t.htLineup = null;
+    for (const t of g.teams) { t.htLineup = null; t.htPlan = null; }
     this.step = "md.lineup"; this.openWindow();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
     for (const u of this.userPlayers()) if (u.auto) ensureLife(this.game, this.game.players[u.pid]).act = null;
@@ -410,9 +411,32 @@ export class Room {
     if (!l || !FORMATIONS[l.formation]) return;
     const t = this.game.teams[p.teamId], recs = rosterOf(this.game, t).filter((q) => !(q.susp > 0));
     if (this.step === "md.lineup") t.lineup = sanitizeLineup(l, recs, this.game.P);
-    else if (this.step === "md.half") t.htLineup = sanitizeLineup(l, recs, this.game.P);
+    else if (this.step === "md.half") { t.htLineup = sanitizeLineup(l, recs, this.game.P); if (t.htPlan) t.htPlan.over = true; }
     else return;
     this.changed();
+  }
+  // The substitution plan (set between matches): what to change at half-time, applied for you unless you override it.
+  setPlan(token, raw) {
+    const p = this.players.get(token); if (!p || p.teamId == null || this.step !== "md.lineup") return;
+    const t = this.game.teams[p.teamId]; t.plan = cleanPlan(raw, t.players);
+    this.changed();
+  }
+  // At half-time: drop the plan for this match and go back to the first-half XI.
+  planSkip(token) {
+    const p = this.players.get(token); if (!p || p.teamId == null || this.step !== "md.half") return;
+    const t = this.game.teams[p.teamId]; t.htLineup = null; if (t.htPlan) { t.htPlan.over = true; t.htPlan.skipped = true; }
+    this.changed();
+  }
+  // Half-time: every manager's plan is applied (the CPU and managers on Auto choose for themselves).
+  applyPlans() {
+    const g = this.game;
+    for (const m of this.live || []) [0, 1].forEach((i) => {
+      const t = m.sides[i], p = this.playerOfTeam(t.id);
+      if (!t.human || (p && p.auto) || !t.plan || t.plan.on === false) return;
+      const score = i === 0 ? m.ht.score : [m.ht.score[1], m.ht.score[0]];
+      const res = applyPlan(t.plan, m.lineups[i], halftimeRecs(m, i), score, g.P);
+      if (res.changes.length) { t.htLineup = { formation: res.lineup.formation, gk: res.lineup.gk, out: res.lineup.out, bench: res.lineup.bench }; t.htPlan = { changes: res.changes, over: false }; }
+    });
   }
   // "Best XI" or a new formation: the engine picks the best players for it (using half-time stamina in the break).
   lineupAuto(token, formation) {
@@ -424,7 +448,7 @@ export class Room {
     else return;
     const l = formation && FORMATIONS[formation] ? chooseForFormation(recs, formation, g.P) : bestLineup(recs, g.P);
     const clean = { formation: l.formation, gk: l.gk, out: l.out, bench: l.bench };
-    if (this.step === "md.lineup") t.lineup = clean; else t.htLineup = clean;
+    if (this.step === "md.lineup") t.lineup = clean; else { t.htLineup = clean; if (t.htPlan) t.htPlan.over = true; }
     this.changed();
   }
   setActiveItems(token, ids, equip) {
@@ -467,7 +491,7 @@ export class Room {
     this.changed();
   }
   halftime() {
-    this.step = "md.half"; this.openWindow(); this.ready = new Set();
+    this.step = "md.half"; this.openWindow(); this.ready = new Set(); this.applyPlans();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
     const anyone = this.humanTeams().some((t) => this.humanFor(t.id));
     this.after(anyone ? this.settings.halfSec * 1000 : this.p(1500), () => this.secondHalf());
@@ -489,7 +513,7 @@ export class Room {
         const pp = g.players[d.pid], tn = d.team != null ? g.teams[d.team].name : "no team";
         this.notify(`Failed drugs test: ${pp.name} (${tn}) is suspended for ${d.games} games.${d.penalty ? ` The ban outlasts the contract, so ${g.teams[d.penalty.team].name} lose a roster spot in season ${d.penalty.season}.` : ""}`);
       }
-      matches.push({ a: m.a, b: m.b, all: res.events, first: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), ratings: res.ratings, score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), flow: res.flow, goals: res.events.filter((e) => e.type === "goal").map((e) => ({ minute: e.minute, team: e.team, player: e.player })), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })) });
+      matches.push({ a: m.a, b: m.b, potm: res.potm, all: res.events, first: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), ratings: res.ratings, score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), flow: res.flow, goals: res.events.filter((e) => e.type === "goal").map((e) => ({ minute: e.minute, team: e.team, player: e.player })), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })) });
     }
     this.pendingTable = standingsOf(this.results, g.teams.length);
     this.pendingIncome = incomeBreakdown(g, this.pendingTable, this.results.filter((r) => r.day === day)); tickSuspensions(g);
@@ -510,10 +534,10 @@ export class Room {
   endSeason() {
     const g = this.game, table = standingsOf(this.results, g.teams.length);
     this.step = "season.end"; this.phase = "season";
-    g.history = g.history || []; const top = topScorers(g, 1)[0];
-    g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null });
+    g.history = g.history || []; const top = topScorers(g, 1)[0], awards = seasonAwards(g, this.days.length);
+    g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null, awards });
     this.final = g.season >= this.settings.seasons;
-    this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final });
+    this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final, awards });
     this.save("seasonEnd");
     if (!this.final) this.after(120000, () => this.startOffseason());
     this.changed();
@@ -543,7 +567,7 @@ export class Room {
     for (const sp of snap.players) room.players.set(sp.token, { ...sp, connected: false });
     room.results = snap.results || []; room.days = snap.days || [];
     room.shownTable = standingsOf(room.results, room.game.teams.length);
-    if (snap.kind === "seasonEnd") { room.phase = "season"; room.step = "season.end"; room.mdIdx = room.days.length; room.final = room.game.season >= room.settings.seasons; room.setReveal({ kind: "season", season: room.game.season, champion: room.shownTable[0].i, table: room.shownTable, final: room.final }); }
+    if (snap.kind === "seasonEnd") { room.phase = "season"; room.step = "season.end"; room.mdIdx = room.days.length; room.final = room.game.season >= room.settings.seasons; const h = (room.game.history || []).slice(-1)[0]; room.setReveal({ kind: "season", season: room.game.season, champion: room.shownTable[0].i, table: room.shownTable, final: room.final, awards: h && h.awards ? h.awards : null }); }
     else { room.phase = "market"; room.step = "market.done"; room.setReveal({ kind: "squads" }); }
     for (const id of room.game.userPool || []) room.baseOf.set(id, room.game.players[id]);
     for (const sp of snap.players) if (sp.pid != null) room.baseOf.set(sp.pid, room.game.players[sp.pid]);
@@ -565,7 +589,7 @@ export class Room {
     if (p.susp > 0) o.sp = p.susp;
     if (p.user) { o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta]; o.u = { name: p.name, nat: p.nat, pos: p.pos, club: p.club, img: p.img, g: p.gender }; }
     if (p.pot) o.pot = p.pot;
-    { const x = this.game.stats && this.game.stats[id]; if (x && x.gp) o.x = [x.gp, x.g, x.a, x.kp, x.tk, x.ic, x.sv, +(x.rt / x.gp).toFixed(1)]; }   // season line: games, goals, assists, chances created, tackles, interceptions, saves, average rating
+    { const x = this.game.stats && this.game.stats[id]; if (x && x.gp) o.x = [x.gp, x.g, x.a, x.kp, x.tk, x.ic, x.sv, +(x.rt / x.gp).toFixed(2), x.sh, +x.xg.toFixed(1), x.ga, x.mo || 0, x.w || 0, x.cs || 0]; }   // season line: games, goals, assists, chances created, tackles, interceptions, saves, average rating, shots, xG, goals against, player-of-the-match awards, wins, clean sheets
     return o;
   }
 
@@ -599,6 +623,8 @@ export class Room {
     for (const p of unsigned(g)) ids.add(p.id);
     for (const b of topScorers(g, 10)) ids.add(b.id);
     { const L = seasonLeaders(g, 10); for (const k of Object.keys(L)) for (const r of L[k]) ids.add(r.id); }
+    if (this.reveal && this.reveal.kind === "season" && this.reveal.awards) for (const k of ["ballon", "boot", "playmaker", "glove"]) for (const r of this.reveal.awards[k] || []) ids.add(r.id);
+    for (const h of g.history || []) for (const a of Object.values(h.awards || {})) if (Array.isArray(a) && a[0]) ids.add(a[0].id);
     v.pd = Object.fromEntries([...ids].map((id) => [id, this.pdyn(id)]));
     { const pm = this.userView(token); if (pm) v.pm = pm; const sk = this.seekersView(me && me.teamId != null ? me : null); if (sk) v.seekers = sk; }
     if (this.phase === "draft" && this.draftRound) v.draft = { round: this.draftRound, total: g.P.packs.rounds, locked: [...this.picks].filter(([, h]) => h.locked).map(([id]) => id), humans: this.humanTeams().map((t) => t.id) };
@@ -622,12 +648,13 @@ export class Room {
       }
       if (this.phase === "season") {
         mv.fin = financeOutlook(g, t.id, { table: this.shownTable || [], left: Math.max(0, (this.days || []).length - (this.mdIdx + (this.step === "md.result" ? 1 : 0))) });
+        mv.plan = t.plan || null;
         mv.lineup = t.lineup ? sanitizeLineup(t.lineup, rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P) : bestLineup(rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P);
         if (this.live) {
           const k = this.live.findIndex((m) => m.a === t.id || m.b === t.id);
           if (k >= 0) {
             const m = this.live[k], side = m.a === t.id ? 0 : 1;
-            mv.match = { index: k, side, opponent: side ? m.a : m.b, lineup: m.lineups[side], halftime: this.step === "md.half" ? { score: m.ht.score, stamina: m.ht.stamina[side], lineup: t.htLineup || m.lineups[side] } : null };
+            mv.match = { index: k, side, opponent: side ? m.a : m.b, lineup: m.lineups[side], halftime: this.step === "md.half" ? { score: m.ht.score, stamina: m.ht.stamina[side], lineup: t.htLineup || m.lineups[side], plan: t.htPlan || null } : null };
           }
         }
       }
