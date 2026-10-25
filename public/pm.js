@@ -1,5 +1,5 @@
 // Player mode screens: the character creator (lobby), the career panel shown over every game screen, and the manager's list of free players.
-import { st, esc, send, team, chip, card, pl, miniPlayer, coins, flag, tierOf, avatar, faceOf, SKIN, HAIRC, HAIR_NAMES, ISO_NATIONS } from "./core.js";
+import { st, esc, send, team, chip, crest, card, pl, miniPlayer, coins, flag, tierOf, avatar, faceOf, SKIN, HAIRC, HAIR_NAMES, ISO_NATIONS } from "./core.js";
 
 const POS = ["ST", "LW", "RW", "CAM", "CM", "LM", "RM", "CDM", "CB", "LB", "RB", "GK"];
 const OUT = ["PAC", "SHO", "PAS", "DRI", "DEF", "PHY"], GKL = ["DIV", "HAN", "KIC", "REF", "SPE", "POS"];
@@ -25,7 +25,9 @@ export const pmHandlers = {
   offerDrop(a) { send({ t: "offerWithdraw", id: +a.id }); },
   offerYes(a) { send({ t: "offerRespond", id: +a.id, accept: true }); },
   offerNo(a) { send({ t: "offerRespond", id: +a.id, accept: false }); },
-  cardPick(a) { send({ t: "card", n: +a.n, opt: +a.opt }); },
+  cardPick(a) { send({ t: "card", n: +a.n, opt: +a.opt }); st.ui.gambleHide = null; },
+  gambleLater() { const pm = st.S.pm; st.ui.gambleHide = pm && pm.pending.length ? pm.pending[pm.pending.length - 1].n : null; st.render(); },
+  gambleShow() { st.ui.gambleHide = null; st.render(); },
   pmEquip(a) {
     const pm = st.S.pm, cap = st.cat.rules.playerItemCap ?? 2; let ids = pm.equip.slice();
     ids = ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...ids, a.id].slice(0, cap);
@@ -73,7 +75,7 @@ export function pmPanel(S) {
   const pm = S.pm; if (!pm) return "";
   const p = pl(pm.pid); if (!p) return "";
   const t = pm.team != null ? team(pm.team) : null;
-  const status = t ? `Playing for ${chip(t, 18, true)} · ${pm.contract} season${pm.contract === 1 ? "" : "s"} left` : `<b>No team yet.</b> ${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}`;
+  const status = t ? `<span class="playsfor">Plays for ${crest(t, 26)} <b>${esc(t.name)}</b></span> · ${pm.contract} season${pm.contract === 1 ? "" : "s"} left` : `<b>No team yet.</b> ${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}`;
   const last = pm.last ? `<div class="pill ${pm.last.ok ? "good" : "bad"}" style="margin-top:8px">${pm.last.ok ? "✓" : "✗"} ${esc(pm.last.title)}: ${esc(pm.last.choice)}${pm.last.ovr ? ` (${pm.last.ovr > 0 ? "+" : ""}${pm.last.ovr} OVR)` : ""}</div>` : "";
   const open = pm.offers.filter((o) => o.status === "open" || o.status === "accepted");
   const inv = Object.keys(pm.items || {}).filter((id) => pm.items[id] > 0 && st.items[id]);
@@ -81,7 +83,7 @@ export function pmPanel(S) {
   const ban = pm.susp ? `<div class="pill bad" style="margin-top:8px">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</div>` : "";
   const eff = pm.onPitch ? `<div class="mt"><b>Half-time</b><div class="row mt" style="gap:8px"><button class="btn ${pm.effort === "push" ? "pri" : ""}" data-act="effort" data-mode="push">Push</button><button class="btn ${pm.effort === "conserve" ? "pri" : ""}" data-act="effort" data-mode="conserve">Conserve</button></div><p class="small mute mt">Push: a little sharper, tires you faster. Conserve: save your legs for later.</p></div>` : "";
   return `<div class="card pmp"><div class="row wrap" style="gap:16px;align-items:flex-start">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div>${ban}${last}</div></div>${wallet}
-    ${pm.pending.length ? `<div class="col mt" style="gap:8px"><b>Career</b>${pm.pending.map(cardBox).join("")}</div>` : ""}
+    ${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
     ${open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "")}${eff}</div>`;
 }
 
@@ -93,4 +95,16 @@ export function seekersCard(S) {
   return `<div class="card"><h3>Footballers looking for a club</h3><p class="small mute">Each of these is controlled by a person. Make an offer instead of bidding: the player chooses. You pay the fee only if he signs.</p>
     <div class="col mt" style="gap:10px">${sk.map((s) => { const p = pl(s.id); return `<div class="row wrap" style="gap:10px;align-items:center">${miniPlayer(s.id)}<span class="mute small">${esc(s.owner)} · ${p.age}y</span><div class="grow"></div>${s.fees.map((f, i) => `<button class="btn sm ${s.mine.includes(i + 1) ? "pri" : ""}" data-act="offerMake" data-pid="${s.id}" data-len="${i + 1}" ${full || me.coins < f ? "disabled" : ""}>${i + 1}y · ${f}</button>`).join("")}</div>`; }).join("")}</div>
     ${mine.length ? `<div class="small mute mt">Your offers: ${mine.map((o) => `${esc(pl(o.pid).name)} ${o.len}y (${o.status})${o.status === "open" ? ` <a href="#" data-act="offerDrop" data-id="${o.id}">withdraw</a>` : ""}`).join(" · ")}</div>` : ""}</div>`;
+}
+
+// A career moment (a gamble with odds) takes over most of the screen until it is decided or put off.
+export function gambleOverlay(S) {
+  const pm = S.pm; if (!pm || !pm.pending.length) return "";
+  const last = pm.pending[pm.pending.length - 1]; if (st.ui.gambleHide === last.n) return "";
+  const c = pm.pending[0], pc = (p) => Math.round(p * 100);
+  return `<div class="gamble" role="dialog" aria-label="Career moment"><div class="gamble-in">
+    <div class="tiny mute" style="text-transform:uppercase;letter-spacing:.12em">${esc(c.kind)}${pm.pending.length > 1 ? ` · ${pm.pending.length} waiting` : ""}</div>
+    <h2>${esc(c.title)}</h2><p class="lead">${esc(c.text)}</p>
+    <div class="gopts">${c.opts.map((o, i) => `<button class="gopt ${o.p >= 1 ? "safe" : ""}" data-act="cardPick" data-n="${c.n}" data-opt="${i}"><b>${esc(o.label)}</b><span class="odds">${o.p >= 1 ? "Safe" : `<span class="up">${pc(o.p)}% · +${o.win}</span><span class="dn">${pc(1 - o.p)}% · ${o.lose > 0 ? "+" : ""}${o.lose}</span>`}</span></button>`).join("")}</div>
+    <div class="row mt" style="justify-content:flex-end"><button class="btn sm ghost" data-act="gambleLater">Decide later</button></div></div></div>`;
 }

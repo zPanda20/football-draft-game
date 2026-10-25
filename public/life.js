@@ -1,10 +1,17 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
-import { st, $, esc, send, coins, pl } from "./core.js";
+import { st, $, esc, send, coins, pl, initials } from "./core.js";
 
 const ui = () => st.ui;
 export const lifeHandlers = {
-  act(a) { send({ t: "act", act: a.k, marry: a.marry === "1" }); },
+  act(a) {
+    if (a.k === "date" && !a.partner && st.S.pm && st.S.pm.life && !st.S.pm.life.married && (st.S.pm.life.opts || []).length) { ui().dateOpen = !ui().dateOpen; return st.render(); }
+    send({ t: "act", act: a.k, marry: a.marry === "1", partner: a.partner || undefined }); ui().dateOpen = false;
+  },
+  turnDown(a) { send({ t: "turnDown", id: a.id }); },
+  setPref(a) { const lf = st.S.pm && st.S.pm.life; send({ t: "pref", act: lf && lf.pref === a.k ? null : a.k }); },
+  dealYes() { send({ t: "dealRespond", yes: true }); },
+  dealNo() { send({ t: "dealRespond", yes: false }); },
   actClear() { send({ t: "act", act: null }); },
   lifeBuy(a) { send({ t: "lifeBuy", id: a.id }); },
   shopToggle() { ui().shopOpen = !ui().shopOpen; st.render(); },
@@ -37,17 +44,61 @@ export function lifePanel(S) {
   const status = `<div class="lstat">
     <div class="lfol"><b>${fmt(lf.fol)}</b><span>followers</span></div>
     <div class="lbars">${bar("Love life", lf.love, 100, "love", `<small>${partner}</small>`)}${bar("Recovery", Math.round(pm.stam ?? 100), 100, "rec", `<small>energy at kick-off</small>`)}</div>
-    <div class="linc"><span class="small mute">Per matchday</span><b>+${lf.base + lf.income.total}</b><span class="tiny mute">${lf.base} wage${lf.income.sponsor ? ` + ${lf.income.sponsor} sponsors` : ""}${lf.income.venue ? ` + ${lf.income.venue} club` : ""}</span></div></div>`;
+    <div class="linc"><span class="small mute">Per matchday</span><b>+${lf.base + lf.income.total}</b><span class="tiny mute">${lf.base} wage${lf.income.sponsor ? ` + ${lf.income.sponsor} sponsors` : ""}${lf.income.venue ? ` + ${lf.income.venue} club` : ""}${lf.income.boots ? ` + ${lf.income.boots} boots` : ""}</span></div></div>
+    ${lf.lm ? `<div class="small mt">Last match: <b>${lf.lm.gf}–${lf.lm.ga}</b> · ${lf.lm.g ? lf.lm.g + (lf.lm.g === 1 ? " goal" : " goals") + " · " : ""}${lf.lm.a ? lf.lm.a + (lf.lm.a === 1 ? " assist" : " assists") + " · " : ""}rated <b>${lf.lm.r}</b> · <span class="${lf.lm.gain >= 0 ? "up" : "dn"}">${lf.lm.gain >= 0 ? "+" : "−"}${fmt(Math.abs(lf.lm.gain))} followers</span></div>` : ""}
+    ${dealLine(lf)}${cabinet(lf)}`;
   let week = "";
   const acts = ["train", "date", "party", "rest", "balance"].map((k) => {
     const cost = lf.costs[k], dis = !lf.open || cost > coinsNow || (k === "party" && pm.susp > 0);
     return `<button class="act ${cur === k && !lf.act.marry ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}</span></button>`;
   }).join("");
-  const marry = lf.canMarry ? `<button class="act marry ${lf.act && lf.act.marry ? "sel" : ""}" data-act="act" data-k="date" data-marry="1" ${!lf.open || lf.costs.date + lf.wedCost > coinsNow ? "disabled" : ""}><span class="ai">💍</span><b>Date + propose</b><span class="chs"><span class="ch up">Wedding · story goes to the lobby</span><span class="ch dn">Money −${lf.costs.date + lf.wedCost}</span></span></button>` : "";
+  const marry = "";
   const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
   const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.marry ? " + proposal" : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
-  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${last}</div>`;
-  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${week}${shopView(S)}</div>`;
+  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
+  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${dealOfferCard(lf)}${week}${shopView(S)}</div>`;
+}
+
+// ---------- dating: three people to choose from each week ----------
+const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const faceOfPartner = (x, size = 54) => {
+  const u = st.cat.art && st.cat.art.partners && st.cat.art.partners[x.id];
+  return u ? `<img class="pface" src="${esc(u)}" alt="" width="${size}" height="${size}" loading="lazy">` : `<span class="pface ini" style="width:${size}px;height:${size}px;--h:${hue(x.id)}">${esc(initials(x.name).toUpperCase())}</span>`;
+};
+function datePicker(lf, pm) {
+  if (lf.married || !(lf.opts || []).length || !ui().dateOpen) return lf.married && lf.partner ? `<div class="small mute mt">💍 Married to <b>${esc(lf.partner.name)}</b>. A Date week is a night out with your spouse.</div>` : "";
+  const coinsNow = pm.coins, cost = lf.costs.date, cur = lf.act && lf.act.act === "date" ? lf.act.partner : null;
+  const cards = lf.opts.map((x) => {
+    const can = lf.open && coinsNow >= cost, prop = x.can && lf.open && coinsNow >= cost + lf.wedCost;
+    return `<div class="datec ${cur === x.id ? "sel" : ""} ${x.g === "F" ? "gf" : "gm"}">${faceOfPartner(x)}<b>${esc(x.name)}</b>
+      <span class="tiny mute">${x.last ? "❤ Your last date · " : ""}${x.dates ? x.dates + " date" + (x.dates === 1 ? "" : "s") : "Not met yet"}</span>
+      ${x.rej ? `<span class="tiny ${x.rej >= 2 ? "dn" : "mute"}">Turned down ${x.rej}×${x.rej >= 2 ? " · one more and they are gone" : ""}</span>` : ""}
+      <div class="col" style="gap:5px;width:100%"><button class="btn sm pri" data-act="act" data-k="date" data-partner="${x.id}" ${can ? "" : "disabled"}>Take on a date · −${cost}</button>
+      ${x.can ? `<button class="btn sm" data-act="act" data-k="date" data-partner="${x.id}" data-marry="1" ${prop ? "" : "disabled"}>💍 Propose · −${cost + lf.wedCost}</button>` : ""}
+      <button class="btn sm ghost" data-act="turnDown" data-id="${x.id}" title="Not interested. Turn someone down three times and they never show up again.">Not interested</button></div></div>`;
+  }).join("");
+  return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Turn someone down 3 times and they are gone for good. Ten dates with one person and you can propose.</span></div><div class="datecards mt">${cards}</div></div>`;
+}
+function prefRow(lf) {
+  const info = st.cat.life.acts, ks = ["train", "date", "party", "rest", "balance"];
+  return `<div class="prefrow mt"><span class="small mute">When you are away or run out of time, you mostly…</span><div class="row wrap" style="gap:6px">${ks.map((k) => `<button class="btn sm ${lf.pref === k ? "pri" : ""}" data-act="setPref" data-k="${k}" title="${esc(info[k].text)}">${info[k].icon} ${esc(info[k].name)}</button>`).join("")}</div></div>`;
+}
+// ---------- boot sponsors ----------
+const brandMark = (id, size = 34) => { const b = st.cat.life.brands.find((x) => x.id === id), u = st.cat.art && st.cat.art.brands && st.cat.art.brands[id]; return u ? `<img class="brandlogo" src="${esc(u)}" alt="${esc(b ? b.name : id)}" height="${size}">` : `<span class="brandtxt">${esc(b ? b.name : id)}</span>`; };
+function dealOfferCard(lf) {
+  const o = lf.offer; if (!o) return "";
+  const b = st.cat.life.brands.find((x) => x.id === o.brand);
+  return `<div class="dealcard mt">${brandMark(o.brand, 40)}<div class="grow"><b>${esc(b ? b.name : o.brand)} want to sign you</b><div class="small mute">A ${o.seasons}-season boot deal: <b>${o.pay} coins every matchday</b>. Wear a rival's boots under contract and it is a breach: a fine and no deal. Picking one maker over another can start a feud.</div></div><button class="btn pri" data-act="dealYes">Sign</button><button class="btn" data-act="dealNo">No thanks</button></div>`;
+}
+function dealLine(lf) {
+  if (!lf.deal) return "";
+  return `<div class="small mt dealline">${brandMark(lf.deal.brand, 20)} <span>Boot deal: <b>+${lf.deal.pay}</b> a matchday · ${lf.deal.left} season${lf.deal.left === 1 ? "" : "s"} left</span></div>`;
+}
+const TROPHY_ICON = { title: "🏆", ballon: "🌟", boot: "⚽", playmaker: "🎯", glove: "🧤" }, TROPHY_NAME = { title: "League title", ballon: "Ballon d'Or", boot: "Golden Boot", playmaker: "Playmaker", glove: "Golden Glove" };
+function cabinet(lf) {
+  const t = lf.trophies || []; if (!t.length) return "";
+  const by = {}; for (const x of t) by[x.kind] = (by[x.kind] || 0) + 1;
+  return `<div class="small mt cab">${Object.entries(by).map(([k, n]) => { const u = st.cat.art && st.cat.art.trophies && st.cat.art.trophies[k]; return `<span class="pill" title="${TROPHY_NAME[k]}">${u ? `<img src="${esc(u)}" alt="" height="16">` : TROPHY_ICON[k]} ${TROPHY_NAME[k]}${n > 1 ? " ×" + n : ""}</span>`; }).join(" ")}</div>`;
 }
 
 function shopView(S) {
@@ -78,8 +129,9 @@ export function newsCard(S) {
 
 // ---------- the banner ----------
 export const WADA_MARK = `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">`;
-const KIND = { steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business" };
+const KIND = { milestone: "Milestone", troll: "Online beef", camera: "Caught on camera", sponsor: "Boots business", trophy: "Silverware", steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business" };
 let queue = [], showing = null, timer = null;
+const mast = () => { const u = st.cat.art && st.cat.art.ui && st.cat.art.ui.masthead; return u ? `<img class="nb-mast" src="${esc(u)}" alt="The Daily Whistle">` : "THE DAILY WHISTLE"; };
 export function newsTick(S) {
   const n = S.news; if (!n) return;
   if (ui().newsSeen === undefined) { ui().newsSeen = n.top || 0; return; }
@@ -93,7 +145,8 @@ function nextBanner() {
   let el = $("#newsban"); if (!el) { el = document.createElement("div"); el.id = "newsban"; document.body.appendChild(el); }
   const wada = n.kind === "steroids";
   el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "");
-  el.innerHTML = `${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">THE DAILY WHISTLE</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
+  const pic = st.cat.art && st.cat.art.news && st.cat.art.news[n.kind];
+  el.innerHTML = `${pic ? `<div class="nb-pic" style="background-image:url('${esc(pic)}')"></div>` : ""}${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">${mast()}</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
     <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
   if (wada) setTimeout(() => { const e = $("#newsban"); if (e && showing === n) e.classList.add("go"); }, 2300);
   timer = setTimeout(closeBanner, wada ? 14000 : 11000);

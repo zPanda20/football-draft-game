@@ -1,9 +1,9 @@
 // Off-season screens: retirements, development, re-signing, rookie draft, trade window.
-import { st, $, esc, send, team, chip, card, pl, miniPlayer, tierOf, flag, coins, crest } from "./core.js";
+import { st, $, esc, send, team, chip, card, pl, miniPlayer, tierOf, flag, coins, crest, userTags } from "./core.js";
 
 const POT = { low: "Low potential", med: "Medium potential", high: "High potential" };
 const base = (id) => st.idx[id];
-const plain = (id) => { const p = pl(id); return p ? `${esc(p.name)} <span class="mute small">${p.pos} · ${p.ovr}</span>` : "?"; };
+const plain = (id) => { const p = pl(id); return p ? `${esc(p.name)} <span class="mute small">${p.pos} · ${p.ovr} · ${p.contract}y left</span>` : "?"; };
 
 // ---------- handlers ----------
 const tr = () => (st.ui.tr = st.ui.tr || { to: null, give: [], get: [], gc: 0, rc: 0 });
@@ -13,7 +13,7 @@ export const offHandlers = {
   rkSel(a) { st.ui.rk = +a.id; st.render(); },
   rkPick() { if (st.ui.rk != null) { send({ t: "rookie", id: st.ui.rk }); st.ui.rk = null; } },
   trTo(a) { const T = tr(); T.to = a.value === "" ? null : +a.value; T.get = []; st.render(); },
-  trToggle(a) { const T = tr(), list = a.side === "give" ? T.give : T.get, key = a.k + ":" + a.id; const i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key); st.render(); },
+  trToggle(a) { const T = tr(), list = a.side === "give" ? T.give : T.get, key = (a.k || "p") + ":" + a.id; const i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key); st.render(); },
   trCoins(a) { const T = tr(); const n = Math.max(0, Math.floor(+a.value || 0)); if (a.side === "give") T.gc = n; else T.rc = n; },
   trSend() {
     const T = tr(); if (T.to == null) return;
@@ -50,7 +50,7 @@ function resignPage(S) {
   if (!me) return `<div class="card c"><h3>Re-signing window</h3><p class="mute">Managers are deciding who to keep.</p></div>`;
   const list = me.resign || [];
   const rows = list.map((r) => { const p = pl(r.id); return `<div class="card" style="padding:10px"><div class="row wrap" style="gap:14px">${card(r.id, { size: "sm" })}<div class="grow col" style="gap:6px"><div><b>${esc(p.name)}</b> <span class="mute small">${p.pos} · ${p.age}y · market value ${p.mv}</span></div>
-      <div class="row wrap" style="gap:6px">${r.fees.map((f, i) => `<button class="btn sm" data-act="resign" data-id="${r.id}" data-len="${i + 1}" ${me.coins < f ? "disabled" : ""}>${i + 1} season${i ? "s" : ""} · ${f}</button>`).join("")}</div><span class="small mute">Not re-signed = he walks into the free-agent pool.</span></div></div></div>`; }).join("");
+      <div class="row wrap" style="gap:6px">${r.fees.slice(0, me.maxLen || 3).map((f, i) => `<button class="btn sm" data-act="resign" data-id="${r.id}" data-len="${i + 1}" ${me.coins < f ? "disabled" : ""}>${i + 1} season${i ? "s" : ""} · ${f}</button>`).join("")}</div><span class="small mute">Not re-signed = he walks into the free-agent pool.</span></div></div></div>`; }).join("");
   return `<div class="card"><div class="row wrap"><h3 style="margin:0">Re-signing window</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><button class="btn pri" data-act="offDone">${S.teams[me.teamId].ready ? "Not done" : "Done"}</button></div>
     <p class="small mute mt">These contracts have run out. Re-sign at market value (longer = pricier), no draw. Everyone you let go joins free agency, where anyone can bid for them.</p></div>
     ${rows || `<div class="card c"><p class="mute">None of your contracts expire this year.</p></div>`}`;
@@ -80,20 +80,21 @@ function rookieReveal(S) {
 
 // ---------- trade window ----------
 function assetText(a) { return a.k === "p" ? plain(a.id) : a.k === "i" ? esc(st.items[a.id]?.name || a.id) : `<span class="coin">${a.amt}<i></i></span>`; }
-function tradePage(S) {
+export function tradeBody(S) {
   const me = S.me;
   if (!me) return `<div class="card"><h3>Trade window</h3><p class="mute">Managers are trading.</p>${(S.tradeLog || []).map((l) => `<div class="small mt">${esc(team(l.from).name)} ⇄ ${esc(team(l.to).name)}</div>`).join("")}</div>`;
-  const T = tr(), mt = team(me.teamId), ready = mt.ready;
+  const T = tr(), mt = team(me.teamId);
   const others = S.teams.filter((t) => t.id !== me.teamId);
   const them = T.to != null ? team(T.to) : null;
   const chk = (side, k, id, label) => { const on = (side === "give" ? T.give : T.get).includes(k + ":" + id); return `<label class="row small" style="cursor:pointer;gap:8px"><input type="checkbox" ${on ? "checked" : ""} data-change="trToggle" data-side="${side}" data-k="${k}" data-id="${esc(id)}"> ${label}</label>`; };
+  const tcard = (side, id) => { const p = pl(id); if (!p) return ""; const on = (side === "give" ? T.give : T.get).includes("p:" + id); return `<div class="trcard ${on ? "on" : ""}" data-act="trToggle" data-side="${side}" data-k="p" data-id="${id}">${card(id, { size: "sm", info: true, tag: `${p.contract} yr${p.contract === 1 ? "" : "s"} left` })}</div>`; };
   const myItems = Object.keys(me.items || {}).filter((i) => me.items[i] > 0);
   const theirItems = them ? Object.keys(them.items || {}).filter((i) => them.items[i] > 0) : [];
   const builder = `<div class="card"><h3>Make an offer</h3>
     <div class="row wrap"><span class="small">Trade with</span><select data-change="trTo"><option value="">Choose a team…</option>${others.map((t) => `<option value="${t.id}" ${T.to === t.id ? "selected" : ""}>${esc(t.name)}${t.human ? " (" + esc(t.owner || "") + ")" : ""}</option>`).join("")}</select></div>
-    <div class="grid2 mt"><div><b>You give</b><div class="col mt" style="gap:4px">${mt.players.map((id) => chk("give", "p", id, plain(id))).join("")}${myItems.map((i) => chk("give", "i", i, esc(st.items[i].name) + ` <span class="mute">(${me.items[i]} left)</span>`)).join("")}
+    <div class="grid2 mt"><div><b>You give</b><div class="col mt" style="gap:4px"><div class="trgrid">${mt.players.filter((id) => !(pl(id) || {}).user).map((id) => tcard("give", id)).join("")}</div>${myItems.map((i) => chk("give", "i", i, esc(st.items[i].name) + ` <span class="mute">(${me.items[i]} left)</span>`)).join("")}
       <label class="row small">Coins <input id="giveCoins" type="number" min="0" max="${Math.floor(me.coins)}" value="${T.gc || ""}" placeholder="0" style="width:90px" data-input="trCoins" data-side="give"></label></div></div>
-    <div><b>You get</b>${them ? `<div class="col mt" style="gap:4px">${them.players.map((id) => chk("get", "p", id, plain(id))).join("")}${theirItems.map((i) => chk("get", "i", i, esc(st.items[i]?.name || i))).join("")}<label class="row small">Coins <input id="getCoins" type="number" min="0" value="${T.rc || ""}" placeholder="0" style="width:90px" data-input="trCoins" data-side="get"></label></div>` : `<p class="mute small mt">Choose a team first.</p>`}</div></div>
+    <div><b>You get</b>${them ? `<div class="col mt" style="gap:4px"><div class="trgrid">${them.players.filter((id) => !(pl(id) || {}).user).map((id) => tcard("get", id)).join("")}</div>${theirItems.map((i) => chk("get", "i", i, esc(st.items[i]?.name || i))).join("")}<label class="row small">Coins <input id="getCoins" type="number" min="0" value="${T.rc || ""}" placeholder="0" style="width:90px" data-input="trCoins" data-side="get"></label></div>` : `<p class="mute small mt">Choose a team first.</p>`}</div></div>
     <div class="row mt"><span class="small mute">Up to ${me.trade ? me.trade.max : 6} assets per side. CPU managers answer at once; they want to come out ahead.</span><div class="grow"></div><button class="btn pri" data-act="trSend" ${them && (T.give.length + T.get.length + (T.gc > 0) + (T.rc > 0)) ? "" : "disabled"}>Send offer</button></div></div>`;
   const offers = (me.trade ? me.trade.offers : []).slice().reverse().map((o) => {
     const incoming = o.to === me.teamId, other = team(incoming ? o.from : o.to);
@@ -102,7 +103,12 @@ function tradePage(S) {
       <div class="small mt"><b>You get:</b> ${theyGive.map(assetText).join(", ") || "—"}<br><b>You give:</b> ${youGive.map(assetText).join(", ") || "—"}</div>${o.why ? `<div class="small mute">${esc(o.why)}</div>` : ""}
       ${o.status === "open" ? `<div class="row mt">${incoming ? `<button class="btn sm pri" data-act="trYes" data-id="${o.id}">Accept</button><button class="btn sm" data-act="trNo" data-id="${o.id}">Decline</button>` : `<button class="btn sm" data-act="trCancel" data-id="${o.id}">Cancel</button>`}</div>` : ""}</div>`;
   }).join("");
-  return `<div class="card"><div class="row wrap"><h3 style="margin:0">Trade window</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><button class="btn ${ready ? "" : "pri"}" data-act="offDone">${ready ? "Keep trading" : "I'm done trading"}</button></div></div>${builder}<div class="col">${offers || ""}</div>`;
+  return `${builder}<div class="col">${offers || ""}</div>`;
+}
+function tradePage(S) {
+  const me = S.me; if (!me) return tradeBody(S);
+  const ready = team(me.teamId).ready;
+  return `<div class="card"><div class="row wrap"><h3 style="margin:0">Trade window</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><button class="btn ${ready ? "" : "pri"}" data-act="offDone">${ready ? "Keep trading" : "I'm done trading"}</button></div></div>${tradeBody(S)}`;
 }
 
 export function offView(S, ctx) {

@@ -140,6 +140,12 @@ export function shirt(c, side = 0, h = 22) {
   if (kind === "kitAway") [a, b] = [b, a]; else if (kind === "kitThird") { a = (c && kitColor(c, "kitThird")) || b; b = c ? c.c1 : "#ddd"; }
   return `<svg class="kit k1" viewBox="0 0 100 100" style="height:${h}px;width:${h}px" aria-hidden="true"><path d="M30 8L4 26l10 16 12-6v52h48V36l12 6 10-16L70 8c-4 8-12 12-20 12S34 16 30 8z" fill="${a}" stroke="rgba(0,0,0,.55)" stroke-width="4" stroke-linejoin="round"/><path d="M38 40h24v7H38z" fill="${b}" opacity=".9"/></svg>`;
 }
+// Created footballers on a team, as small tags: the name of the person next to the club.
+export function userTags(t) {
+  if (!t) return "";
+  const us = t.players.map((id) => pl(id)).filter((p) => p && p.user);
+  return us.map((p) => `<span class="utag" title="Created footballer">★ ${esc(p.name)}</span>`).join("");
+}
 export function chip(t, size = 22, owner = false) {
   if (!t) return "";
   return `<span class="tchip">${crest(t, size)}<span class="n">${esc(t.name)}${owner && t.owner ? ` <span class="own">(${esc(t.owner)})</span>` : ""}</span></span>`;
@@ -157,11 +163,14 @@ export function card(id, opts = {}) {
   const t = tierOf(p.ovr), size = opts.size || "md";
   const pic = !p.img && p.slug && st.cat && st.cat.pics ? st.cat.pics[p.slug] : null; // real-player portrait, if one was dropped into assets/players
   const stats = size === "sm" ? "" : `<div class="cstats">${labels.map((l, i) => `<span><b>${p.st[i]}</b>${l}</span>`).join("")}</div>`;
-  return `<div class="pcard ${t} ${size} pgb-${posGroup(p.pos)} ${opts.cls || ""}" data-pid="${id}">
-    <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${clubBadge(p.club, size === "sm" ? 18 : size === "lg" ? 28 : 22)}</div></div>
+  const tm = p.user && p.team != null && st.S && st.S.teams ? st.S.teams[p.team] : null, bs = size === "sm" ? 18 : size === "lg" ? 28 : 22;   // a created player wears the badge of the team he plays for
+  const tag = p.susp ? `Suspended · ${p.susp} games` : opts.tag || (tm ? tm.name : "");
+  return `<div class="pcard ${t} ${size} pgb-${posGroup(p.pos)} ${p.user ? "created" : ""} ${opts.cls || ""}" data-pid="${id}">
+    ${opts.info ? `<button class="pinfo" data-act="pcard" data-id="${id}" title="Full player card" aria-label="Open full card">i</button>` : ""}
+    <div class="ctop"><div class="covr">${p.ovr}<small>${esc(p.pos)}</small></div><div class="cflag">${flag(p.nat)}${tm ? `<span class="cbadge tm" title="${esc(tm.name)}">${crest(tm, bs)}</span>` : clubBadge(p.club, bs)}</div></div>
     <div class="cface">${p.img ? `<span class="init av">${faceOf(p.img, size === "sm" ? 38 : 58, p.g)}</span>` : pic ? `<img class="cpic" src="${esc(pic)}" alt="" loading="lazy">` : `<span class="init">${esc(initials(p.name).toUpperCase())}</span>`}</div>
     <div class="cname">${esc(p.name)}</div>
-    ${stats}${opts.tag || p.susp ? `<div class="ctag">${p.susp ? `Suspended · ${p.susp} games` : opts.tag}</div>` : ""}</div>`;
+    ${stats}${tag ? `<div class="ctag">${esc(tag)}</div>` : ""}</div>`;
 }
 export function miniPlayer(id, extra = "") {
   const p = pl(id); if (!p) return "";

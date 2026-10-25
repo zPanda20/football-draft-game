@@ -1,5 +1,6 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card, longName } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card, longName, userTags } from "./core.js";
+import { transfersView, winOpen, winCountdown, incomingOffers } from "./transfers.js";
 import { ratings, ratingClass } from "./rating.js";
 import { storeCard } from "./store.js";
 import { statsHandlers, playerStats, awardsCard } from "./stats.js";
@@ -127,6 +128,7 @@ export const matchHandlers = {
   mcancel() { st.ui.mSel = null; st.render(); },
   lead(a) { st.ui.lead = a.k; st.render(); },
   hubgo(a) { st.ui.hub = a.to; st.ui.mSel = null; st.render(); window.scrollTo(0, 0); },
+  finTab(a) { st.ui.finTab = +a.k; st.render(); },
   hubback() { st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.render(); },
   viewteam(a) { st.ui.viewTeam = +a.i; st.render(); window.scrollTo(0, 0); },
   closeteam() { st.ui.viewTeam = null; st.render(); },
@@ -165,7 +167,7 @@ export function tablePanel(S, limit = 99, click = false) {
   if (!rows.length) return "";
   const me = S.me ? S.me.teamId : -1;
   return `<div class="card"><h3>League table</h3><table class="tb"><tr><th>#</th><th>Team</th><th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">GD</th><th class="n">Pts</th></tr>
-    ${rows.map((r, k) => `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""} ${click ? "clickable" : ""}" ${click ? `data-act="viewteam" data-i="${r.i}" title="See this team"` : ""}><td>${k + 1}</td><td>${chip(team(r.i), 18)}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`).join("")}</table></div>`;
+    ${rows.map((r, k) => `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""} ${click ? "clickable" : ""}" ${click ? `data-act="viewteam" data-i="${r.i}" title="See this team"` : ""}><td>${k + 1}</td><td>${chip(team(r.i), 18)}${userTags(team(r.i))}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`).join("")}</table></div>`;
 }
 
 // ---------- line-up editor ----------
@@ -214,7 +216,7 @@ function pitch(S, l, stamOf) {
     const pic = p && !p.img && p.slug && st.cat && st.cat.pics ? st.cat.pics[p.slug] : null;   // real-player portrait, when one exists
     const isel = st.ui.itemSel && st.items[st.ui.itemSel], worn = p && S.me ? wornBy(S, pid, activeNow(S)) : [];
     return `<div class="slot pgb-${posGroup(slotName)} ${sel && !isSel ? "swappable" : ""} ${isel && p ? "itemtarget" : ""}" ${isel && p ? `data-hint="${esc(fxBadge(isel))}"` : ""} style="left:${at.x}%;top:${at.y}%" data-act="mslot" data-i="${i}" draggable="true">
-      ${worn.length ? `<div class="ib">${worn.map((id) => `<span title="${esc(st.items[id].name)}">${ICON(id)}</span>`).join("")}</div>` : ""}
+      ${p ? `<button class="pinfo" data-act="pcard" data-id="${pid}" title="Full player card" aria-label="Open full card">i</button>` : ""}${worn.length ? `<div class="ib">${worn.map((id) => `<span title="${esc(st.items[id].name)}">${ICON(id)}</span>`).join("")}</div>` : ""}
       <div class="tok ${p ? tierOf(p.ovr) : "empty"} ${pic ? "haspic" : ""} ${isSel ? "sel" : ""}">${pic ? `<img class="tpic" src="${esc(pic)}" alt="" draggable="false"><span class="tovr">${p.ovr}</span>` : p ? p.ovr : "?"}${loss >= 2 ? `<span class="dn" title="Tired: plays about ${loss} points below his rating">−${loss}</span>` : ""}</div>
       <div class="nm">${p ? esc(p.name.split(" ").slice(-1)[0]) : "empty"}</div>
       <div class="sl">${slotName}${p && p.pos !== slotName ? ` <span class="fit ${fitCls(f)}">(${p.pos} ${Math.round(f * 100)}%)</span>` : ""}</div>
@@ -280,9 +282,9 @@ function lineupEditor(S, half) {
   // The bench: everyone not in the XI, grouped by position (GK, defenders, midfielders, attackers), best first inside a position, suspended last.
   const POS_ORDER = ["GK", "CB", "LB", "RB", "CDM", "CM", "LM", "RM", "CAM", "LW", "RW", "ST"], posRank = (p) => { const i = POS_ORDER.indexOf(p.pos); return i < 0 ? 99 : i; };
   const roster = t.players.map((id) => pl(id)).filter((p) => !onPitch.has(p.id)).sort((a, b) => (a.susp ? 1 : 0) - (b.susp ? 1 : 0) || posRank(a) - posRank(b) || b.ovr - a.ovr);
-  const row = (p) => p.susp ? `<div class="benchrow g-${posGroup(p.pos)} dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span></div>` : `<div class="benchrow g-${posGroup(p.pos)} ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
+  const row = (p) => p.susp ? `<div class="benchrow g-${posGroup(p.pos)} dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span><button class="pinfo" data-act="pcard" data-id="${p.id}" title="Full player card" aria-label="Open full card">i</button></div>` : `<div class="benchrow g-${posGroup(p.pos)} ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
     <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span>
-    <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span></div>`;
+    <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span><button class="pinfo" data-act="pcard" data-id="${p.id}" title="Full player card" aria-label="Open full card">i</button></div>`;
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
@@ -499,6 +501,7 @@ function hubHome(S) {
     tile("standings", "🏆", "Standings", row ? `${rank + 1}${["st", "nd", "rd"][rank] || "th"} · ${row.pts} pts · table, results, Golden Boot` : "Table, results, Golden Boot, other teams"),
     tile("stats", "📊", "Player stats", "Every player's season: goals, assists, ratings, awards"),
     me && me.fin ? tile("finance", "💰", "Finance", `${me.fin.expiring.length ? `${me.fin.expiring.length} contract${me.fin.expiring.length === 1 ? "" : "s"} expiring · about ${Math.round(me.fin.cheapest)} to keep them` : "Nothing expiring this year"}`) : "",
+    winOpen(S) ? tile("transfers", "🔁", "Transfers", `${winCountdown(S)}${incomingOffers(S) ? ` · <span class="rarepip">${incomingOffers(S)} offer${incomingOffers(S) === 1 ? "" : "s"} for you</span>` : ""}`, "windowtile") : "",
     tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item in stock</span>" : ""}`),
     me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : ready ? "Ready" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
   ].join("");
@@ -511,12 +514,26 @@ function teamViewer(S, i) {
   const fit = ps.filter((p) => !p.susp), gk = fit.filter((p) => p.pos === "GK").sort((a, b) => b.ovr - a.ovr)[0];
   const out = fit.filter((p) => p !== gk).sort((a, b) => b.ovr - a.ovr).slice(0, 5), start = new Set([gk, ...out].filter(Boolean).map((p) => p.id));
   const lines = (list) => list.map((p) => `<div class="benchrow tv ${p.susp ? "dim" : ""}"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}${p.user ? " · created player" : ""}</span></span>
-    ${p.x ? `<span class="tiny mute" title="This season: games, goals, assists, Player of the Match awards, average rating">${p.x[0]} gp · ${p.x[1]}G ${p.x[2]}A${p.x[11] ? ` · ⭐${p.x[11]}` : ""} · <b>${p.x[7].toFixed(1)}</b></span>` : ""}<span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
+    ${p.x ? `<span class="tiny mute" title="This season: games, goals, assists, Player of the Match awards, average rating">${p.x[0]} gp · ${p.x[1]}G ${p.x[2]}A${p.x[11] ? ` · ⭐${p.x[11]}` : ""} · <b>${p.x[7].toFixed(1)}</b></span>` : ""}<span class="tiny mute" title="Stamina">${Math.round(p.stam)}%</span>${p.susp ? `<span class="pill bad tiny">SUSP ${p.susp}</span>` : ""}<button class="pinfo" data-act="pcard" data-id="${p.id}" title="Full player card" aria-label="Open full card">i</button><span class="pill tiny ${p.contract <= 1 ? "warn" : ""}" title="Contract">${p.contract} season${p.contract === 1 ? "" : "s"} left</span></div>`).join("");
   const byOvr = (a, b) => b.ovr - a.ovr, starters = ps.filter((p) => start.has(p.id)).sort((a, b) => (a.pos === "GK" ? -1 : b.pos === "GK" ? 1 : byOvr(a, b))), bench = ps.filter((p) => !start.has(p.id)).sort(byOvr);
   return `${hubBar(S, t.name, "closeteam", "← Standings")}<div class="card"><div class="row wrap" style="gap:14px">${crest(t, 48)}${shirt(c, 0, 56)}<div class="grow"><b style="font-size:20px">${esc(t.name)}</b><div class="mute small">${t.owner ? "Managed by " + esc(t.owner) : "CPU manager"}${tr ? ` · ${row + 1}${["st", "nd", "rd"][row] || "th"} · ${tr.pts} pts (${tr.w}-${tr.d}-${tr.l})` : ""} · ${ps.length}/${t.cap} players</div></div></div>
     <h3 class="mt">Likely line-up</h3><div class="col" style="gap:3px">${lines(starters)}</div>
     ${bench.length ? `<h3 class="mt">Bench</h3><div class="col" style="gap:3px">${lines(bench)}</div>` : ""}
-    <p class="tiny mute mt">Line-ups are set at kick-off. This shows the strongest available players. Contract = seasons left, counting this one.</p></div>`;
+    <p class="tiny mute mt">Line-ups are set at kick-off. This shows the strongest available players. Contract = seasons left, counting this one.</p></div>${scheduleCard(S, i)}`;
+}
+// The whole season for one team: every fixture, with the score once it has been played.
+function scheduleCard(S, i) {
+  const sc = S.sched; if (!sc || !sc.days.length) return "";
+  const res = new Map(); for (const [d, a, b, ga, gb] of sc.results) res.set(d + ":" + a + ":" + b, [ga, gb]);
+  let w = 0, dr = 0, l = 0;
+  const rows = sc.days.map((day, d) => {
+    const fx = day.find(([a, b]) => a === i || b === i); if (!fx) return "";
+    const home = fx[0] === i, opp = home ? fx[1] : fx[0], r = res.get(d + ":" + fx[0] + ":" + fx[1]), mine = r ? (home ? r[0] : r[1]) : null, theirs = r ? (home ? r[1] : r[0]) : null;
+    const o = r ? (mine > theirs ? "W" : mine < theirs ? "L" : "D") : ""; if (o === "W") w++; else if (o === "D") dr++; else if (o === "L") l++;
+    return `<div class="schedrow ${o ? "r" + o : ""} ${d === S.season.day && !r ? "next" : ""}" data-act="viewteam" data-i="${opp}" title="See ${esc(team(opp).name)}"><span class="md">MD ${d + 1}</span><span class="ha">${home ? "H" : "A"}</span><span class="grow">${chip(team(opp), 18)}</span>
+      ${r ? `<b class="sc">${mine}–${theirs}</b><span class="pill tiny ${o === "W" ? "good" : o === "L" ? "bad" : ""}">${o}</span>` : `<span class="mute small">${d === S.season.day ? "next" : "to play"}</span>`}</div>`;
+  }).join("");
+  return `<div class="card"><div class="row wrap"><h3 style="margin:0">Season schedule and results</h3><div class="grow"></div><span class="small mute">${w}W ${dr}D ${l}L so far</span></div><div class="schedlist mt">${rows}</div></div>`;
 }
 function standingsView(S) {
   if (st.ui.viewTeam != null && team(st.ui.viewTeam)) return teamViewer(S, st.ui.viewTeam);
@@ -525,15 +542,20 @@ function standingsView(S) {
   return `${hubBar(S, "Standings")}${tablePanel(S, 99, true)}${last}${leadersPanel(S, 10)}`;
 }
 function financeView(S) {
-  const f = S.me.fin, ex = f.expiring, short = f.left0 < 0;
-  const rows = ex.map((e) => { const p = pl(e.id); if (!p) return "";
-    return `<tr><td><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${p.pos}</span></td><td class="n">${p.ovr}${e.ovrNext !== p.ovr ? ` <span class="mute">→ ${e.ovrNext}</span>` : ""}</td><td class="n">${p.age}</td>${e.fees.map((x) => `<td class="n">~${x}</td>`).join("")}<td class="n">${e.retire ? `<span class="${e.retire >= 0.4 ? "neg" : "mute"}">${Math.round(e.retire * 100)}%</span>` : "–"}</td></tr>`; }).join("");
+  const f = S.me.fin, ex = f.expiring, short = f.left0 < 0, tab = st.ui.finTab || 1;
+  const grp = f.ahead[tab - 1] || { list: [], maxLen: 3 };
+  const cols = Math.max(1, Math.min(3, grp.maxLen)), when = ["this season", "next season", "in two seasons"][tab - 1];
+  const rows = grp.list.map((e) => { const p = pl(e.id); if (!p) return "";
+    return `<tr><td><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${p.pos}</span> <button class="pinfo inl" data-act="pcard" data-id="${p.id}" aria-label="Open full card">i</button></td><td class="n">${p.ovr}${e.ovrNext !== p.ovr ? ` <span class="mute">→ ${e.ovrNext}</span>` : ""}</td><td class="n">${p.age}</td>${[0, 1, 2].map((k) => `<td class="n">${k < cols ? "~" + e.fees[k] : "–"}</td>`).join("")}<td class="n">${e.retire ? `<span class="${e.retire >= 0.4 ? "neg" : "mute"}">${Math.round(e.retire * 100)}%</span>` : "–"}</td></tr>`; }).join("");
+  const total = grp.list.reduce((x, e) => x + e.fees[0] * (1 - e.retire), 0);
+  const tabs = [1, 2, 3].map((k) => `<button class="btn sm ${tab === k ? "pri" : ""}" data-act="finTab" data-k="${k}">${["Ending this season", "Ending next season", "Ending in two seasons"][k - 1]} <span class="mute">(${f.ahead[k - 1].list.length})</span></button>`).join("");
   return `<div class="card"><div class="row wrap" style="gap:18px"><div><div class="mute small">Coins now</div><b style="font-size:24px">${coinsTxt(f.coins)}</b></div>
       <div><div class="mute small">Still to come this season</div><b style="font-size:24px">~${coinsTxt(f.income)}</b><div class="tiny mute">${f.left} match${f.left === 1 ? "" : "es"} × ~${f.perMatch.total} (${f.perMatch.base} base + ${f.perMatch.catchup} catch-up + ~${f.perMatch.bonus} for wins and draws)</div></div>
       <div><div class="mute small">Cost to keep the expiring</div><b style="font-size:24px">~${coinsTxt(f.cheapest)}</b><div class="tiny mute">1-season deals, retirements allowed for</div></div>
       <div><div class="mute small">Left over after that</div><b style="font-size:24px" class="${short ? "neg" : ""}">~${coinsTxt(f.left0)}</b></div></div></div>
-    <div class="card"><h3>Contracts ending this season</h3>${ex.length ? `<table class="tb"><tr><th>Player</th><th class="n">OVR</th><th class="n">Age</th><th class="n">1 yr</th><th class="n">2 yrs</th><th class="n">3 yrs</th><th class="n" title="Chance he retires this off-season">Retire</th></tr>${rows}</table>
-      <p class="tiny mute mt">Estimated re-sign fees with your loyalty discount, for a player one year older at the rating his age suggests. Real fees move a little with off-season ageing. You can only re-sign players who have not retired. You have ${f.roster}/${f.cap} players, ${f.staying} already signed for next season.</p>` : `<p class="mute small">Nobody's contract runs out this season.</p>`}</div>`;
+    <div class="card"><h3>Re-sign costs ahead</h3><div class="row wrap mt" style="gap:6px">${tabs}</div>
+      ${grp.maxLen < 1 ? `<p class="mute small mt">The game ends before then, so nothing needs re-signing.</p>` : grp.list.length ? `<table class="tb mt"><tr><th>Player</th><th class="n">OVR</th><th class="n">Age</th><th class="n">1 yr</th><th class="n">2 yrs</th><th class="n">3 yrs</th><th class="n" title="Chance he retires that off-season">Retire</th></tr>${rows}</table>
+      <p class="tiny mute mt">${tab === 1 ? "" : `These deals run out ${when}. `}Estimated re-sign fees with your loyalty discount, for a player ${tab} year${tab > 1 ? "s" : ""} older at the rating his age suggests (about ${coinsTxt(total)} for one-season deals if you keep everyone who does not retire). Real fees move with off-season ageing.${grp.maxLen < 3 ? ` <b>Only ${grp.maxLen} season${grp.maxLen === 1 ? "" : "s"} will be left then, so longer deals are not available.</b>` : ""} You have ${f.roster}/${f.cap} players${tab === 1 ? `, ${f.staying} already signed for next season` : ""}.</p>` : `<p class="mute small mt">Nobody's contract runs out ${when}.</p>`}</div>`;
 }
 function hubView(S) {
   if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.ui.itemSel = null; }
@@ -541,6 +563,7 @@ function hubView(S) {
   if (!hub || (hub === "team" && !S.me)) return hubHome(S);
   if (hub === "team") return hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
   if (hub === "finance" && S.me && S.me.fin) return hubBar(S, "Finance") + financeView(S);
+  if (hub === "transfers") return hubBar(S, "Transfers") + transfersView(S);
   if (hub === "stats") return hubBar(S, "Player stats") + playerStats(S);
   if (hub === "store") return hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
   return standingsView(S);

@@ -4,10 +4,12 @@ import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
 import { storeCard } from "./store.js";
-import { pmHandlers, pmPanel, seekersCard, modeCard, creator } from "./pm.js";
+import { pmHandlers, pmPanel, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
 import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
+import { pcardHandlers, pcardSync } from "./pcard.js";
+import { winHandlers } from "./transfers.js";
 
 const app = $("#app");
 app.innerHTML = `<div id="top"></div><div id="body"></div><div id="hostbar"></div>`;
@@ -84,7 +86,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -212,7 +214,8 @@ function renderTop() {
   tick();
 }
 function tick() {
-  const S = st.S, c = $("#hclock"); if (!c || !S) return;
+  const S = st.S, w = $("#wclock"); if (w && S) { const r0 = remaining(); w.textContent = r0 == null ? "–" : fmtClock(r0); }
+  const c = $("#hclock"); if (!c || !S) return;
   const r = remaining(); if (r == null) { c.textContent = ""; return; }
   const tot = S.dur > 0 ? S.dur : r;
   c.textContent = fmtClock(r);
@@ -274,7 +277,7 @@ function lobby(S) {
       <span class="small">Market round timer</span>${sel("marketSec", [[20, "20 s"], [30, "30 s"], [45, "45 s"], [60, "60 s"]])}
       <span class="small">Line-up timer</span>${sel("lineupSec", [[20, "20 s"], [30, "30 s"], [35, "35 s"], [45, "45 s"], [60, "60 s"], [90, "90 s"]])}
       <span class="small">Half-time timer</span>${sel("halfSec", [[10, "10 s"], [15, "15 s"], [20, "20 s"], [30, "30 s"]])}
-      <span class="small">Seasons</span>${sel("seasons", [1, 2, 3, 4, 5].map((n) => [n, n]))}
+      <span class="small">Seasons</span>${sel("seasons", [1, 2, 3, 4, 5, 6, 7, 8].map((n) => [n, n]))}
       <span class="small">Re-sign timer</span>${sel("resignSec", [[20, "20 s"], [40, "40 s"], [60, "60 s"]])}
       <span class="small">Rookie pick timer</span>${sel("rookieSec", [[15, "15 s"], [25, "25 s"], [40, "40 s"]])}
       <span class="small">Trade window</span>${sel("tradeSec", [[60, "1 min"], [120, "2 min"], [180, "3 min"], [300, "5 min"]])}</div>
@@ -303,7 +306,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop]);
@@ -317,7 +320,7 @@ function render() {
   if (fo && $("#" + fo) && document.activeElement !== $("#" + fo)) $("#" + fo).focus();
   const log = $("#chatlog"); if (log) log.scrollTop = log.scrollHeight;
   if (st.ui.lastStep !== S.step) { st.ui.lastStep = S.step; window.scrollTo(0, 0); }
-  playbackTick();
+  playbackTick(); pcardSync();
 }
 st.render = render;
 window.__st = st;

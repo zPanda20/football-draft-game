@@ -474,3 +474,64 @@ table.tb.stats td.mute{color:var(--mute)}
 .slot .tok .tpic{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;pointer-events:none}
 .slot .tok .tovr{position:absolute;left:-9px;bottom:-5px;min-width:22px;padding:1px 4px;border-radius:99px;font-size:11px;font-weight:900;line-height:1.35;background:#10151b;color:#fff;border:1.5px solid #fff;pointer-events:none}
 .slot .tok.ruby .tovr{background:var(--ruby)}.slot .tok.gold .tovr{background:var(--gold);color:#10151b}.slot .tok.silver .tovr{background:var(--silver);color:#10151b}
+
+/* ---- full player card, info buttons ---- */
+.pinfo{position:absolute;top:4px;right:4px;z-index:5;width:20px;height:20px;border-radius:50%;background:rgba(10,14,20,.78);color:#fff;font:italic 700 12px/20px Georgia,serif;text-align:center;border:1px solid rgba(255,255,255,.45);padding:0;cursor:pointer}
+.pinfo:hover{background:var(--acc);color:var(--ink)}
+.benchrow .pinfo,.pinfo.inl{position:static;flex:none;margin-left:6px}
+.slot{position:absolute}.slot .pinfo{top:-6px;right:-4px;width:17px;height:17px;font-size:10px;line-height:17px;opacity:.85}
+.pcmodal{position:fixed;inset:0;z-index:150;background:rgba(3,6,5,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+.pc-in{position:relative;display:flex;gap:22px;flex-wrap:wrap;max-width:760px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.7)}
+.pc-x{position:absolute;top:10px;right:12px;font-size:18px;color:var(--mute)}.pc-x:hover{color:var(--text)}
+.pc-left{flex:none}.pc-right{flex:1;min-width:260px}
+.pcrows{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}.pcrow{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:3px 0;font-size:13px}.pcrow span{color:var(--mute)}
+.pcbar{display:grid;grid-template-columns:42px 1fr 28px;align-items:center;gap:8px;font-size:12px;margin:4px 0}.pcbar span{color:var(--mute);font-weight:700}
+.pcbar i{height:8px;border-radius:4px;background:var(--panel2);overflow:hidden}.pcbar b{display:block;height:100%;background:var(--silver)}.pcbar b.mid{background:var(--warn)}.pcbar b.hi{background:var(--acc)}.pcbar em{font-style:normal;font-weight:800;text-align:right}
+.pcseason h4{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--mute);margin:14px 0 6px}
+.pcgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:6px}.pcgrid span{background:var(--panel2);border-radius:8px;padding:6px 8px;font-size:11px;color:var(--mute);text-align:center}.pcgrid b{display:block;font-size:17px;color:var(--text)}
+
+/* ---- transfer window ---- */
+.windowtile{border-color:var(--acc)!important;box-shadow:0 0 0 1px var(--acc) inset}
+.winhead{border-color:var(--acc)}
+.wincount{text-align:center;background:var(--panel2);border:1px solid var(--acc);border-radius:12px;padding:6px 16px}.wincount b{display:block;font-size:34px;line-height:1;color:var(--acc)}.wincount span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--mute)}
+.windots{display:flex;gap:6px}.windots i{flex:1;height:7px;border-radius:4px;background:var(--panel2);border:1px solid var(--line)}.windots i.gone{background:var(--mute);opacity:.5}.windots i.now{background:var(--acc)}
+.trgrid,.fagrid{display:flex;flex-wrap:wrap;gap:10px}.fagrid{flex-direction:column}
+.trcard{cursor:pointer;border-radius:16px;padding:3px;border:2px solid transparent;transition:.12s}.trcard:hover{transform:translateY(-2px)}.trcard.on{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 35%,transparent)}
+.farow{display:flex;gap:14px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.btn.bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+.schedlist{display:flex;flex-direction:column;gap:3px}.schedrow{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:8px;background:var(--panel2);cursor:pointer;font-size:13px}.schedrow:hover{outline:1px solid var(--acc)}
+.schedrow .md{width:44px;color:var(--mute);font-size:11px;font-weight:700}.schedrow .ha{width:16px;color:var(--mute);font-weight:800;font-size:11px}.schedrow .sc{font-variant-numeric:tabular-nums}
+.schedrow.rW{box-shadow:inset 3px 0 0 var(--good)}.schedrow.rL{box-shadow:inset 3px 0 0 var(--bad)}.schedrow.rD{box-shadow:inset 3px 0 0 var(--mute)}.schedrow.next{outline:1px solid var(--acc2)}
+
+/* ---- created footballers on the table, the badge of their team ---- */
+.utag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;color:var(--acc2);background:color-mix(in srgb,var(--acc2) 14%,transparent);border:1px solid color-mix(in srgb,var(--acc2) 45%,transparent);border-radius:999px;padding:0 7px;vertical-align:middle;white-space:nowrap}
+.cbadge.tm{display:inline-flex}.pcard.created .ctag{font-weight:800}
+.playsfor{display:inline-flex;align-items:center;gap:8px;font-size:15px}
+
+/* ---- dating, preferences, boot deals ---- */
+.datepick{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.datecards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.datec{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.datec.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.datec.gf b{color:#ff9ec7}.datec.gm b{color:#8fc6ff}
+.pface{border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;font-weight:800;background:hsl(var(--h,200) 45% 32%);color:#fff;border:2px solid var(--line)}
+.prefrow{display:flex;flex-direction:column;gap:6px}
+.dealcard{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:linear-gradient(120deg,rgba(255,210,63,.14),transparent);border:1px solid var(--acc2);border-radius:12px;padding:12px}
+.brandlogo{max-width:90px;object-fit:contain;vertical-align:middle}.brandtxt{font-weight:900;letter-spacing:.04em;background:var(--panel2);padding:6px 10px;border-radius:8px}
+.dealline{display:flex;align-items:center;gap:8px}
+.cab .pill img{vertical-align:middle}
+
+/* ---- career moment: a gamble that covers most of the screen ---- */
+.gamble{position:fixed;inset:0;z-index:140;background:rgba(3,6,5,.82);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:4vh 4vw}
+.gamble-in{width:min(900px,92vw);max-height:92vh;overflow:auto;background:linear-gradient(160deg,var(--panel2),var(--panel));border:2px solid var(--acc2);border-radius:20px;padding:clamp(18px,4vw,40px);box-shadow:0 30px 90px rgba(0,0,0,.75)}
+.gamble h2{font-size:clamp(24px,4.2vw,44px);line-height:1.05;margin:8px 0 10px;font-weight:900}.gamble .lead{font-size:clamp(15px,2vw,19px);color:var(--text);opacity:.9;margin-bottom:18px}
+.gopts{display:grid;gap:12px}.gopt{display:flex;justify-content:space-between;align-items:center;gap:14px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;font-size:clamp(15px,2vw,19px);transition:.15s}
+.gopt:hover{border-color:var(--acc2);transform:translateY(-2px)}.gopt.safe{border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+.gopt .odds{display:flex;flex-direction:column;align-items:flex-end;font-size:13px;gap:2px}.gopt .up{color:var(--good);font-weight:800}.gopt .dn{color:var(--bad);font-weight:800}
+
+/* ---- more kinds of headline ---- */
+.newsban.nk-milestone,.newsban.nk-trophy{background:linear-gradient(180deg,#1a1405,#6b4a05 70%,rgba(107,74,5,.94))}
+.newsban.nk-troll{background:linear-gradient(180deg,#14101f,#3c2670 70%,rgba(60,38,112,.94))}
+.newsban.nk-camera{background:linear-gradient(180deg,#0e0e12,#3a3a46 70%,rgba(58,58,70,.94))}
+.newsban.nk-sponsor{background:linear-gradient(180deg,#07182a,#0c3a70 70%,rgba(12,58,112,.94))}
+.nb-pic{position:absolute;right:0;top:0;bottom:0;width:38%;background-size:cover;background-position:center;opacity:.35;mask-image:linear-gradient(90deg,transparent,#000 60%);-webkit-mask-image:linear-gradient(90deg,transparent,#000 60%);pointer-events:none}
+.nb-mast{height:22px;vertical-align:middle}

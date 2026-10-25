@@ -5,15 +5,16 @@ import { squadCard } from "./draft.js";
 const ui = () => st.ui;
 
 function target(S) { return ui().sel; }
+const bl = () => Math.min(ui().bidLen, (st.S && st.S.me && st.S.me.maxLen) || 3);
 function feeOf(p, len) { return Math.round(p.mv * st.cat.rules.lenMult[len]); }
 function curBid(S) {
   const sel = target(S); if (!sel) return null;
-  if (sel.kind === "p") { const p = pl(sel.id); if (!p) return null; const min = feeOf(p, ui().bidLen); return { sel, p, min }; }
+  if (sel.kind === "p") { const p = pl(sel.id); if (!p) return null; const min = feeOf(p, bl()); return { sel, p, min }; }
   const it = st.items[sel.id]; return { sel, it, min: it.price };
 }
 function sendBid(lock) {
   const S = st.S, b = curBid(S); if (!b) return;
-  send({ t: "bid", bid: { kind: b.sel.kind, id: b.sel.id, len: b.sel.kind === "p" ? ui().bidLen : 1, extra: ui().bidExtra | 0 }, lock: !!lock });
+  send({ t: "bid", bid: { kind: b.sel.kind, id: b.sel.id, len: b.sel.kind === "p" ? bl() : 1, extra: ui().bidExtra | 0 }, lock: !!lock });
 }
 const maxExtra = (S, min) => Math.max(0, Math.min(Math.floor(min * st.cat.rules.extraCap), Math.floor(S.me.coins - min)));
 
@@ -55,8 +56,8 @@ function bidPanel(S) {
   const w = S.market.odds, avg = w.reduce((a, c) => a + c, 0) / w.length, mine = w[me.teamId] / avg;
   const canAfford = me.coins >= b.min;
   let head = "";
-  if (b.sel.kind === "p") head = `<div class="row" style="align-items:flex-start;gap:14px">${card(b.sel.id, { size: "md" })}<div class="grow col" style="gap:8px"><div><b>Contract</b><div class="row mt" style="gap:6px">${[1, 2, 3].map((l) => `<button class="btn sm ${ui().bidLen === l ? "on" : ""}" data-act="mkLen" data-len="${l}">${l} season${l > 1 ? "s" : ""}<br>${feeOf(b.p, l)}</button>`).join("")}</div></div>
-      <div class="small mute">Market value ${b.p.mv}. Minimum offer for ${ui().bidLen} season${ui().bidLen > 1 ? "s" : ""}: <b>${b.min}</b>. One-off fee, no wages. Only the winner pays.</div></div></div>`;
+  if (b.sel.kind === "p") head = `<div class="row" style="align-items:flex-start;gap:14px">${card(b.sel.id, { size: "md" })}<div class="grow col" style="gap:8px"><div><b>Contract</b><div class="row mt" style="gap:6px">${[1, 2, 3].filter((l) => l <= (me.maxLen || 3)).map((l) => `<button class="btn sm ${bl() === l ? "on" : ""}" data-act="mkLen" data-len="${l}">${l} season${l > 1 ? "s" : ""}<br>${feeOf(b.p, l)}</button>`).join("")}</div></div>
+      <div class="small mute">Market value ${b.p.mv}. Minimum offer for ${bl()} season${bl() > 1 ? "s" : ""}: <b>${b.min}</b>. One-off fee, no wages. Only the winner pays.</div></div></div>`;
   else head = `<div class="row" style="align-items:flex-start;gap:14px">${itemCard(b.it)}<div class="grow small mute">Price <b>${b.it.price}</b>. ${b.it.supply != null ? "Only one exists in the lobby, so it goes to a draw." : ""}</div></div>`;
   return `<div class="card"><h3>Your bid</h3>${head}
     <div class="mt"><b>Extra coins</b> <span class="mute small">(raise your odds if others want him too)</span>
