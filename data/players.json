@@ -15,7 +15,7 @@
 "dri": 96,
 "def": 31,
 "phy": 80,
-"sta": 80,
+"sta": 81,
 "tier": "ruby"
 },
 {
@@ -34,7 +34,7 @@
 "dri": 96,
 "def": 76,
 "phy": 79,
-"sta": 80,
+"sta": 81,
 "tier": "ruby"
 },
 {
@@ -53,7 +53,7 @@
 "dri": 83,
 "def": 48,
 "phy": 92,
-"sta": 80,
+"sta": 86,
 "tier": "ruby"
 },
 {
@@ -72,7 +72,7 @@
 "dri": 97,
 "def": 40,
 "phy": 65,
-"sta": 80,
+"sta": 88,
 "tier": "ruby"
 },
 {
@@ -110,7 +110,7 @@
 "dri": 96,
 "def": 58,
 "phy": 73,
-"sta": 80,
+"sta": 75,
 "tier": "ruby"
 },
 {
@@ -129,7 +129,7 @@
 "dri": 92,
 "def": 61,
 "phy": 83,
-"sta": 80,
+"sta": 82,
 "tier": "ruby"
 },
 {
@@ -148,7 +148,7 @@
 "dri": 88,
 "def": 47,
 "phy": 86,
-"sta": 80,
+"sta": 87,
 "tier": "ruby"
 },
 {
@@ -167,7 +167,7 @@
 "dri": 82,
 "def": 49,
 "phy": 83,
-"sta": 80,
+"sta": 70,
 "tier": "ruby"
 },
 {
@@ -186,7 +186,7 @@
 "dri": 81,
 "def": 85,
 "phy": 81,
-"sta": 80,
+"sta": 77,
 "tier": "ruby"
 },
 {
@@ -205,7 +205,7 @@
 "dri": 91,
 "def": 47,
 "phy": 69,
-"sta": 80,
+"sta": 74,
 "tier": "ruby"
 },
 {
@@ -224,7 +224,7 @@
 "dri": 90,
 "def": 46,
 "phy": 90,
-"sta": 80,
+"sta": 72,
 "tier": "ruby"
 },
 {
@@ -243,7 +243,7 @@
 "dri": 81,
 "def": 42,
 "phy": 88,
-"sta": 80,
+"sta": 81,
 "tier": "ruby"
 },
 {
@@ -262,7 +262,7 @@
 "dri": 91,
 "def": 77,
 "phy": 75,
-"sta": 80,
+"sta": 78,
 "tier": "ruby"
 },
 {
@@ -281,7 +281,7 @@
 "dri": 91,
 "def": 75,
 "phy": 70,
-"sta": 80,
+"sta": 74,
 "tier": "ruby"
 },
 {
@@ -300,7 +300,7 @@
 "dri": 88,
 "def": 79,
 "phy": 85,
-"sta": 80,
+"sta": 85,
 "tier": "ruby"
 },
 {
@@ -338,7 +338,7 @@
 "dri": 86,
 "def": 58,
 "phy": 85,
-"sta": 80,
+"sta": 90,
 "tier": "ruby"
 },
 {
@@ -357,7 +357,7 @@
 "dri": 86,
 "def": 84,
 "phy": 80,
-"sta": 80,
+"sta": 86,
 "tier": "gold"
 },
 {
@@ -376,7 +376,7 @@
 "dri": 91,
 "def": 31,
 "phy": 71,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -395,7 +395,7 @@
 "dri": 88,
 "def": 45,
 "phy": 73,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -414,7 +414,7 @@
 "dri": 85,
 "def": 68,
 "phy": 75,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -433,7 +433,7 @@
 "dri": 90,
 "def": 47,
 "phy": 76,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -452,7 +452,7 @@
 "dri": 89,
 "def": 22,
 "phy": 72,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -471,7 +471,7 @@
 "dri": 66,
 "def": 91,
 "phy": 84,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -490,7 +490,7 @@
 "dri": 65,
 "def": 90,
 "phy": 86,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -509,7 +509,7 @@
 "dri": 90,
 "def": 78,
 "phy": 82,
-"sta": 80,
+"sta": 83,
 "tier": "gold"
 },
 {
@@ -528,7 +528,7 @@
 "dri": 90,
 "def": 46,
 "phy": 88,
-"sta": 80,
+"sta": 70,
 "tier": "gold"
 },
 {
@@ -547,7 +547,7 @@
 "dri": 73,
 "def": 90,
 "phy": 82,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -566,7 +566,7 @@
 "dri": 87,
 "def": 86,
 "phy": 82,
-"sta": 80,
+"sta": 81,
 "tier": "gold"
 },
 {
@@ -585,7 +585,7 @@
 "dri": 86,
 "def": 37,
 "phy": 74,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -604,7 +604,7 @@
 "dri": 90,
 "def": 60,
 "phy": 73,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -623,7 +623,7 @@
 "dri": 84,
 "def": 81,
 "phy": 79,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -642,7 +642,7 @@
 "dri": 88,
 "def": 58,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -661,7 +661,7 @@
 "dri": 81,
 "def": 85,
 "phy": 84,
-"sta": 80,
+"sta": 82,
 "tier": "gold"
 },
 {
@@ -680,7 +680,7 @@
 "dri": 82,
 "def": 82,
 "phy": 81,
-"sta": 80,
+"sta": 86,
 "tier": "gold"
 },
 {
@@ -699,7 +699,7 @@
 "dri": 86,
 "def": 39,
 "phy": 78,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -737,7 +737,7 @@
 "dri": 88,
 "def": 84,
 "phy": 88,
-"sta": 80,
+"sta": 86,
 "tier": "gold"
 },
 {
@@ -756,7 +756,7 @@
 "dri": 77,
 "def": 89,
 "phy": 86,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -775,7 +775,7 @@
 "dri": 87,
 "def": 44,
 "phy": 74,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -794,7 +794,7 @@
 "dri": 88,
 "def": 81,
 "phy": 68,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -813,7 +813,7 @@
 "dri": 70,
 "def": 89,
 "phy": 85,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -832,7 +832,7 @@
 "dri": 88,
 "def": 45,
 "phy": 78,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -851,7 +851,7 @@
 "dri": 87,
 "def": 46,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -870,7 +870,7 @@
 "dri": 87,
 "def": 37,
 "phy": 82,
-"sta": 80,
+"sta": 83,
 "tier": "gold"
 },
 {
@@ -908,7 +908,7 @@
 "dri": 93,
 "def": 42,
 "phy": 69,
-"sta": 80,
+"sta": 70,
 "tier": "gold"
 },
 {
@@ -927,7 +927,7 @@
 "dri": 88,
 "def": 31,
 "phy": 61,
-"sta": 80,
+"sta": 55,
 "tier": "gold"
 },
 {
@@ -946,7 +946,7 @@
 "dri": 85,
 "def": 51,
 "phy": 74,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -965,7 +965,7 @@
 "dri": 75,
 "def": 86,
 "phy": 83,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -1003,7 +1003,7 @@
 "dri": 89,
 "def": 64,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -1022,7 +1022,7 @@
 "dri": 87,
 "def": 45,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -1041,7 +1041,7 @@
 "dri": 86,
 "def": 50,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -1060,7 +1060,7 @@
 "dri": 81,
 "def": 81,
 "phy": 85,
-"sta": 80,
+"sta": 88,
 "tier": "gold"
 },
 {
@@ -1079,7 +1079,7 @@
 "dri": 73,
 "def": 89,
 "phy": 78,
-"sta": 80,
+"sta": 70,
 "tier": "gold"
 },
 {
@@ -1098,7 +1098,7 @@
 "dri": 86,
 "def": 34,
 "phy": 82,
-"sta": 80,
+"sta": 82,
 "tier": "gold"
 },
 {
@@ -1117,7 +1117,7 @@
 "dri": 74,
 "def": 86,
 "phy": 84,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -1136,7 +1136,7 @@
 "dri": 88,
 "def": 28,
 "phy": 79,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -1155,7 +1155,7 @@
 "dri": 86,
 "def": 45,
 "phy": 72,
-"sta": 80,
+"sta": 71,
 "tier": "gold"
 },
 {
@@ -1174,7 +1174,7 @@
 "dri": 88,
 "def": 56,
 "phy": 73,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -1193,7 +1193,7 @@
 "dri": 69,
 "def": 87,
 "phy": 83,
-"sta": 80,
+"sta": 70,
 "tier": "gold"
 },
 {
@@ -1212,7 +1212,7 @@
 "dri": 88,
 "def": 44,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -1231,7 +1231,7 @@
 "dri": 70,
 "def": 88,
 "phy": 84,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -1250,7 +1250,7 @@
 "dri": 87,
 "def": 60,
 "phy": 65,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -1269,7 +1269,7 @@
 "dri": 86,
 "def": 81,
 "phy": 72,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -1288,7 +1288,7 @@
 "dri": 63,
 "def": 87,
 "phy": 86,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -1307,7 +1307,7 @@
 "dri": 82,
 "def": 82,
 "phy": 72,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -1326,7 +1326,7 @@
 "dri": 90,
 "def": 62,
 "phy": 65,
-"sta": 80,
+"sta": 70,
 "tier": "gold"
 },
 {
@@ -1345,7 +1345,7 @@
 "dri": 85,
 "def": 60,
 "phy": 85,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -1364,7 +1364,7 @@
 "dri": 87,
 "def": 63,
 "phy": 69,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -1383,7 +1383,7 @@
 "dri": 89,
 "def": 46,
 "phy": 57,
-"sta": 80,
+"sta": 60,
 "tier": "gold"
 },
 {
@@ -1402,7 +1402,7 @@
 "dri": 88,
 "def": 79,
 "phy": 72,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -1421,7 +1421,7 @@
 "dri": 85,
 "def": 48,
 "phy": 69,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -1440,7 +1440,7 @@
 "dri": 87,
 "def": 55,
 "phy": 71,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -1459,7 +1459,7 @@
 "dri": 86,
 "def": 59,
 "phy": 72,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -1478,7 +1478,7 @@
 "dri": 82,
 "def": 77,
 "phy": 73,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -1497,7 +1497,7 @@
 "dri": 90,
 "def": 55,
 "phy": 80,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -1516,7 +1516,7 @@
 "dri": 87,
 "def": 58,
 "phy": 77,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -1535,7 +1535,7 @@
 "dri": 77,
 "def": 85,
 "phy": 81,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -1554,7 +1554,7 @@
 "dri": 78,
 "def": 84,
 "phy": 78,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -1573,7 +1573,7 @@
 "dri": 82,
 "def": 80,
 "phy": 86,
-"sta": 80,
+"sta": 86,
 "tier": "gold"
 },
 {
@@ -1611,7 +1611,7 @@
 "dri": 81,
 "def": 80,
 "phy": 74,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -1630,7 +1630,7 @@
 "dri": 83,
 "def": 83,
 "phy": 81,
-"sta": 80,
+"sta": 82,
 "tier": "gold"
 },
 {
@@ -1668,7 +1668,7 @@
 "dri": 82,
 "def": 79,
 "phy": 81,
-"sta": 80,
+"sta": 85,
 "tier": "gold"
 },
 {
@@ -1687,7 +1687,7 @@
 "dri": 84,
 "def": 80,
 "phy": 80,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -1725,7 +1725,7 @@
 "dri": 68,
 "def": 87,
 "phy": 85,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -1744,7 +1744,7 @@
 "dri": 88,
 "def": 46,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -1763,7 +1763,7 @@
 "dri": 84,
 "def": 35,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -1782,7 +1782,7 @@
 "dri": 87,
 "def": 69,
 "phy": 72,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -1801,7 +1801,7 @@
 "dri": 82,
 "def": 39,
 "phy": 72,
-"sta": 80,
+"sta": 71,
 "tier": "gold"
 },
 {
@@ -1820,7 +1820,7 @@
 "dri": 87,
 "def": 30,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -1839,7 +1839,7 @@
 "dri": 78,
 "def": 86,
 "phy": 82,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -1858,7 +1858,7 @@
 "dri": 87,
 "def": 66,
 "phy": 63,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -1877,7 +1877,7 @@
 "dri": 78,
 "def": 44,
 "phy": 87,
-"sta": 80,
+"sta": 81,
 "tier": "gold"
 },
 {
@@ -1896,7 +1896,7 @@
 "dri": 84,
 "def": 43,
 "phy": 69,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -1915,7 +1915,7 @@
 "dri": 88,
 "def": 54,
 "phy": 61,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -1934,7 +1934,7 @@
 "dri": 85,
 "def": 79,
 "phy": 69,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -1953,7 +1953,7 @@
 "dri": 84,
 "def": 77,
 "phy": 77,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -1972,7 +1972,7 @@
 "dri": 82,
 "def": 39,
 "phy": 75,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -1991,7 +1991,7 @@
 "dri": 79,
 "def": 52,
 "phy": 87,
-"sta": 80,
+"sta": 83,
 "tier": "gold"
 },
 {
@@ -2010,7 +2010,7 @@
 "dri": 84,
 "def": 39,
 "phy": 67,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -2029,7 +2029,7 @@
 "dri": 86,
 "def": 42,
 "phy": 62,
-"sta": 80,
+"sta": 66,
 "tier": "gold"
 },
 {
@@ -2048,7 +2048,7 @@
 "dri": 84,
 "def": 63,
 "phy": 72,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -2067,7 +2067,7 @@
 "dri": 84,
 "def": 82,
 "phy": 88,
-"sta": 80,
+"sta": 88,
 "tier": "gold"
 },
 {
@@ -2086,7 +2086,7 @@
 "dri": 81,
 "def": 78,
 "phy": 85,
-"sta": 80,
+"sta": 86,
 "tier": "gold"
 },
 {
@@ -2105,7 +2105,7 @@
 "dri": 88,
 "def": 63,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -2124,7 +2124,7 @@
 "dri": 86,
 "def": 80,
 "phy": 78,
-"sta": 80,
+"sta": 72,
 "tier": "gold"
 },
 {
@@ -2143,7 +2143,7 @@
 "dri": 83,
 "def": 80,
 "phy": 75,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2162,7 +2162,7 @@
 "dri": 80,
 "def": 81,
 "phy": 84,
-"sta": 80,
+"sta": 83,
 "tier": "gold"
 },
 {
@@ -2181,7 +2181,7 @@
 "dri": 87,
 "def": 57,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -2200,7 +2200,7 @@
 "dri": 83,
 "def": 80,
 "phy": 80,
-"sta": 80,
+"sta": 81,
 "tier": "gold"
 },
 {
@@ -2219,7 +2219,7 @@
 "dri": 86,
 "def": 72,
 "phy": 74,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2238,7 +2238,7 @@
 "dri": 86,
 "def": 72,
 "phy": 71,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -2276,7 +2276,7 @@
 "dri": 85,
 "def": 56,
 "phy": 77,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -2295,7 +2295,7 @@
 "dri": 77,
 "def": 85,
 "phy": 82,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -2314,7 +2314,7 @@
 "dri": 77,
 "def": 81,
 "phy": 77,
-"sta": 80,
+"sta": 82,
 "tier": "gold"
 },
 {
@@ -2333,7 +2333,7 @@
 "dri": 86,
 "def": 58,
 "phy": 85,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -2352,7 +2352,7 @@
 "dri": 84,
 "def": 65,
 "phy": 74,
-"sta": 80,
+"sta": 77,
 "tier": "gold"
 },
 {
@@ -2371,7 +2371,7 @@
 "dri": 85,
 "def": 50,
 "phy": 85,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -2390,7 +2390,7 @@
 "dri": 82,
 "def": 81,
 "phy": 68,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -2409,7 +2409,7 @@
 "dri": 82,
 "def": 79,
 "phy": 83,
-"sta": 80,
+"sta": 87,
 "tier": "gold"
 },
 {
@@ -2428,7 +2428,7 @@
 "dri": 87,
 "def": 53,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -2447,7 +2447,7 @@
 "dri": 85,
 "def": 42,
 "phy": 86,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -2466,7 +2466,7 @@
 "dri": 85,
 "def": 72,
 "phy": 65,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -2485,7 +2485,7 @@
 "dri": 79,
 "def": 78,
 "phy": 80,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -2504,7 +2504,7 @@
 "dri": 87,
 "def": 40,
 "phy": 82,
-"sta": 80,
+"sta": 84,
 "tier": "gold"
 },
 {
@@ -2523,7 +2523,7 @@
 "dri": 76,
 "def": 86,
 "phy": 82,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -2542,7 +2542,7 @@
 "dri": 85,
 "def": 49,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -2561,7 +2561,7 @@
 "dri": 73,
 "def": 85,
 "phy": 82,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2580,7 +2580,7 @@
 "dri": 73,
 "def": 86,
 "phy": 79,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -2599,7 +2599,7 @@
 "dri": 84,
 "def": 46,
 "phy": 80,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2618,7 +2618,7 @@
 "dri": 81,
 "def": 50,
 "phy": 81,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2637,7 +2637,7 @@
 "dri": 77,
 "def": 80,
 "phy": 83,
-"sta": 80,
+"sta": 85,
 "tier": "gold"
 },
 {
@@ -2656,7 +2656,7 @@
 "dri": 87,
 "def": 64,
 "phy": 65,
-"sta": 80,
+"sta": 71,
 "tier": "gold"
 },
 {
@@ -2675,7 +2675,7 @@
 "dri": 78,
 "def": 83,
 "phy": 83,
-"sta": 80,
+"sta": 84,
 "tier": "gold"
 },
 {
@@ -2694,7 +2694,7 @@
 "dri": 85,
 "def": 58,
 "phy": 67,
-"sta": 80,
+"sta": 66,
 "tier": "gold"
 },
 {
@@ -2713,7 +2713,7 @@
 "dri": 88,
 "def": 49,
 "phy": 67,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -2732,7 +2732,7 @@
 "dri": 84,
 "def": 43,
 "phy": 77,
-"sta": 80,
+"sta": 79,
 "tier": "gold"
 },
 {
@@ -2751,7 +2751,7 @@
 "dri": 84,
 "def": 66,
 "phy": 67,
-"sta": 80,
+"sta": 60,
 "tier": "gold"
 },
 {
@@ -2770,7 +2770,7 @@
 "dri": 86,
 "def": 41,
 "phy": 80,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -2789,7 +2789,7 @@
 "dri": 86,
 "def": 73,
 "phy": 59,
-"sta": 80,
+"sta": 55,
 "tier": "gold"
 },
 {
@@ -2808,7 +2808,7 @@
 "dri": 80,
 "def": 76,
 "phy": 70,
-"sta": 80,
+"sta": 69,
 "tier": "gold"
 },
 {
@@ -2827,7 +2827,7 @@
 "dri": 84,
 "def": 45,
 "phy": 70,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -2846,7 +2846,7 @@
 "dri": 85,
 "def": 50,
 "phy": 64,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -2865,7 +2865,7 @@
 "dri": 76,
 "def": 83,
 "phy": 71,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -2884,7 +2884,7 @@
 "dri": 86,
 "def": 29,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -2903,7 +2903,7 @@
 "dri": 81,
 "def": 45,
 "phy": 83,
-"sta": 80,
+"sta": 76,
 "tier": "gold"
 },
 {
@@ -2915,14 +2915,14 @@
 "nat": "Colombia",
 "club": "Real Madrid",
 "pos": "LW",
-"ovr": 85,
-"pac": 93,
-"sho": 75,
-"pas": 78,
-"dri": 89,
-"def": 37,
-"phy": 68,
-"sta": 80,
+"ovr": 86,
+"pac": 92,
+"sho": 78,
+"pas": 82,
+"dri": 91,
+"def": 40,
+"phy": 65,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -2941,7 +2941,7 @@
 "dri": 74,
 "def": 78,
 "phy": 81,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -2960,7 +2960,7 @@
 "dri": 73,
 "def": 86,
 "phy": 78,
-"sta": 80,
+"sta": 71,
 "tier": "gold"
 },
 {
@@ -2979,7 +2979,7 @@
 "dri": 79,
 "def": 81,
 "phy": 74,
-"sta": 80,
+"sta": 78,
 "tier": "gold"
 },
 {
@@ -2998,7 +2998,7 @@
 "dri": 82,
 "def": 39,
 "phy": 79,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -3017,7 +3017,7 @@
 "dri": 84,
 "def": 33,
 "phy": 73,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -3036,7 +3036,7 @@
 "dri": 82,
 "def": 33,
 "phy": 73,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -3055,7 +3055,7 @@
 "dri": 83,
 "def": 42,
 "phy": 58,
-"sta": 80,
+"sta": 67,
 "tier": "gold"
 },
 {
@@ -3074,7 +3074,7 @@
 "dri": 79,
 "def": 79,
 "phy": 76,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -3093,7 +3093,7 @@
 "dri": 83,
 "def": 33,
 "phy": 81,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -3112,7 +3112,7 @@
 "dri": 72,
 "def": 85,
 "phy": 82,
-"sta": 80,
+"sta": 73,
 "tier": "gold"
 },
 {
@@ -3131,7 +3131,7 @@
 "dri": 91,
 "def": 47,
 "phy": 67,
-"sta": 80,
+"sta": 68,
 "tier": "gold"
 },
 {
@@ -3150,7 +3150,7 @@
 "dri": 87,
 "def": 33,
 "phy": 76,
-"sta": 80,
+"sta": 75,
 "tier": "gold"
 },
 {
@@ -3169,7 +3169,7 @@
 "dri": 97,
 "def": 38,
 "phy": 63,
-"sta": 80,
+"sta": 58,
 "tier": "gold"
 },
 {
@@ -3188,7 +3188,7 @@
 "dri": 88,
 "def": 52,
 "phy": 69,
-"sta": 80,
+"sta": 74,
 "tier": "gold"
 },
 {
@@ -3207,7 +3207,7 @@
 "dri": 82,
 "def": 81,
 "phy": 81,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -3226,7 +3226,7 @@
 "dri": 82,
 "def": 82,
 "phy": 78,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -3245,7 +3245,7 @@
 "dri": 85,
 "def": 64,
 "phy": 78,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -3264,7 +3264,7 @@
 "dri": 80,
 "def": 84,
 "phy": 83,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -3283,7 +3283,7 @@
 "dri": 78,
 "def": 84,
 "phy": 91,
-"sta": 80,
+"sta": 86,
 "tier": "silver"
 },
 {
@@ -3321,7 +3321,7 @@
 "dri": 84,
 "def": 67,
 "phy": 73,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -3340,7 +3340,7 @@
 "dri": 78,
 "def": 83,
 "phy": 82,
-"sta": 80,
+"sta": 82,
 "tier": "silver"
 },
 {
@@ -3359,7 +3359,7 @@
 "dri": 89,
 "def": 78,
 "phy": 69,
-"sta": 80,
+"sta": 65,
 "tier": "silver"
 },
 {
@@ -3378,7 +3378,7 @@
 "dri": 81,
 "def": 80,
 "phy": 81,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -3397,7 +3397,7 @@
 "dri": 84,
 "def": 67,
 "phy": 78,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -3435,7 +3435,7 @@
 "dri": 84,
 "def": 82,
 "phy": 70,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -3454,7 +3454,7 @@
 "dri": 80,
 "def": 77,
 "phy": 89,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -3473,7 +3473,7 @@
 "dri": 85,
 "def": 75,
 "phy": 69,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -3492,7 +3492,7 @@
 "dri": 80,
 "def": 77,
 "phy": 72,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -3511,7 +3511,7 @@
 "dri": 77,
 "def": 83,
 "phy": 82,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -3530,7 +3530,7 @@
 "dri": 85,
 "def": 50,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -3549,7 +3549,7 @@
 "dri": 83,
 "def": 71,
 "phy": 76,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -3568,7 +3568,7 @@
 "dri": 82,
 "def": 81,
 "phy": 78,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -3587,7 +3587,7 @@
 "dri": 83,
 "def": 60,
 "phy": 77,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -3606,7 +3606,7 @@
 "dri": 86,
 "def": 49,
 "phy": 75,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -3625,26 +3625,7 @@
 "dri": 87,
 "def": 59,
 "phy": 72,
-"sta": 80,
-"tier": "silver"
-},
-{
-"id": 191,
-"slug": "kenan-yldz",
-"name": "Kenan Yıldız",
-"gender": "Male",
-"age": 21,
-"nat": "Turkey",
-"club": "Juventus",
-"pos": "CAM",
-"ovr": 84,
-"pac": 85,
-"sho": 81,
-"pas": 79,
-"dri": 85,
-"def": 59,
-"phy": 70,
-"sta": 80,
+"sta": 63,
 "tier": "silver"
 },
 {
@@ -3663,7 +3644,7 @@
 "dri": 83,
 "def": 56,
 "phy": 74,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -3682,7 +3663,7 @@
 "dri": 80,
 "def": 81,
 "phy": 82,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -3701,7 +3682,7 @@
 "dri": 82,
 "def": 77,
 "phy": 74,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -3720,7 +3701,7 @@
 "dri": 82,
 "def": 53,
 "phy": 80,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -3739,7 +3720,7 @@
 "dri": 74,
 "def": 85,
 "phy": 81,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -3758,7 +3739,7 @@
 "dri": 80,
 "def": 80,
 "phy": 75,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -3777,7 +3758,7 @@
 "dri": 84,
 "def": 39,
 "phy": 81,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -3796,7 +3777,7 @@
 "dri": 87,
 "def": 47,
 "phy": 70,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -3815,7 +3796,7 @@
 "dri": 87,
 "def": 57,
 "phy": 68,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -3834,7 +3815,7 @@
 "dri": 82,
 "def": 40,
 "phy": 74,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -3853,7 +3834,7 @@
 "dri": 88,
 "def": 40,
 "phy": 72,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -3891,7 +3872,7 @@
 "dri": 84,
 "def": 52,
 "phy": 64,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -3910,7 +3891,7 @@
 "dri": 84,
 "def": 44,
 "phy": 73,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -3929,7 +3910,7 @@
 "dri": 72,
 "def": 85,
 "phy": 82,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -3948,7 +3929,7 @@
 "dri": 74,
 "def": 85,
 "phy": 84,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -3967,7 +3948,7 @@
 "dri": 83,
 "def": 37,
 "phy": 80,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -3986,7 +3967,7 @@
 "dri": 84,
 "def": 41,
 "phy": 69,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -4005,7 +3986,7 @@
 "dri": 84,
 "def": 45,
 "phy": 74,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -4024,7 +4005,7 @@
 "dri": 74,
 "def": 85,
 "phy": 79,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -4043,7 +4024,7 @@
 "dri": 86,
 "def": 47,
 "phy": 60,
-"sta": 80,
+"sta": 66,
 "tier": "silver"
 },
 {
@@ -4062,7 +4043,7 @@
 "dri": 75,
 "def": 86,
 "phy": 80,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -4081,7 +4062,7 @@
 "dri": 88,
 "def": 57,
 "phy": 53,
-"sta": 80,
+"sta": 62,
 "tier": "silver"
 },
 {
@@ -4119,7 +4100,7 @@
 "dri": 72,
 "def": 84,
 "phy": 81,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -4138,7 +4119,7 @@
 "dri": 75,
 "def": 81,
 "phy": 76,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -4157,7 +4138,7 @@
 "dri": 86,
 "def": 37,
 "phy": 67,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -4176,7 +4157,7 @@
 "dri": 78,
 "def": 83,
 "phy": 78,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -4195,7 +4176,7 @@
 "dri": 80,
 "def": 44,
 "phy": 80,
-"sta": 80,
+"sta": 62,
 "tier": "silver"
 },
 {
@@ -4214,7 +4195,7 @@
 "dri": 87,
 "def": 44,
 "phy": 67,
-"sta": 80,
+"sta": 55,
 "tier": "silver"
 },
 {
@@ -4233,7 +4214,7 @@
 "dri": 87,
 "def": 71,
 "phy": 65,
-"sta": 80,
+"sta": 63,
 "tier": "silver"
 },
 {
@@ -4252,7 +4233,7 @@
 "dri": 85,
 "def": 27,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -4271,7 +4252,7 @@
 "dri": 83,
 "def": 19,
 "phy": 81,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -4290,7 +4271,7 @@
 "dri": 85,
 "def": 25,
 "phy": 75,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -4309,7 +4290,7 @@
 "dri": 85,
 "def": 51,
 "phy": 59,
-"sta": 80,
+"sta": 65,
 "tier": "silver"
 },
 {
@@ -4328,7 +4309,7 @@
 "dri": 61,
 "def": 86,
 "phy": 83,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -4347,7 +4328,7 @@
 "dri": 83,
 "def": 38,
 "phy": 60,
-"sta": 80,
+"sta": 66,
 "tier": "silver"
 },
 {
@@ -4366,7 +4347,7 @@
 "dri": 87,
 "def": 33,
 "phy": 63,
-"sta": 80,
+"sta": 69,
 "tier": "silver"
 },
 {
@@ -4385,7 +4366,7 @@
 "dri": 87,
 "def": 46,
 "phy": 58,
-"sta": 80,
+"sta": 63,
 "tier": "silver"
 },
 {
@@ -4404,7 +4385,7 @@
 "dri": 67,
 "def": 85,
 "phy": 85,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -4423,7 +4404,7 @@
 "dri": 69,
 "def": 86,
 "phy": 84,
-"sta": 80,
+"sta": 61,
 "tier": "silver"
 },
 {
@@ -4442,7 +4423,7 @@
 "dri": 78,
 "def": 33,
 "phy": 75,
-"sta": 80,
+"sta": 55,
 "tier": "silver"
 },
 {
@@ -4461,7 +4442,7 @@
 "dri": 70,
 "def": 85,
 "phy": 79,
-"sta": 80,
+"sta": 65,
 "tier": "silver"
 },
 {
@@ -4480,7 +4461,7 @@
 "dri": 66,
 "def": 85,
 "phy": 82,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -4499,7 +4480,7 @@
 "dri": 68,
 "def": 84,
 "phy": 85,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -4518,7 +4499,7 @@
 "dri": 55,
 "def": 86,
 "phy": 80,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -4575,7 +4556,7 @@
 "dri": 78,
 "def": 53,
 "phy": 84,
-"sta": 80,
+"sta": 86,
 "tier": "silver"
 },
 {
@@ -4594,7 +4575,7 @@
 "dri": 83,
 "def": 47,
 "phy": 78,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -4613,7 +4594,7 @@
 "dri": 86,
 "def": 46,
 "phy": 60,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -4632,7 +4613,7 @@
 "dri": 80,
 "def": 71,
 "phy": 73,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -4651,7 +4632,7 @@
 "dri": 83,
 "def": 75,
 "phy": 83,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -4670,7 +4651,7 @@
 "dri": 83,
 "def": 74,
 "phy": 74,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -4708,7 +4689,7 @@
 "dri": 82,
 "def": 78,
 "phy": 84,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -4727,7 +4708,7 @@
 "dri": 85,
 "def": 77,
 "phy": 72,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -4746,7 +4727,7 @@
 "dri": 84,
 "def": 60,
 "phy": 80,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -4758,15 +4739,15 @@
 "nat": "France",
 "club": "Paris Saint-Germain",
 "pos": "CM",
-"ovr": 83,
+"ovr": 85,
 "pac": 79,
-"sho": 71,
-"pas": 78,
-"dri": 81,
-"def": 79,
-"phy": 85,
-"sta": 80,
-"tier": "silver"
+"sho": 68,
+"pas": 79,
+"dri": 82,
+"def": 78,
+"phy": 84,
+"sta": 87,
+"tier": "gold"
 },
 {
 "id": 251,
@@ -4784,7 +4765,7 @@
 "dri": 84,
 "def": 65,
 "phy": 77,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -4803,7 +4784,7 @@
 "dri": 79,
 "def": 81,
 "phy": 81,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -4822,7 +4803,7 @@
 "dri": 79,
 "def": 82,
 "phy": 77,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -4841,7 +4822,7 @@
 "dri": 79,
 "def": 78,
 "phy": 87,
-"sta": 80,
+"sta": 87,
 "tier": "silver"
 },
 {
@@ -4879,7 +4860,7 @@
 "dri": 85,
 "def": 56,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -4898,7 +4879,7 @@
 "dri": 87,
 "def": 71,
 "phy": 72,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -4917,7 +4898,7 @@
 "dri": 77,
 "def": 80,
 "phy": 84,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -4936,7 +4917,7 @@
 "dri": 83,
 "def": 75,
 "phy": 78,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -4955,7 +4936,7 @@
 "dri": 81,
 "def": 77,
 "phy": 78,
-"sta": 80,
+"sta": 79,
 "tier": "silver"
 },
 {
@@ -4974,7 +4955,7 @@
 "dri": 83,
 "def": 69,
 "phy": 77,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -4993,7 +4974,7 @@
 "dri": 84,
 "def": 77,
 "phy": 71,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -5012,7 +4993,7 @@
 "dri": 79,
 "def": 78,
 "phy": 75,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -5031,7 +5012,7 @@
 "dri": 81,
 "def": 76,
 "phy": 79,
-"sta": 80,
+"sta": 82,
 "tier": "silver"
 },
 {
@@ -5050,7 +5031,7 @@
 "dri": 85,
 "def": 76,
 "phy": 73,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -5069,7 +5050,7 @@
 "dri": 75,
 "def": 83,
 "phy": 84,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -5088,7 +5069,7 @@
 "dri": 82,
 "def": 73,
 "phy": 62,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5107,7 +5088,7 @@
 "dri": 85,
 "def": 63,
 "phy": 74,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -5126,7 +5107,7 @@
 "dri": 83,
 "def": 55,
 "phy": 82,
-"sta": 80,
+"sta": 82,
 "tier": "silver"
 },
 {
@@ -5145,7 +5126,7 @@
 "dri": 80,
 "def": 55,
 "phy": 73,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5164,7 +5145,7 @@
 "dri": 86,
 "def": 50,
 "phy": 76,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -5183,7 +5164,7 @@
 "dri": 86,
 "def": 50,
 "phy": 83,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5202,7 +5183,7 @@
 "dri": 80,
 "def": 71,
 "phy": 76,
-"sta": 80,
+"sta": 78,
 "tier": "silver"
 },
 {
@@ -5221,7 +5202,7 @@
 "dri": 82,
 "def": 79,
 "phy": 79,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -5240,7 +5221,7 @@
 "dri": 85,
 "def": 47,
 "phy": 83,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5259,7 +5240,7 @@
 "dri": 79,
 "def": 82,
 "phy": 77,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -5278,7 +5259,7 @@
 "dri": 86,
 "def": 42,
 "phy": 83,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5297,7 +5278,7 @@
 "dri": 80,
 "def": 83,
 "phy": 79,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5316,7 +5297,7 @@
 "dri": 82,
 "def": 80,
 "phy": 68,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5335,7 +5316,7 @@
 "dri": 83,
 "def": 44,
 "phy": 85,
-"sta": 80,
+"sta": 69,
 "tier": "silver"
 },
 {
@@ -5354,7 +5335,7 @@
 "dri": 85,
 "def": 46,
 "phy": 84,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5373,7 +5354,7 @@
 "dri": 82,
 "def": 66,
 "phy": 68,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -5392,7 +5373,7 @@
 "dri": 82,
 "def": 81,
 "phy": 71,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -5411,7 +5392,7 @@
 "dri": 83,
 "def": 47,
 "phy": 82,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -5430,7 +5411,7 @@
 "dri": 78,
 "def": 80,
 "phy": 74,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -5449,7 +5430,7 @@
 "dri": 79,
 "def": 81,
 "phy": 79,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5468,26 +5449,7 @@
 "dri": 73,
 "def": 83,
 "phy": 84,
-"sta": 80,
-"tier": "silver"
-},
-{
-"id": 288,
-"slug": "olivia-moultrie",
-"name": "Olivia Moultrie",
-"gender": "Female",
-"age": 21,
-"nat": "United States",
-"club": "Portland Thorns",
-"pos": "CAM",
-"ovr": 83,
-"pac": 69,
-"sho": 79,
-"pas": 83,
-"dri": 80,
-"def": 71,
-"phy": 66,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5506,7 +5468,7 @@
 "dri": 83,
 "def": 46,
 "phy": 72,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5525,7 +5487,7 @@
 "dri": 85,
 "def": 68,
 "phy": 70,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5544,7 +5506,7 @@
 "dri": 77,
 "def": 52,
 "phy": 84,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -5563,7 +5525,7 @@
 "dri": 83,
 "def": 41,
 "phy": 83,
-"sta": 80,
+"sta": 68,
 "tier": "silver"
 },
 {
@@ -5582,7 +5544,7 @@
 "dri": 84,
 "def": 47,
 "phy": 60,
-"sta": 80,
+"sta": 69,
 "tier": "silver"
 },
 {
@@ -5601,7 +5563,7 @@
 "dri": 86,
 "def": 45,
 "phy": 69,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5620,7 +5582,7 @@
 "dri": 84,
 "def": 45,
 "phy": 71,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5639,7 +5601,7 @@
 "dri": 81,
 "def": 44,
 "phy": 74,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -5658,7 +5620,7 @@
 "dri": 78,
 "def": 51,
 "phy": 76,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5677,7 +5639,7 @@
 "dri": 82,
 "def": 75,
 "phy": 62,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -5696,26 +5658,7 @@
 "dri": 69,
 "def": 83,
 "phy": 85,
-"sta": 80,
-"tier": "silver"
-},
-{
-"id": 300,
-"slug": "arda-guler",
-"name": "Arda Güler",
-"gender": "Male",
-"age": 21,
-"nat": "Turkey",
-"club": "Real Madrid",
-"pos": "RM",
-"ovr": 83,
-"pac": 77,
-"sho": 79,
-"pas": 85,
-"dri": 84,
-"def": 55,
-"phy": 57,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5734,7 +5677,7 @@
 "dri": 84,
 "def": 40,
 "phy": 72,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -5753,7 +5696,7 @@
 "dri": 84,
 "def": 76,
 "phy": 72,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -5772,7 +5715,7 @@
 "dri": 81,
 "def": 45,
 "phy": 78,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -5791,7 +5734,7 @@
 "dri": 82,
 "def": 46,
 "phy": 71,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5810,7 +5753,7 @@
 "dri": 85,
 "def": 38,
 "phy": 68,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -5829,7 +5772,7 @@
 "dri": 70,
 "def": 83,
 "phy": 84,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -5848,7 +5791,7 @@
 "dri": 74,
 "def": 84,
 "phy": 81,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -5867,7 +5810,7 @@
 "dri": 84,
 "def": 43,
 "phy": 65,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -5905,7 +5848,7 @@
 "dri": 82,
 "def": 42,
 "phy": 76,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -5924,7 +5867,7 @@
 "dri": 84,
 "def": 38,
 "phy": 74,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -5943,7 +5886,7 @@
 "dri": 84,
 "def": 37,
 "phy": 63,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -5962,7 +5905,7 @@
 "dri": 67,
 "def": 82,
 "phy": 83,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -5981,7 +5924,7 @@
 "dri": 85,
 "def": 43,
 "phy": 58,
-"sta": 80,
+"sta": 65,
 "tier": "silver"
 },
 {
@@ -6000,7 +5943,7 @@
 "dri": 66,
 "def": 83,
 "phy": 78,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -6019,7 +5962,7 @@
 "dri": 77,
 "def": 45,
 "phy": 80,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -6038,7 +5981,7 @@
 "dri": 84,
 "def": 32,
 "phy": 68,
-"sta": 80,
+"sta": 70,
 "tier": "silver"
 },
 {
@@ -6057,26 +6000,7 @@
 "dri": 86,
 "def": 59,
 "phy": 60,
-"sta": 80,
-"tier": "silver"
-},
-{
-"id": 319,
-"slug": "manaka-matsukubo",
-"name": "Manaka Matsukubo",
-"gender": "Female",
-"age": 22,
-"nat": "Japan",
-"club": "Chelsea",
-"pos": "CAM",
-"ovr": 83,
-"pac": 74,
-"sho": 82,
-"pas": 76,
-"dri": 84,
-"def": 60,
-"phy": 48,
-"sta": 80,
+"sta": 57,
 "tier": "silver"
 },
 {
@@ -6095,7 +6019,7 @@
 "dri": 74,
 "def": 37,
 "phy": 83,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -6114,7 +6038,7 @@
 "dri": 87,
 "def": 30,
 "phy": 64,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -6133,7 +6057,7 @@
 "dri": 81,
 "def": 38,
 "phy": 78,
-"sta": 80,
+"sta": 72,
 "tier": "silver"
 },
 {
@@ -6152,7 +6076,7 @@
 "dri": 66,
 "def": 84,
 "phy": 84,
-"sta": 80,
+"sta": 73,
 "tier": "silver"
 },
 {
@@ -6171,7 +6095,7 @@
 "dri": 69,
 "def": 83,
 "phy": 78,
-"sta": 80,
+"sta": 64,
 "tier": "silver"
 },
 {
@@ -6190,7 +6114,7 @@
 "dri": 80,
 "def": 29,
 "phy": 72,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -6209,7 +6133,7 @@
 "dri": 64,
 "def": 84,
 "phy": 80,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -6228,7 +6152,7 @@
 "dri": 66,
 "def": 86,
 "phy": 77,
-"sta": 80,
+"sta": 64,
 "tier": "silver"
 },
 {
@@ -6247,7 +6171,7 @@
 "dri": 81,
 "def": 26,
 "phy": 64,
-"sta": 80,
+"sta": 67,
 "tier": "silver"
 },
 {
@@ -6266,7 +6190,7 @@
 "dri": 68,
 "def": 84,
 "phy": 81,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -6285,7 +6209,7 @@
 "dri": 66,
 "def": 84,
 "phy": 82,
-"sta": 80,
+"sta": 66,
 "tier": "silver"
 },
 {
@@ -6304,7 +6228,7 @@
 "dri": 63,
 "def": 84,
 "phy": 82,
-"sta": 80,
+"sta": 74,
 "tier": "silver"
 },
 {
@@ -6323,7 +6247,7 @@
 "dri": 65,
 "def": 85,
 "phy": 78,
-"sta": 80,
+"sta": 71,
 "tier": "silver"
 },
 {
@@ -6342,7 +6266,7 @@
 "dri": 56,
 "def": 86,
 "phy": 83,
-"sta": 80,
+"sta": 66,
 "tier": "silver"
 },
 {
@@ -6361,7 +6285,7 @@
 "dri": 79,
 "def": 82,
 "phy": 83,
-"sta": 80,
+"sta": 85,
 "tier": "silver"
 },
 {
@@ -6380,7 +6304,7 @@
 "dri": 88,
 "def": 64,
 "phy": 76,
-"sta": 80,
+"sta": 76,
 "tier": "silver"
 },
 {
@@ -6399,7 +6323,7 @@
 "dri": 79,
 "def": 38,
 "phy": 76,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -6418,7 +6342,7 @@
 "dri": 82,
 "def": 76,
 "phy": 83,
-"sta": 80,
+"sta": 86,
 "tier": "silver"
 },
 {
@@ -6437,26 +6361,7 @@
 "dri": 83,
 "def": 79,
 "phy": 75,
-"sta": 80,
-"tier": "silver"
-},
-{
-"id": 339,
-"slug": "endrick",
-"name": "Endrick",
-"gender": "Male",
-"age": 20,
-"nat": "Brazil",
-"club": "Real Madrid",
-"pos": "ST",
-"ovr": 82,
-"pac": 90,
-"sho": 84,
-"pas": 69,
-"dri": 83,
-"def": 31,
-"phy": 76,
-"sta": 80,
+"sta": 81,
 "tier": "silver"
 },
 {
@@ -6475,7 +6380,7 @@
 "dri": 73,
 "def": 75,
 "phy": 75,
-"sta": 80,
+"sta": 83,
 "tier": "silver"
 },
 {
@@ -6494,7 +6399,7 @@
 "dri": 78,
 "def": 55,
 "phy": 78,
-"sta": 80,
+"sta": 77,
 "tier": "silver"
 },
 {
@@ -6513,7 +6418,7 @@
 "dri": 83,
 "def": 47,
 "phy": 79,
-"sta": 80,
+"sta": 84,
 "tier": "silver"
 },
 {
@@ -6532,7 +6437,7 @@
 "dri": 81,
 "def": 28,
 "phy": 71,
-"sta": 80,
+"sta": 75,
 "tier": "silver"
 },
 {
@@ -6551,7 +6456,64 @@
 "dri": 79,
 "def": 45,
 "phy": 79,
-"sta": 80,
+"sta": 67,
+"tier": "silver"
+},
+{
+"id": 345,
+"slug": "vozinha",
+"name": "Vózinha",
+"gender": "Male",
+"age": 40,
+"nat": "Cape Verde Islands",
+"club": "Chaves",
+"pos": "GK",
+"ovr": 86,
+"pac": 82,
+"sho": 79,
+"pas": 89,
+"dri": 83,
+"def": 52,
+"phy": 83,
+"sta": 72,
+"tier": "gold"
+},
+{
+"id": 346,
+"slug": "helio-varela",
+"name": "Hélio Varela",
+"gender": "Male",
+"age": 24,
+"nat": "Cape Verde Islands",
+"club": "Chaves",
+"pos": "LW",
+"ovr": 80,
+"pac": 93,
+"sho": 62,
+"pas": 66,
+"dri": 74,
+"def": 43,
+"phy": 74,
+"sta": 82,
+"tier": "silver"
+},
+{
+"id": 347,
+"slug": "sidny-lopes-cabral",
+"name": "Sidny Lopes Cabral",
+"gender": "Male",
+"age": 24,
+"nat": "Cape Verde Islands",
+"club": "Trabzonspor",
+"pos": "RB",
+"ovr": 82,
+"pac": 83,
+"sho": 70,
+"pas": 77,
+"dri": 76,
+"def": 55,
+"phy": 71,
+"sta": 76,
 "tier": "silver"
 }
 ]

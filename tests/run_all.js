@@ -474,5 +474,17 @@ t("kits: an alt is only an away kit, and colour clashes send one side to its thi
   }
   assert.ok(clashes > 100 && away > home && home > 0, `swaps happen and the away side goes first: ${clashes} ${away} ${home}`);
 });
+t("data update: real STA, three added players, draft-1 rookies moved out of the pool, keepers barely tire, clubs carry country/continent/fans", async () => {
+  const { drainPerHalf } = await import("../engine/roster.js"); const P = withParams();
+  const names = new Set(D.players.map((p) => p.name)); for (const n of ["Vózinha", "Hélio Varela", "Sidny Lopes Cabral"]) assert.ok(names.has(n), n);
+  for (const n of ["Endrick", "Kenan Yıldız", "Olivia Moultrie", "Manaka Matsukubo", "Arda Güler"]) assert.ok(!names.has(n), n + " is a rookie now");
+  const c1 = D.rookies.find((c) => c.class === 1); for (const n of ["Endrick", "Olivia Smith", "Estêvão", "Arda Güler", "Tatiana Flores"]) assert.ok(c1.players.some((p) => p.name === n), n);
+  assert.ok(c1.players.filter((p) => p.gender === "F").length >= 10, "enough women for a women-only league");
+  assert.equal(new Set([...D.players, ...D.rookies.flatMap((c) => c.players)].map((p) => p.id)).size, D.players.length + D.rookies.reduce((a, c) => a + c.players.length, 0), "ids stay unique");
+  assert.ok(new Set(D.players.map((p) => p.sta)).size > 15, "STA is real, not all 80");
+  const gk = (sta) => drainPerHalf({ pos: "GK", sta }, P), out = (sta) => drainPerHalf({ pos: "CM", sta }, P);
+  assert.ok(gk(70) <= 3 && gk(80) <= 3 && gk(60) <= 4 && gk(45) > gk(60) * 3 && gk(70) < out(70) / 5, "keepers only tire when STA is very low");
+  for (const c of D.clubs.filter((x) => x.kind === "main")) { assert.ok(c.country && c.continent && c.fans > 0, c.slug); }
+});
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

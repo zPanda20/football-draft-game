@@ -457,3 +457,7 @@ table.tb.stats td.mute{color:var(--mute)}
 
 /* position colour on the bench / team list rows */
 .benchrow.g-gk{box-shadow:inset 3px 0 0 #ff9a2e}.benchrow.g-def{box-shadow:inset 3px 0 0 #ffd23f}.benchrow.g-mid{box-shadow:inset 3px 0 0 #46d37a}.benchrow.g-att{box-shadow:inset 3px 0 0 #4aa8ff}
+
+/* club picker: continent filter and country headings */
+.contbar{display:flex;flex-wrap:wrap;gap:6px}
+.clubcountry{grid-column:1/-1;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);padding:8px 2px 0;border-bottom:1px solid var(--line)}

@@ -54,7 +54,7 @@ export const effective = (x, P) => P.stretch.base + (x - P.stretch.centre) * P.s
 // Stamina -> rating multiplier. `s` is the stamina bar (0-100).
 export const fatigue = (s, P) => 1 - P.stamina.fatigueK * (1 - Math.max(0, Math.min(100, s)) / 100);
 // Stamina lost per half by a player with this STA (keepers tire more slowly).
-export const drainPerHalf = (p, P) => P.stamina.drainPerHalf * (1.5 - p.sta / 100) * (p.pos === "GK" ? P.stamina.gkDrain : 1);
+export const drainPerHalf = (p, P) => (p.pos === "GK" ? P.stamina.gk.base + P.stamina.gk.slope * Math.max(0, P.stamina.gk.below - p.sta) : P.stamina.drainPerHalf * (1.5 - p.sta / 100));
 
 // Raw (unstretched) score of a player in an outfield slot, at stamina factor f.
 export function slotRaw(p, slot, P, f = 1) {

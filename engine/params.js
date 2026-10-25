@@ -52,7 +52,7 @@ export const DEFAULT_PARAMS = {
   // ---- stamina ----
   stamina: {
     drainPerHalf: 27,                               // at STA 50 -> 27 * (1.5 - STA/100) per half
-    gkDrain: 0.5,                                   // keepers tire at half the rate
+    gk: { base: 2, below: 62, slope: 0.7 },         // keepers barely tire: base per half, plus slope per STA point below `below` (only weak-STA keepers feel it)
     fatigueK: 0.35,                                 // rating multiplier = 1 - fatigueK * (1 - stamina/100)
     recoverPlayed: 45, recoverRest: 75,             // points regained between matches (more with higher STA)
     staRecoverK: 0.25,                              // +/- per STA point away from 70

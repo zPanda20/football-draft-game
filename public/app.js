@@ -75,6 +75,7 @@ const A = {
     if (cur && (cur.base || cur.slug) === a.slug) return;                  // already on this club (maybe its throwback): leave it
     send({ t: "club", slug: a.slug });
   },
+  clubCont(a) { st.ui.clubCont = a.c; render(); },
   clubVar(a, el) { send({ t: "club", slug: el.checked ? a.slug : a.main }); },
   start() { send({ t: "start" }); },
   pause() { send({ t: "pause" }); }, resume() { send({ t: "resume" }); }, skip() { send({ t: "skip" }); },
@@ -236,12 +237,19 @@ function lobby(S) {
   const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, Math.min(S.settings.minTeams, S.pools && S.pools[S.settings.pool || "all"] ? S.pools[S.settings.pool || "all"].maxClubs : 30) - humans);
   const fam = (slug) => (st.clubBy[slug] && st.clubBy[slug].base) || slug;
   const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
-  const clubs = st.cat.clubs.filter((c) => c.kind === "main").map((c) => {
+  const cont = st.ui.clubCont || "all", CONTS = ["Europe", "South America", "North America", "Africa", "Asia"];
+  const mainsAll = st.cat.clubs.filter((c) => c.kind === "main");
+  const shownClubs = mainsAll.filter((c) => cont === "all" || c.continent === cont).sort(cont === "all" ? (a, b) => (b.fans || 0) - (a.fans || 0) : (a, b) => String(a.country).localeCompare(String(b.country)) || (b.fans || 0) - (a.fans || 0));
+  const fanTxt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "B" : n + "M");
+  const filterBar = `<div class="contbar mt"><button class="btn sm ${cont === "all" ? "pri" : ""}" data-act="clubCont" data-c="all">All (${mainsAll.length})</button>${CONTS.map((k) => `<button class="btn sm ${cont === k ? "pri" : ""}" data-act="clubCont" data-c="${k}">${k} (${mainsAll.filter((c) => c.continent === k).length})</button>`).join("")}</div><p class="tiny mute" style="margin:6px 0 0">${cont === "all" ? "Biggest worldwide fan bases first (rough estimates)." : "Sorted by country, then by fan base."}</p>`;
+  let lastCountry = null;
+  const clubs = shownClubs.map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club && fam(you.club) === c.slug, others = owner && owner !== you;
     const vars = st.cat.clubs.filter((v) => v.base === c.slug && clubOpen(v, you));
     const shown = mine && you.club !== c.slug ? st.clubBy[you.club] : c;     // the tile wears the chosen scheme
     const boxes = vars.map((v) => `<label class="vopt" title="Use the ${esc(v.label || v.kind)} colours and art"><input type="checkbox" data-change="clubVar" data-main="${c.slug}" data-slug="${v.slug}" ${mine && you.club === v.slug ? "checked" : ""} ${others ? "disabled" : ""}> ${esc(v.label || v.kind)}</label>`).join("");
-    return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}${boxes}</span></div>`;
+    const head = cont !== "all" && c.country !== lastCountry ? `<div class="clubcountry">${esc(c.country)}</div>` : ""; lastCountry = c.country;
+    return `${head}<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : `<div class="tiny mute">${cont === "all" ? esc(c.country) + " · " : ""}~${fanTxt(c.fans || 0)} fans</div>`}${boxes}</span></div>`;
   }).join("");
   const extra = codeClubs(you).map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club === c.slug, others = owner && owner !== you;
@@ -252,7 +260,7 @@ function lobby(S) {
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
     ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
-    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
+    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}${filterBar}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     ${enterCode(you)}`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
       ${s.pool && s.pool !== "all" && S.pools ? `<p class="small mute mt">${s.pool === "female" ? "Women" : "Men"}-only league: ${S.pools[s.pool].players} players, ${S.pools[s.pool].keepers} keepers, so at most ${S.pools[s.pool].maxClubs} clubs.</p>` : ""}
