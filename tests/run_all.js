@@ -7,13 +7,14 @@ import { matchSteps, playMatch } from "../engine/match.js";
 import { bestLineup, rate, FORMATIONS } from "../engine/roster.js";
 const FORMATIONS_OF = (f) => FORMATIONS[f];
 import { withParams } from "../engine/params.js";
-import { resolveMarketRound, feeFor } from "../engine/market.js";
+import { resolveMarketRound, feeFor, incomeScale, maxLen, marketValue } from "../engine/market.js";
 import { runRetirements, ageAll, retireChance, resign, expiring, releaseExpired } from "../engine/offseason.js";
 import { validateOffer, executeOffer } from "../engine/trade.js";
 import { rollNumbers, createUserPlayer, defaultAssign, dealCard, answerCard, signUser, cpuTakes, unsigned } from "../engine/playermode.js";
 import { runOffseason, beginMatch, finishMatch, activeFx, suspend, tickSuspensions, applyCaps, enforceCap, playOne } from "../engine/game.js";
 import { buyItem } from "../engine/market.js";
-import { topScorers, incomeBreakdown, applyIncome } from "../engine/game.js";
+import { topScorers, incomeBreakdown, applyIncome, financeOutlook } from "../engine/game.js";
+const game_outlook = (g) => financeOutlook(g, g.teams.findIndex((x) => x.human) >= 0 ? g.teams.findIndex((x) => x.human) : 0);
 import { buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 let n = 0; const pending = []; const t = (name, fn) => { const r = fn(); if (r && r.then) pending.push(r.then(() => { n++; console.log("ok  " + name); })); else { n++; console.log("ok  " + name); } };
@@ -227,7 +228,7 @@ t("ice bath: equipped, the wearer gets 20 extra stamina back after the match; un
 });
 t("match flow: ten readings, possession is a probability, momentum within -1..1; goals tally to the season table", () => {
   const g = fresh(10, 15), res = playOne(g, 0, 1, "flow");
-  assert.equal(res.flow.length, 2 * g.P.match.moments);
+  assert.equal(res.flow.length, g.P.match.moments + g.P.match.secondHalf.length);
   assert.ok(res.flow.every((f) => f.ph > 0 && f.ph < 1 && f.mom >= -1 && f.mom <= 1));
   const g2 = createGame({ D, N: 10, seed: 16 }); runDraft(g2); runMarket(g2); const s = playSeason(g2);
   const total = s.results.reduce((x, r) => x + r.ga + r.gb, 0), tally = Object.values(g2.goals).reduce((x, e) => x + e.g, 0);
@@ -238,15 +239,15 @@ t("money: staggered draft contracts, loyalty discount, win/draw bonus, catch-up 
   const g = createGame({ D, N: 10, seed: 17 }); runDraft(g);
   const byRound = { 3: 0, 2: 0, 1: 0 }; for (const t of g.teams) for (const id of t.players) byRound[g.players[id].contract]++;
   assert.ok(byRound[3] > 0 && byRound[2] > 0 && byRound[1] > 0, JSON.stringify(byRound));          // contracts end at different times
-  assert.equal(g.teams[0].coins, 650);
+  assert.equal(g.teams[0].coins, g.P.money.startCoins);
   const p = g.players[g.teams[0].players[0]];
-  assert.equal(feeFor(p, 2, g.P, true), Math.round(feeFor(p, 2, g.P) * 0.75));
+  assert.equal(feeFor(p, 2, g.P, true), Math.round(feeFor(p, 2, g.P) * g.P.money.resignMult));
   const table = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => ({ i })), day = [{ a: 0, b: 9, ga: 2, gb: 0 }, { a: 1, b: 8, ga: 1, gb: 1 }];
   const bd = incomeBreakdown(g, table, day);
   assert.deepEqual([bd.get(0).result, bd.get(9).result, bd.get(1).result, bd.get(8).result], ["W", "L", "D", "D"]);
-  assert.equal(bd.get(0).total, 45 + 0 + 10); assert.equal(bd.get(8).bonus, 5);
+  const sc = incomeScale(g); assert.equal(bd.get(0).base, Math.round(g.P.money.incomePerMatch * sc)); assert.equal(bd.get(0).total, bd.get(0).base + 0 + Math.round(10 * sc)); assert.equal(bd.get(8).bonus, Math.round(5 * sc));
   assert.ok(bd.get(9).catchup > bd.get(0).catchup && bd.get(9).total > bd.get(0).total - 10 + 0);      // last place, even losing, out-earns the leader minus the win bonus
-  const before = g.teams[0].coins; applyIncome(g, bd); assert.equal(g.teams[0].coins, before + 55);
+  const before = g.teams[0].coins; applyIncome(g, bd); assert.equal(g.teams[0].coins, before + bd.get(0).total);
 });
 t("clubs: unique slugs, colours, variants point at a main club, art files are picked up, player-card club names map", async () => {
   const { clubsWithArt } = await import("../server/describe.js");
@@ -516,5 +517,59 @@ t("data update: real STA, three added players, draft-1 rookies moved out of the 
   assert.ok(gk(70) <= 3 && gk(80) <= 3 && gk(60) <= 4 && gk(45) > gk(60) * 3 && gk(70) < out(70) / 5, "keepers only tire when STA is very low");
   for (const c of D.clubs.filter((x) => x.kind === "main")) { assert.ok(c.country && c.continent && c.fans > 0, c.slug); }
 });
+t("contract length caps: nothing runs past the last season; 8 seasons possible; GK ages slower", async () => {
+  const g = createGame({ D, N: 10, seed: 3 }); g.seasons = 3; g.season = 1;
+  assert.equal(maxLen(g, false), 3); g.season = 2; assert.equal(maxLen(g, false), 2); g.season = 3; assert.equal(maxLen(g, false), 1);
+  assert.equal(maxLen(g, true), 0 || 1, "never below 1 (clamped)"); g.season = 2; assert.equal(maxLen(g, true), 1, "off-season of season 2 with 3 seasons: one more season to play");
+  g.seasons = 8; g.season = 1; assert.equal(maxLen(g, false), 3);
+  const { driftFor } = await import("../engine/offseason.js");
+  const mk = (pos) => ({ pos, age: 36, ovr: 80, nums: undefined });
+  let gk = 0, st = 0; for (let i = 0; i < 40; i++) { gk += driftFor({ ...mk("GK"), id: i, age: 36 }, g.P); st += driftFor({ ...mk("ST"), id: i, age: 36 }, g.P); }
+  assert.ok(gk >= st, "keepers fall no faster than outfielders");
+  assert.ok(g.P.money.mvStarFrom && marketValue({ ovr: 95, age: 25, pos: "ST" }, g.P) < 700, "95s are no longer out of reach");
+});
+t("late drama: the second half has more moment chances in the last ten minutes", () => {
+  const g = createGame({ D, N: 10, seed: 3 }); const sh = g.P.match.secondHalf;
+  assert.ok(sh.length >= 7 && sh.at(-1) >= 0.9, "extra late chances exist");
+  assert.ok(sh.filter((x) => x >= 0.8).length >= 3, "several chances after the 80th minute");
+});
+t("dating: three options with both genders, the last partner stays, three turn-downs remove someone, preference fills idle weeks", async () => {
+  const L = await import("../engine/life.js");
+  const g = createGame({ D, N: 10, seed: 21 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Dater", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); p.gender = "M"; L.ensureLife(g, p); p.coins = 9999;
+  let last = null;
+  for (let d = 0; d < 25; d++) {
+    const ids = L.ensureOptions(g, p, d); assert.equal(ids.length, 3); assert.equal(new Set(ids).size, 3);
+    const gs = new Set(ids.map((i) => L.partnerById(i).g)); assert.ok(gs.size === 2, "both genders in every set of three");
+    if (last) assert.ok(ids.includes(last), "last partner is offered again");
+    last = ids[d % 3]; L.runActivity(g, p, "date", { day: d, partner: last });
+    if (L.canMarry(g, p, last)) break;
+  }
+  const g2 = createGame({ D, N: 10, seed: 22 }); g2.md = { day: 0, total: 18 }; const q = createUserPlayer(g2, { token: "u", name: "Quiet", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "F"; L.ensureLife(g2, q);
+  const victim = L.ensureOptions(g2, q, 0)[0]; let d = 0;
+  for (let i = 0; i < 3; i++) { const o = L.ensureOptions(g2, q, d); const v = o.includes(victim) ? victim : null; if (!v) break; assert.ok(L.declineDate(g2, q, victim)); assert.equal(L.ensureOptions(g2, q, d).length, 3); d++; }
+  for (let k = 1; k < 40; k++) assert.ok(!L.ensureOptions(g2, q, 100 + k).includes(victim) || (q.life.rej[victim] || 0) < 3, "three turn-downs: never offered again");
+  q.life.pref = "train"; let tr = 0; for (let k = 0; k < 40; k++) if (L.weekChoice(g2, q, k).act === "train") tr++; assert.ok(tr >= 25, "preference decides most idle weeks");
+});
+t("followers, milestones, trophies, boot deals and feuds", async () => {
+  const L = await import("../engine/life.js");
+  const g = createGame({ D, N: 10, seed: 31 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Famous", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.gender = "M"; const lf = L.ensureLife(g, p);
+  const f0 = lf.fol; assert.ok(L.matchGain(g, p, { g: 2, a: 1, r: 9, potm: true, win: true }) > 3000 && lf.fol > f0);
+  const f1 = lf.fol; L.matchGain(g, p, { g: 0, a: 0, r: 4.5, potm: false, win: false }); assert.ok(lf.fol < f1, "a bad game costs followers");
+  lf.fol = 130000; const s1 = L.runActivity(g, p, "rest", { day: 3 }); assert.ok(s1.stories.some((n) => n.kind === "milestone" && /100K/.test(n.head)), "100K milestone");
+  lf.fol = 1100000; const s2 = L.runActivity(g, p, "rest", { day: 4 }); assert.ok(s2.stories.some((n) => /ONE MILLION/.test(n.head)), "1M milestone");
+  const fb = lf.fol, cb = p.coins; L.trophyWon(g, p, "title", 0); assert.ok(lf.fol >= fb + g.P.life.trophy.title.fol && p.coins >= cb + g.P.life.trophy.title.coins && lf.trophies.length === 1);
+  lf.fol = 20000; lf.hit.tier = -1; lf.offer = null; lf.deal = null; const off = L.dealOffer(g, p, 5); assert.ok(off && off.pay === g.P.life.deals[0].pay);
+  const res = L.dealAnswer(g, p, true); assert.ok(res.signed && lf.deal && lf.deal.brand === off.brand);
+  p.equip = ["boots-" + (lf.deal.brand === "nike" ? "adidas" : "nike") + "-low"]; p.coins = 500; L.runActivity(g, p, "rest", { day: 6 });
+  assert.ok(lf.hit.feud && lf.hit.feud.why === "breach", "feud starts"); assert.equal(lf.deal, null, "deal is void"); assert.ok(p.coins <= 500 - g.P.life.breachFine + 200, "fine charged (rest costs nothing, so the coins fall by the fine)");
+  lf.deal = { brand: "nike", pay: 6, left: 1, tier: 0 }; L.seasonEndLife(g, p); assert.equal(lf.deal, null, "deal ends with its last season");
+});
+t("in-season finance outlook: re-sign costs for one, two and three seasons ahead", () => {
+  const g = createGame({ D, N: 10, seed: 41 }); runDraft(g); runMarket(g); const out = game_outlook(g);
+  assert.ok(out.ahead.length === 3 && out.ahead.every((a) => Array.isArray(a.list)));
+});
+
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

@@ -1,7 +1,7 @@
 // Player mode: a human-owned footballer. Created from rolled numbers, grown by career cards, offered to teams in the market.
 import { makeRng, gauss, shuffle, clamp } from "./rng.js";
 import { rate } from "./roster.js";
-import { marketValue, feeFor, rosterRoom } from "./market.js";
+import { marketValue, feeFor, rosterRoom, maxLen } from "./market.js";
 
 export const STAT_KEYS = ["pac", "sho", "pas", "dri", "def", "phy"];
 export const OUTFIELD_POS = ["ST", "CAM", "CM", "CDM", "CB", "RB", "LB", "RM", "LM", "LW", "RW"];
@@ -147,31 +147,47 @@ export function giftItem(game, ti, pid, itemId) {
 
 // ---------- teams and offers ----------
 export const unsigned = (game) => (game.userPool || []).map((id) => game.players[id]).filter((p) => p && !p.retired && p.team == null);
-// A signed player joins a team at the market price (a manager pays; a CPU gift is free).
-export function signUser(game, p, ti, len, free = false) {
+// A signed player joins a team at the market price, or at the price agreed in an offer (a manager pays; a CPU gift is free).
+export function signUser(game, p, ti, len, free = false, agreed = null) {
   const t = game.teams[ti], P = game.P;
   if (p.team != null || p.retired || rosterRoom(t, P) <= 0) return false;
-  const fee = free ? 0 : feeFor(p, len, P);
+  len = Math.max(1, Math.min(maxLen(game, !!game.marketAhead), len | 0 || 1));
+  const fee = free ? 0 : agreed ?? feeFor(p, len, P);
   if (t.coins < fee) return false;
   t.coins -= fee; p.team = ti; p.contract = len; t.players.push(p.id);
   game.userPool = (game.userPool || []).filter((x) => x !== p.id);
   return fee;
 }
+// Squeeze one more player into a squad: the weakest outfielder (never the only keeper, never a created player) goes to the free-agent pool.
+export function makeRoom(game, ti) {
+  const t = game.teams[ti], P = game.P; if (rosterRoom(t, P) > 0) return true;
+  const gks = t.players.filter((id) => game.players[id].pos === "GK").length;
+  const out = t.players.map((id) => game.players[id]).filter((q) => !q.user && !(q.pos === "GK" && gks <= 1)).sort((a, b) => a.ovr - b.ovr || b.contract - a.contract)[0];
+  if (!out) return false;
+  t.players = t.players.filter((id) => id !== out.id); out.team = null; out.contract = 0; game.pool.push(out.id);
+  return true;
+}
+// A CPU team stands by its offer even if it has since spent the money or filled the squad: it makes room and pays what it can.
+export function signUserCpu(game, p, ti, len, fee) {
+  const t = game.teams[ti];
+  if (!makeRoom(game, ti)) return false;
+  return signUser(game, p, ti, len, false, Math.min(fee, Math.max(0, Math.floor(t.coins))));
+}
 // CPU teams that make an offer when a market opens: those with room and coins, weaker rosters a bit more often.
 export function cpuOffers(game, p, tag) {
   const P = game.P, r = makeRng(game.seed, "pmoffer", p.id, game.season, tag), out = [];
   const cands = game.teams.filter((t) => !t.human && rosterRoom(t, P) > 0).map((t) => {
-    const len = p.age >= 33 ? 1 : 1 + Math.floor(r() * 3), fee = feeFor(p, len, P);
+    const len = Math.min(maxLen(game, !!game.marketAhead), p.age >= 33 ? 1 : 1 + Math.floor(r() * 3)), fee = feeFor(p, len, P);
     return { t, len, fee, w: t.coins >= fee ? 0.3 + r() + (1 - t.players.length / P.money.rosterMax) : 0 };
   }).filter((c) => c.w > 0).sort((a, b) => b.w - a.w);
   for (const c of cands.slice(0, P.player.offersPerMarket)) out.push({ team: c.t.id, len: c.len, fee: c.fee });
   return out;
 }
-// Nobody signed him: a CPU team takes him on a free contract (the weakest roster with room).
+// Nobody signed him: a CPU team takes him on a free contract (the weakest roster with room), else any team with room, else a CPU team makes room.
 export function cpuTakes(game, p) {
-  const P = game.P;
-  const t = game.teams.filter((x) => !x.human && rosterRoom(x, P) > 0).sort((a, b) => a.players.length - b.players.length || a.coins - b.coins)[0]
-    || game.teams.filter((x) => rosterRoom(x, P) > 0)[0];
-  if (!t) return false;
-  return signUser(game, p, t.id, P.player.cpuContract, true) !== false;
+  const P = game.P, by = (a, b) => a.players.length - b.players.length || a.coins - b.coins;
+  const t = game.teams.filter((x) => !x.human && rosterRoom(x, P) > 0).sort(by)[0] || game.teams.filter((x) => rosterRoom(x, P) > 0).sort(by)[0];
+  if (t) return signUser(game, p, t.id, P.player.cpuContract, true) !== false;
+  const cpu = game.teams.filter((x) => !x.human).sort((a, b) => a.players.length - b.players.length || a.coins - b.coins)[0] || game.teams[0];
+  return makeRoom(game, cpu.id) && signUser(game, p, cpu.id, P.player.cpuContract, true) !== false;
 }

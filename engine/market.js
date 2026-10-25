@@ -4,8 +4,20 @@ import { makeRng } from "./rng.js";
 export function marketValue(p, P) {
   const m = P.money;
   const age = Math.max(m.mvAgeMin, 1 - m.mvAgePerYear * Math.max(0, p.age - m.mvAgeFrom));
-  return Math.max(10, Math.round((m.mvBase * Math.exp(m.mvPerOvr * (p.ovr - 81)) * age) / 5) * 5);
+  const lo = Math.min(p.ovr, m.mvStarFrom ?? 99), hi = Math.max(0, p.ovr - (m.mvStarFrom ?? 99));
+  return Math.max(10, Math.round((m.mvBase * Math.exp(m.mvPerOvr * (lo - 81) + (m.mvStarPerOvr ?? m.mvPerOvr) * hi) * age) / 5) * 5);
 }
+// The longest contract that still has seasons to be played in. game.seasons = how many seasons this game runs;
+// `offseason` = signing for the NEXT season (the current one is over), otherwise the current season is still to come.
+export function maxLen(game, offseason = false) {
+  const left = (game.seasons || 99) - game.season + (offseason ? 0 : 1);
+  return Math.max(1, Math.min(3, left));
+}
+// Income per match scales with the league length: a short league (few matches) pays more per match.
+export const incomeScale = (game) => {
+  const N = game.teams.length, per = (N - 1) * (N <= 16 ? 2 : 1), M = game.P.money;
+  return Math.max(0.8, Math.min(1.6, (M.refMatches || per) / per)) * ((M.seasonBoost || {})[game.season] || 1);
+};
 // own = re-signing a player who is already yours (loyalty discount).
 export const feeFor = (p, len, P, own = false) => Math.round(marketValue(p, P) * P.money.lenMult[len] * (own ? P.money.resignMult ?? 1 : 1));
 
@@ -32,7 +44,7 @@ export function resolveMarketRound(game, bids, P, label) {
     if (!target) continue;
     if (b.kind === "p" && (!game.pool.includes(b.id) || rosterRoom(team, P) <= 0)) continue;
     if (b.kind === "i" && target.supply != null && (game.supply[b.id] ?? target.supply) <= 0) continue;
-    const len = b.kind === "p" ? Math.max(1, Math.min(3, b.len | 0 || 1)) : 1;
+    const len = b.kind === "p" ? Math.max(1, Math.min(maxLen(game, !!game.marketAhead), b.len | 0 || 1)) : 1;
     const min = b.kind === "p" ? feeFor(target, len, P) : target.price;
     const extra = Math.max(0, Math.min(Math.floor(min * P.money.extraCap), team.coins - min, b.extra | 0));
     if (team.coins < min) continue;

@@ -2,11 +2,12 @@
 """Writes data/rookies.json with PLACEHOLDER draft classes so the off-season can be tested.
 Replace the file with your hand-made classes. Format: [{"class": 1, "players": [ {id, slug, name, gender, age, nat, club, pos, ovr, pac, sho, pas, dri, def, phy, sta, tier, pot} ]}]
 pot is "low" | "med" | "high" (shown to managers; growth is drawn with noise). ids must be unique and >= 1000.
-Usage: python3 tools/gen_placeholder_rookies.py [classes=5] [size=34]"""
+Usage: python3 tools/gen_placeholder_rookies.py [classes=7] [size=34] [from_class=1]  (from_class>1 appends and keeps the existing classes)"""
 import json, random, sys
-classes = int(sys.argv[1]) if len(sys.argv) > 1 else 5
+classes = int(sys.argv[1]) if len(sys.argv) > 1 else 7
 size = int(sys.argv[2]) if len(sys.argv) > 2 else 34
 rng = random.Random(2026)
+from_class = int(sys.argv[3]) if len(sys.argv) > 3 else 1   # with 3 args, appends classes from_class..classes to the existing file
 first = "Ade Bruno Caio Dario Elio Felix Gael Hugo Ivan Joao Kai Luca Mateo Nico Omar Pablo Quin Rafa Sami Theo Uri Vito Wes Yann Zane Amara Bea Chloe Dina Ella Freya Gia Hana Ines Jade Kira Lena Mila Nora Olga Pia Rosa Sofia Tara Uma Vera Wren Yara Zoe".split()
 last = "Alves Baptiste Castro Duarte Esposito Fabri Garner Hallow Ibarra Jansen Keller Lombardi Moreau Novak Olsen Pereira Quiroga Rossi Santos Torres Ueda Vargas Weber Yilmaz Zielinski Adeyemi Brandt Costa Dumas Eriksen Fonseca Greco Holm".split()
 nats = ["England", "France", "Spain", "Brazil", "Germany", "Portugal", "Netherlands", "Nigeria", "Argentina", "Italy", "United States", "Japan", "Ghana", "Belgium", "Morocco"]
@@ -15,8 +16,10 @@ profile = {  # pac sho pas dri def phy
     "GK": (55, 40, 55, 50, 40, 60), "CB": (62, 40, 55, 52, 74, 74), "LB": (74, 50, 62, 66, 68, 66), "RB": (74, 50, 62, 66, 68, 66),
     "CDM": (62, 52, 70, 64, 72, 72), "CM": (66, 62, 72, 70, 62, 66), "LM": (76, 62, 68, 74, 50, 58), "RM": (76, 62, 68, 74, 50, 58),
     "CAM": (70, 70, 74, 76, 44, 56), "LW": (80, 66, 66, 78, 38, 56), "RW": (80, 66, 66, 78, 38, 56), "ST": (76, 76, 58, 70, 36, 70)}
-out = []
-for c in range(1, classes + 1):
+import os
+out = json.load(open('data/rookies.json')) if from_class > 1 and os.path.exists('data/rookies.json') else []
+for c in range(from_class, classes + 1):
+    if from_class > 1: rng = random.Random(2026 + c)
     ps = []
     for i in range(size):
         pos = poses[i % len(poses)] if i < len(poses) else rng.choice(poses)

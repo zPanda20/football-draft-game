@@ -1,7 +1,7 @@
 // Off-season: retirements, ageing, re-signing, rookies, releases. All pure functions of the game state and the seed.
 import { makeRng, gauss } from "./rng.js";
 import { rate, genderOk } from "./roster.js";
-import { marketValue, feeFor } from "./market.js";
+import { marketValue, feeFor, maxLen } from "./market.js";
 
 // ---- retirement ----
 export function retireChance(p, P, season) {
@@ -40,6 +40,12 @@ export function meanDrift(age, P) {
   for (let i = 1; i < pts.length; i++) if (age <= pts[i][0]) { const [a0, v0] = pts[i - 1], [a1, v1] = pts[i]; return v0 + ((age - a0) / (a1 - a0)) * (v1 - v0); }
   return 0;
 }
+// The mean change for this player at his (new) age. Keepers decline later and slower than outfield players.
+export function driftFor(p, P) {
+  const d = meanDrift(p.age, P);
+  if (p.pos !== "GK" || d >= 0) return d;
+  return Math.min(0, meanDrift(p.age - P.age.gkShift, P)) * (P.age.gkSlow ?? 1);
+}
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 // One year older: ratings move with age (and potential for rookies), contracts tick down, stamina refills.
 export function ageAll(game) {
@@ -48,7 +54,7 @@ export function ageAll(game) {
     const g = gauss(r) * P.age.noise; // always drawn
     if (p.retired) continue;
     p.age += 1;
-    let d = meanDrift(p.age, P);
+    let d = driftFor(p, P);
     if (d > 0 && p.pot) d *= P.age.potential[p.pot] ?? 1;
     d += g;
     const old = p.ovr;
@@ -69,7 +75,7 @@ export function ageAll(game) {
 export const expiring = (game, ti) => game.teams[ti].players.filter((id) => game.players[id].contract <= 0 && !game.players[id].user);
 export function resign(game, ti, id, len) {
   const t = game.teams[ti], p = game.players[id];
-  if (!p || p.user || p.team !== ti || p.contract > 0 || !(len >= 1 && len <= 3)) return false;
+  if (!p || p.user || p.team !== ti || p.contract > 0 || !(len >= 1 && len <= maxLen(game, true))) return false;
   const fee = feeFor(p, len, game.P, true);
   if (t.coins < fee) return false;
   t.coins -= fee; p.contract = len; return fee;
@@ -91,7 +97,7 @@ export function botResign(game, ti) {
   let coins = t.coins;
   for (const p of ids) {
     if (!top.has(p.id) && p.ovr < 84) continue;
-    const len = p.age >= 32 ? 1 : p.age >= 29 ? 2 : p.ovr >= 88 ? 3 : 2;
+    const len = Math.min(maxLen(game, true), p.age >= 32 ? 1 : p.age >= 29 ? 2 : p.ovr >= 88 ? 3 : 2);
     const fee = feeFor(p, len, P, true);
     if (fee > coins * 0.7) { const f1 = feeFor(p, 1, P, true); if (f1 > coins * 0.7) continue; picks.push({ id: p.id, len: 1 }); coins -= f1; continue; }
     picks.push({ id: p.id, len }); coins -= fee;
@@ -126,7 +132,7 @@ export function runRookieDraft(game, worstFirst, pickFor = null) {
 }
 export function takeRookie(game, ti, id) {
   const p = game.players[id], t = game.teams[ti];
-  p.team = ti; p.contract = game.P.money.rookieContract; p.drafted = true; t.players.push(id);
+  p.team = ti; p.contract = Math.min(game.P.money.rookieContract, maxLen(game, true)); p.drafted = true; t.players.push(id);
 }
 // Undrafted rookies join the free-agent pool.
 export function rookiesToPool(game) { for (const id of game.rookies || []) { const p = game.players[id]; if (p.team == null && !game.pool.includes(id)) game.pool.push(id); } game.rookies = []; }

@@ -1,4 +1,4 @@
-import { ACT_INFO, SHOP, SHOP_CATS } from "../engine/life.js";
+import { ACT_INFO, SHOP, SHOP_CATS, PARTNER_LIST, BOOT_BRANDS } from "../engine/life.js";
 // The static catalogue sent to every browser once: players, items, clubs and the position map.
 import { readdirSync, statSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -28,6 +28,27 @@ export function playerPics(publicDir) {
     rank[slug] = r; out[slug] = `/assets/players/${encodeURIComponent(f)}?v=${Math.floor(statSync(join(dir, f)).mtimeMs / 1000)}`;
   }
   picCache = { at: Date.now(), dir: publicDir, v: out };
+  return out;
+}
+// Loose art, one folder per kind, one file per thing (png / webp / svg / jpg), picked up on a page reload:
+//   partners/<id>.png (people to date)   brands/<id>.png (boot makers)   trophies/<kind>.png (title, ballon, boot, playmaker, glove)
+//   news/<kind>.jpg (a picture for each kind of headline)   ui/<name>.jpg (start page wallpaper "start", paper masthead "masthead")
+export const ART_FOLDERS = ["partners", "brands", "trophies", "news", "ui"];
+let miscCache = { at: 0, dir: null, v: null };
+export function miscArt(publicDir) {
+  if (miscCache.v && miscCache.dir === publicDir && Date.now() - miscCache.at < 4000) return miscCache.v;
+  const out = {};
+  for (const folder of ART_FOLDERS) {
+    const dir = join(publicDir, "assets", folder), got = {}, rank = {}; out[folder] = got;
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      const m = /^(.+)\.(png|webp|svg|jpe?g)$/i.exec(f); if (!m) continue;
+      const k = m[1].toLowerCase(), r = EXTS.indexOf(m[2].toLowerCase());
+      if (rank[k] !== undefined && rank[k] <= r) continue;
+      rank[k] = r; got[k] = `/assets/${folder}/${encodeURIComponent(f)}?v=${Math.floor(statSync(join(dir, f)).mtimeMs / 1000)}`;
+    }
+  }
+  miscCache = { at: Date.now(), dir: publicDir, v: out };
   return out;
 }
 // Crests for clubs that are not game clubs but appear on player cards (Arsenal, Man City, Roma...):
@@ -63,7 +84,7 @@ export function buildCatalog(D, P) {
   return {
     players: [...D.players, ...(D.rookies || []).flatMap((c) => c.players)].map((p) => ({ id: p.id, slug: p.slug, name: p.name, nat: p.nat, club: p.club, pos: p.pos, tier: p.tier, age: p.age, ovr: p.ovr, st: [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta], rookie: !!p.pot })),
     items: D.items,
-    life: { acts: ACT_INFO, shop: SHOP, cats: SHOP_CATS, costs: Object.fromEntries(Object.entries(P.life.acts).map(([k, v]) => [k, v])), wedding: P.life.wedding, boringAt: P.life.boringAt },
+    life: { acts: ACT_INFO, shop: SHOP, cats: SHOP_CATS, costs: Object.fromEntries(Object.entries(P.life.acts).map(([k, v]) => [k, v])), wedding: P.life.wedding, boringAt: P.life.boringAt, partners: PARTNER_LIST, brands: BOOT_BRANDS, deals: P.life.deals },
     clubs: D.clubs,
     plates: (D.plates || []).map(({ codes, ...p }) => p),           // the codes themselves never leave the server
     positions: POSITIONS,

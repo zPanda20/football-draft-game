@@ -95,27 +95,30 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
   });
 
   // ---- all random draws, up front, in a fixed order ----
+  // when the moments fall, as a share of each half. The second half has two extra chances in the last ten minutes
+  // (appended to the draw streams, so the first five moments of every half draw exactly what they always did).
+  const fr = [Array.from({ length: M.moments }, (_, m) => (m + 0.5) / M.moments), M.secondHalf || Array.from({ length: M.moments }, (_, m) => (m + 0.5) / M.moments)];
   const r = makeRng(seed, "match", matchKey);
   const form = sides.map((s) => gauss(r) * M.formSigma * (1 + (s.fx.team?.formSigma || 0)));
   const draws = [[], []];
-  for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) draws[h].push({ poss: r(), shot: r(), goal: r(), who: r(), nA: gauss(r), nB: gauss(r) });
+  for (let h = 0; h < 2; h++) for (let m = 0; m < fr[h].length; m++) draws[h].push({ poss: r(), shot: r(), goal: r(), who: r(), nA: gauss(r), nB: gauss(r) });
 
   // fast-break rolls come from their own stream so the older draws above are untouched
   const rb = makeRng(seed, "match-break", matchKey), brk = [[], []];
-  for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) brk[h].push(rb());
+  for (let h = 0; h < 2; h++) for (let m = 0; m < fr[h].length; m++) brk[h].push(rb());
 
   // box-score rolls (who made the pass, who won the ball) also have a stream of their own
   const rst = makeRng(seed, "match-stats", matchKey), sdr = [[], []];
-  for (let h = 0; h < 2; h++) for (let m = 0; m < M.moments; m++) sdr[h].push({ kp: rst(), has: rst(), act: rst(), kind: rst(), who: rst() });
+  for (let h = 0; h < 2; h++) for (let m = 0; m < fr[h].length; m++) sdr[h].push({ kp: rst(), has: rst(), act: rst(), kind: rst(), who: rst() });
 
   const events = [], flow = [];
-  const minuteOf = (h, m) => Math.round(h * 45 + ((m + 0.5) / M.moments) * 45);
+  const minuteOf = (h, m) => Math.round(h * 45 + fr[h][m] * 45);
 
   function half(h) {
     for (const s of sides) { for (const id of [s.lineup.gk, ...s.lineup.out]) if (id != null) s.played.add(id); s.rd = roleDrain(s, P); }
     const start = sides.map((s) => new Map(s.stam));
-    for (let m = 0; m < M.moments; m++) {
-      const d = draws[h][m], t = (m + 0.5) / M.moments;
+    for (let m = 0; m < fr[h].length; m++) {
+      const d = draws[h][m], t = fr[h][m];
       // stamina at this moment: linear drain through the half for those on the pitch
       const now = sides.map((s, i) => (p) => {
         const on = p.id === s.lineup.gk || s.lineup.out.includes(p.id);

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { loadData } from "../engine/data.js";
 import { Room } from "./room.js";
-import { buildCatalog, clubsWithArt, listFaces, playerPics, cardCrests } from "./describe.js";
+import { buildCatalog, clubsWithArt, listFaces, playerPics, cardCrests, miscArt } from "./describe.js";
 import { withParams } from "../engine/params.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -105,12 +105,12 @@ wss.on("connection", (ws) => {
 function attach(ws, room, token, watch) {
   ws.room = room; ws.token = token; ws.watch = watch;
   room.sockets.add(ws);
-  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC), faces: listFaces(PUBLIC), pics: playerPics(PUBLIC), cardCrests: cardCrests(PUBLIC) }, now: Date.now() });
+  send(ws, { t: "hello", room: room.code, token, watch, catalog: { ...catalog, clubs: clubsWithArt(D.clubs, PUBLIC), faces: listFaces(PUBLIC), pics: playerPics(PUBLIC), cardCrests: cardCrests(PUBLIC), art: miscArt(PUBLIC) }, now: Date.now() });
   room.kick();
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -155,7 +155,10 @@ function handle(ws, m) {
     case "effort": room.setEffort(t, m.mode); break;
     case "redeem": room.redeem(t, String(m.code || "").slice(0, 60)); break;
     case "unlocks": room.setUnlocks(t, Array.isArray(m.ids) ? m.ids.slice(0, 40).map(String) : []); break;
-    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), !!m.marry); break;
+    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), !!m.marry, m.partner); break;
+    case "turnDown": room.turnDown(t, String(m.id || "")); break;
+    case "pref": room.setPref(t, m.act == null ? null : String(m.act)); break;
+    case "dealRespond": room.dealRespond(t, !!m.yes); break;
     case "lifeBuy": room.lifeBuy(t, String(m.id || "")); break;
     case "newsDecide": room.newsDecide(t, m.id | 0, !!m.yes); break;
     case "teamName": room.setTeamName(t, m.name); break;
@@ -179,6 +182,8 @@ function handle(ws, m) {
     case "tradeOffer": room.tradeOffer(t, m.to, m.give, m.get); break;
     case "tradeRespond": room.tradeRespond(t, m.id | 0, !!m.accept); break;
     case "tradeCancel": room.tradeCancel(t, m.id | 0); break;
+    case "windowSign": room.windowSign(t, m.id | 0, m.len | 0); break;
+    case "windowDrop": room.windowDrop(t, m.id | 0); break;
     case "items": room.setActiveItems(t, m.ids, m.equip); break;
     case "gift": room.gift(t, m.id, m.pid | 0); break;
     case "equipSelf": room.equipSelf(t, m.ids); break;

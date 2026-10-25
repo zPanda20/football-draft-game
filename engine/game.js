@@ -2,15 +2,15 @@
 // functions step by step; the balance tests call them straight through with CPU managers on every team.
 import { makeRng } from "./rng.js";
 import { withParams } from "./params.js";
-import { lifeIncome, resetSeason as resetLife } from "./life.js";
+import { lifeIncome, matchGain, resetSeason as resetLife } from "./life.js";
 import { rate, bestLineup, FORMATIONS, SLOT_W, GROUP, genderOk } from "./roster.js";
 import { ratings as matchRatings } from "../public/rating.js";   // shared with the browser, which uses it for the live ratings
 import { matchSteps } from "./match.js";
 import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
-import { resolveMarketRound, buyItem, marketValue, feeFor } from "./market.js";
+import { resolveMarketRound, buyItem, marketValue, feeFor, incomeScale } from "./market.js";
 import { pickArchetype, botDraftPick, botMarketBid, botItemBuys } from "./bots.js";
-import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool, meanDrift, retireChance } from "./offseason.js";
+import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool, meanDrift, driftFor, retireChance } from "./offseason.js";
 
 export function createGame({ D, N = 20, seed = 1, params = {}, bots = null, gender = "all" }) {
   const P = withParams(params);
@@ -191,6 +191,11 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     x.gk = (x.gk || 0) + (inGoal ? 1 : 0);
     x.cs = (x.cs || 0) + (inGoal && theirs === 0 ? 1 : 0);
     x.team = m.sides[o.side].id;
+    const up = game.players[id];
+    if (up && up.user) {                                                   // a created footballer: good games, goals and assists bring followers
+      const line = { g: o.g, a: o.a, r: o.r, potm: +id === res.potm, win: mine > theirs };
+      up.lastMatch = { opp: m.sides[1 - o.side].id, gf: mine, ga: theirs, ...line, gain: matchGain(game, up, line) };
+    }
   }
   game.goals = game.goals || {};
   res.scorers.forEach((sc, i) => { for (const [pid, n] of Object.entries(sc)) { const e = (game.goals[pid] = game.goals[pid] || { g: 0, team: m.sides[i].id }); e.g += n; e.team = m.sides[i].id; } });
@@ -221,12 +226,12 @@ export function playOne(game, a, b, key, hooks = {}) { return finishMatch(game, 
 // bonus for a win or a draw. `day` = [{a, b, ga, gb}]. incomeBreakdown works it out, applyIncome pays it (the server
 // pays after the full-time screen so the money does not spoil the result).
 export function incomeBreakdown(game, table, day = []) {
-  const P = game.P, M = P.money, N = game.teams.length, out = new Map();
+  const P = game.P, M = P.money, N = game.teams.length, out = new Map(), sc = incomeScale(game), sw = (x) => Math.round(x * sc);
   const result = new Map();
   for (const m of day) { const d = Math.sign(m.ga - m.gb); result.set(m.a, d > 0 ? "W" : d < 0 ? "L" : "D"); result.set(m.b, d > 0 ? "L" : d < 0 ? "W" : "D"); }
   table.forEach((row, rank) => {
-    const base = M.incomePerMatch, catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
-    const res = result.get(row.i) || null, bonus = res === "W" ? M.winBonus : res === "D" ? M.drawBonus : 0;
+    const base = sw(M.incomePerMatch), catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
+    const res = result.get(row.i) || null, bonus = sw(res === "W" ? M.winBonus : res === "D" ? M.drawBonus : 0);
     out.set(row.i, { base, catchup, bonus, result: res, total: base + catchup + bonus });
   });
   return out;
@@ -235,8 +240,8 @@ export function applyIncome(game, bd) {
   for (const [ti, b] of bd) { const t = game.teams[ti]; t.coins += b.total; t.income += b.total; }
   game.userGain = {};
   for (const p of Object.values(game.players)) if (p.user) {
-    const li = p.life ? lifeIncome(game, p) : { sponsor: 0, venue: 0, total: 0 }, base = game.P.player.income;
-    p.coins = (p.coins || 0) + base + li.total; game.userGain[p.id] = { base, sponsor: li.sponsor, venue: li.venue, total: base + li.total };
+    const li = p.life ? lifeIncome(game, p) : { sponsor: 0, venue: 0, boots: 0, total: 0 }, base = game.P.player.income;
+    p.coins = (p.coins || 0) + base + li.total; game.userGain[p.id] = { base, sponsor: li.sponsor, venue: li.venue, boots: li.boots, total: base + li.total };
   }
 }
 export function payIncome(game, table, day = []) { applyIncome(game, incomeBreakdown(game, table, day)); }
@@ -273,7 +278,7 @@ export function runWholeSeason(game) {
 const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot", "susp"];
 export function serializeGame(game) {
   return {
-    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
+    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, seasons: game.seasons || null, marketAhead: !!game.marketAhead, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
     userPool: game.userPool || [], news: game.news || [], newsSeq: game.newsSeq || 0, pubSeq: game.pubSeq || 0, newsFlags: game.newsFlags || {}, dopeRuns: game.dopeRuns || {}, dopeRumour: game.dopeRumour || {}, goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
@@ -281,7 +286,7 @@ export function serializeGame(game) {
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params, gender: snap.gender || "all" });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.dopeRuns = snap.dopeRuns || {}; g.dopeRumour = snap.dopeRumour || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.seasons = snap.seasons || undefined; g.marketAhead = !!snap.marketAhead; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.dopeRuns = snap.dopeRuns || {}; g.dopeRumour = snap.dopeRumour || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);
@@ -376,13 +381,17 @@ export function seasonLeaders(game, n = 10) {
 export function financeOutlook(game, ti, { table = [], left = 0 } = {}) {
   const P = game.P, M = P.money, t = game.teams[ti], N = game.teams.length;
   const rank = Math.max(0, table.findIndex((r) => r.i === ti));
-  const base = M.incomePerMatch, catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
-  const bonus = Math.round(M.winBonus * 0.4 + M.drawBonus * 0.25);     // a typical mix of wins and draws
+  const sc = incomeScale(game), base = Math.round(M.incomePerMatch * sc), catchup = Math.round(base * M.incomeCatchUp * (rank / Math.max(1, N - 1)));
+  const bonus = Math.round((M.winBonus * 0.4 + M.drawBonus * 0.25) * sc);     // a typical mix of wins and draws
   const per = base + catchup + bonus, r5 = (x) => Math.round(x / 5) * 5;
-  const expiring = t.players.map((id) => game.players[id]).filter((p) => !p.user && p.contract <= 1).sort((a, b) => b.ovr - a.ovr).map((p) => {
-    const q = { ...p, age: p.age + 1, ovr: Math.round(p.ovr + meanDrift(p.age + 1, P)) };
-    return { id: p.id, ovrNext: q.ovr, fees: [1, 2, 3].map((l) => r5(feeFor(q, l, P, true))), retire: +retireChance(p, P, game.season).toFixed(2) };
+  // k = how many off-seasons from now the deal runs out (1 = next off-season). Fees are for that off-season: older, rated where age says.
+  const project = (p, k) => { const q = { ...p }; for (let i = 0; i < k; i++) { q.age += 1; q.ovr = Math.round(q.ovr + driftFor(q, P)); } return q; };
+  const mkList = (k) => t.players.map((id) => game.players[id]).filter((p) => !p.user && (k === 1 ? p.contract <= 1 : p.contract === k)).sort((a, b) => b.ovr - a.ovr).map((p) => {
+    const q = project(p, k);
+    return { id: p.id, ovrNext: q.ovr, fees: [1, 2, 3].map((l) => r5(feeFor(q, l, P, true))), retire: +retireChance({ ...p, age: p.age + k - 1 }, P, game.season + k - 1).toFixed(2) };
   });
+  const ahead = [1, 2, 3].map((k) => ({ k, maxLen: Math.max(0, Math.min(3, (game.seasons || 99) - game.season - k + 1)), list: mkList(k) }));
+  const expiring = ahead[0].list;
   const cheapest = expiring.reduce((x, e) => x + e.fees[0] * (1 - e.retire), 0);
-  return { coins: t.coins, perMatch: { base, catchup, bonus, total: per }, left, income: per * left, expiring, cheapest: r5(cheapest), left0: t.coins + per * left - r5(cheapest), roster: t.players.length, cap: t.cap ?? M.rosterMax, staying: t.players.filter((id) => game.players[id].contract > 1 || game.players[id].user).length };
+  return { coins: t.coins, perMatch: { base, catchup, bonus, total: per }, left, income: per * left, expiring, ahead, cheapest: r5(cheapest), left0: t.coins + per * left - r5(cheapest), roster: t.players.length, cap: t.cap ?? M.rosterMax, staying: t.players.filter((id) => game.players[id].contract > 1 || game.players[id].user).length };
 }

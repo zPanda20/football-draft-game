@@ -10,6 +10,7 @@ export const DEFAULT_PARAMS = {
   // ---- match ----
   match: {
     moments: 5,                                     // moments per half (the 52-second match has 2 halves)
+    secondHalf: [0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.98], // where the second half's moments fall (share of the half): three of them in the last ten minutes (81', 86', 89')
     possK: 0.035,                                   // possession swing per control-point difference
     shotBase: 0.9, shotK: 0.028,                    // chance a possession becomes a shot
     goalBase: -0.62, goalK: 0.030,                  // chance a shot beats the keeper
@@ -74,15 +75,18 @@ export const DEFAULT_PARAMS = {
   // ---- money ----
   money: {
     mvBase: 100, mvPerOvr: 0.157, mvAgeFrom: 30, mvAgePerYear: 0.05, mvAgeMin: 0.4, // market value = 100 * e^(0.157 (ovr-81)), older players cheaper
-    lenMult: { 1: 1.0, 2: 1.7, 3: 2.4 },            // fee multiplier by contract length (placeholders)
-    startCoins: 650,
+    mvStarFrom: 88, mvStarPerOvr: 0.078,            // above this rating the curve flattens, so 95+ stars are dear but not out of reach (95 = about 520, 99 = about 710)
+    lenMult: { 1: 1.0, 2: 1.6, 3: 2.1 },            // fee multiplier by contract length: a 3-year deal costs 0.70 of the one-year price per season
+    startCoins: 800,
     draftContract: 2,                               // fallback length of a contract won in the pack draft (no fee)
     draftContracts: [3, 3, 2, 2, 2, 1, 1, 1],       // by pack round: early picks get longer deals, so contracts end at different times
-    resignMult: 0.75,                               // re-signing your own expiring player costs this share of the normal fee
+    resignMult: 0.65,                               // re-signing your own expiring player costs this share of the normal fee
     rookieContract: 3,
     extraCap: 2.0,                                  // extra coins count up to +200% of the minimum offer
     catchUp: 1.0,                                   // lottery weight 1 / (1 + catchUp * value / mean value)
-    incomePerMatch: 45, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
+    incomePerMatch: 58, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
+    seasonBoost: { 3: 1.35, 5: 1.35 },              // income multiplier in these seasons (the re-sign cliff years)
+    refMatches: 24,                                 // a season of this many matches earns the plain income; fewer matches earn more per match (clamped), so short leagues are not squeezed
     winBonus: 10, drawBonus: 5,                     // paid on top of the base, win or draw
     rosterMax: 10, rosterMin: 6,
   },
@@ -90,7 +94,7 @@ export const DEFAULT_PARAMS = {
   // ---- ageing, retirement, rookies ----
   age: {
     retire: { 36: 0.20, 37: 0.40, 38: 0.60, 39: 0.80, 40: 1.0 }, // chance by the age a player turns that off-season (40+ = certain)
-    gkShift: 5,                                     // keepers are judged 5 years younger
+    gkShift: 5, gkSlow: 0.6,                                    // keepers are judged 5 years younger, and what they lose is scaled by this on top
     guaranteed: ["lionel-messi", "luka-modric", "cristiano-ronaldo", "marta"], // retire after the first season
     drift: { 21: 2.5, 22: 2.0, 23: 1.5, 24: 1.0, 25: 0.5, 28: 0, 29: -0.3, 30: -0.8, 31: -1.2, 32: -1.6, 33: -2.0, 34: -2.4, 35: -3.0 }, // mean OVR change at that age (linear between points)
     noise: 0.9,                                     // season-to-season randomness (OVR points)
@@ -100,6 +104,7 @@ export const DEFAULT_PARAMS = {
   rookies: { classSize: 34, placeholder: true },
   seasons: 4,                                       // default length of a game (needs one rookie class per off-season)
   trade: { maxAssets: 6, botMargin: 1.10 },
+  transfer: { windowWeeks: 5, extraSec: 15 },       // in-season window: open before matchdays 1..5 and between them; the line-up timer gets this many extra seconds while it is open
 
   // ---- player mode (a human plays one footballer instead of managing a team) ----
   player: {
@@ -135,8 +140,14 @@ export const DEFAULT_PARAMS = {
     wada: 0.04, wadaBan: 2,                         // Party: chance of a flagged test, and the ban in matches
     sponsor: { per: 2000, cap: 40 },                // coins a matchday = followers / per, up to cap
     wedding: { dates: 10, cost: 60 },
+    cameraAt: 3, leakWeeks: 3, prefChance: 0.8,       // dated someone this often before a new face counts as cheating; weeks the wedding guest list can leak; how often the preferred activity is picked when you choose nothing
+    milestone: { m100k: 80, m1m: 400 },             // coins that come with the follower milestones
+    fans: { goal: 700, assist: 450, win: 150, potm: 1200, hatTrick: 2500, goodAt: 7.5, good: 600, greatAt: 8.5, great: 1500, badAt: 5.5, bad: 500 }, // followers from a match
+    trophy: { title: { fol: 120000, coins: 150 }, ballon: { fol: 300000, coins: 300 }, boot: { fol: 100000, coins: 100 }, playmaker: { fol: 100000, coins: 100 }, glove: { fol: 100000, coins: 100 } },
+    deals: [{ fol: 15000, pay: 6, seasons: 2 }, { fol: 60000, pay: 12, seasons: 2 }, { fol: 250000, pay: 22, seasons: 3 }, { fol: 1000000, pay: 36, seasons: 3 }], // boot-maker offers by followers
+    feudChance: 0.6, breachFine: 40,
     boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3, perWeek: 1,
-    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1 },
+    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5 },
   },
   // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----
   awards: { minShare: 0.5, gloveShare: 0.4, base: 6.0, ovrFloor: 60, weights: { rating: 0.30, contrib: 0.25, potm: 0.17, wins: 0.20, star: 0.08 } },

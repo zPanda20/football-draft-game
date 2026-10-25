@@ -9,7 +9,7 @@ export const offseasonMethods = {
   // ---------- entering ----------
   startOffseason() {
     const g = this.game, N = g.teams.length;
-    this.phase = "offseason"; this.trade = null; this.ready = new Set(); applyCaps(g, g.season + 1);
+    this.phase = "offseason"; g.marketAhead = true; this.trade = null; this.ready = new Set(); applyCaps(g, g.season + 1);
     this.worstFirst = standingsOf(this.results, N).map((r) => r.i).reverse();
     this.retired = runRetirements(g);
     this.setReveal({ kind: "retire", season: g.season, list: this.retired });
@@ -112,7 +112,7 @@ export const offseasonMethods = {
     return (Array.isArray(list) ? list : []).slice(0, 8).map((a) => (a && a.k === "p" ? { k: "p", id: a.id | 0 } : a && a.k === "i" ? { k: "i", id: String(a.id) } : a && a.k === "c" ? { k: "c", amt: Math.floor(+a.amt || 0) } : null)).filter(Boolean);
   },
   tradeOffer(token, to, give, get) {
-    const p = this.players.get(token); if (!p || p.teamId == null || this.step !== "off.trade") return;
+    const p = this.players.get(token); if (!p || p.teamId == null || !this.tradeOpen() || !this.trade) return;
     const g = this.game, o = { id: this.trade.nextId++, from: p.teamId, to: to | 0, give: this.cleanAssets(give), get: this.cleanAssets(get), status: "open", at: Date.now() };
     const err = validateOffer(g, o);
     if (err) { o.status = "invalid"; o.why = err; this.trade.offers.push(o); return this.changed(); }
@@ -126,7 +126,7 @@ export const offseasonMethods = {
     if (!accept) { o.status = "declined"; return; }
     const err = validateOffer(g, o);
     if (err) { o.status = "invalid"; o.why = err; return; }
-    executeOffer(g, o); o.status = "accepted";
+    executeOffer(g, o); o.status = "accepted"; if (this.phase === "season") { this.purgeRoster(o.from); this.purgeRoster(o.to); }
     this.trade.log.push({ from: o.from, to: o.to, give: o.give, get: o.get });
     this.pushFeed({ kind: "trade", from: o.from, to: o.to });
     for (const x of this.trade.offers) if (x.status === "open" && x !== o && (x.from === o.from || x.from === o.to || x.to === o.from || x.to === o.to)) {
@@ -134,12 +134,12 @@ export const offseasonMethods = {
     }
   },
   tradeRespond(token, id, accept) {
-    const p = this.players.get(token); if (!p || this.step !== "off.trade") return;
+    const p = this.players.get(token); if (!p || !this.tradeOpen() || !this.trade) return;
     const o = this.trade.offers.find((x) => x.id === id && x.to === p.teamId && x.status === "open"); if (!o) return;
     this.settleOffer(o, !!accept); this.changed();
   },
   tradeCancel(token, id) {
-    const p = this.players.get(token); if (!p || this.step !== "off.trade") return;
+    const p = this.players.get(token); if (!p || !this.tradeOpen() || !this.trade) return;
     const o = this.trade.offers.find((x) => x.id === id && x.from === p.teamId && x.status === "open"); if (!o) return;
     o.status = "cancelled"; this.changed();
   },

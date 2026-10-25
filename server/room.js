@@ -1,11 +1,13 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
 import { makeRng, shuffle } from "../engine/rng.js";
+import { maxLen } from "../engine/market.js";
+import { windowMethods } from "./window.js";
 import { topScorers, seasonLeaders, seasonAwards, groupsOf, financeOutlook, createGame, restoreGame, serializeGame, rosterOf, autoFill, beginMatch, finishMatch, halftimeRecs, incomeBreakdown, applyIncome, tickSuspensions, applyCaps, enforceCap } from "../engine/game.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
-import { steroidStory, rumourStory, ensureLife } from "../engine/life.js";
+import { steroidStory, rumourStory, ensureLife, ensureOptions, resetSeason as resetLife, seasonEndLife, trophyWon } from "../engine/life.js";
 import { clubAllowed } from "../engine/unlocks.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
@@ -85,6 +87,7 @@ export class Room {
         case "off.rookie.turn": if (this.worstFirst[this.rIdx] === t.id && !p.auto) add(p); break;
       }
     }
+    for (const u of this.userPlayers()) if (this.userNeeds(u)) add(u);       // footballers: this week's choice, a half-time effort, an offer to answer
     return out;
   }
   openWindow() { for (const p of this.players.values()) p.acted = false; this.skipping = false; }
@@ -156,7 +159,7 @@ export class Room {
       this.settings.pool = s.pool; this.fitCharsToPool();
     }
     num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60); num("resignSec", 10, 120); num("rookieSec", 10, 90); num("tradeSec", 30, 600);
-    if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
+    if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(8, this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
   }
   nearestPace(v) { return PACES.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b), PACES[1]); }
   setPace(token, v) {
@@ -197,6 +200,7 @@ export class Room {
     const cap = this.maxPeople(), N = Math.min(cap - (cap % 2), teamsFor(Math.max(this.settings.minTeams, humans.length)));
     const rr = makeRng(seed, "room");
     const game = createGame({ D: this.D, N, seed, gender: this.settings.pool || "all", params: process.env.TEST_PARAMS ? JSON.parse(process.env.TEST_PARAMS) : {} });
+    game.seasons = this.settings.seasons;
     const fam = (s) => this.clubBySlug.get(s).base || s;
     const used = new Set(humans.map((h) => h.club).filter(Boolean).map(fam));
     const free = shuffle(this.D.clubs.filter((c) => c.kind === "main").map((c) => c.slug).filter((s) => !used.has(s)), rr);
@@ -367,7 +371,7 @@ export class Room {
     const taken = this.userMarketEnd();
     const cut = enforceCap(g);
     autoFill(g);
-    if (this.marketKind === "fa") { g.season += 1; applyCaps(g, g.season); for (const t of g.teams) { t.marketDone = false; t.filled = 0; } }
+    if (this.marketKind === "fa") { g.season += 1; g.marketAhead = false; applyCaps(g, g.season); for (const t of g.teams) { t.marketDone = false; t.filled = 0; } }
     this.step = "market.done";
     this.setReveal({ kind: "squads", fa: this.marketKind === "fa", users: taken, cut });
     this.save("preseason");
@@ -379,9 +383,10 @@ export class Room {
   beginSeason() {
     const g = this.game;
     this.phase = "season"; this.mdIdx = -1; this.results = []; this.days = schedule(g.teams.length, g.seed + g.season);
-    this.shownTable = standingsOf([], g.teams.length);
+    this.shownTable = standingsOf([], g.teams.length); resetLife(g);
     for (const t of g.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.equip = undefined; }
     g.goals = {}; g.stats = {}; this.lastDay = null; this.mdIdx = -1; this.rollStore();
+    this.trade = { offers: [], nextId: 1, log: [] };
     this.step = "season.intro";
     this.setReveal({ kind: "intro", season: g.season, days: this.days.length });
     this.after(this.p(8000), () => this.nextMatchday());
@@ -396,9 +401,10 @@ export class Room {
     for (const t of g.teams) { t.htLineup = null; t.htPlan = null; }
     this.step = "md.lineup"; this.openWindow();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
-    for (const u of this.userPlayers()) if (u.auto) ensureLife(this.game, this.game.players[u.pid]).act = null;
+    for (const u of this.userPlayers()) { const pp = this.game.players[u.pid]; ensureOptions(this.game, pp, this.mdIdx); if (u.auto) ensureLife(this.game, pp).act = null; }
     const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected);
-    this.after(anyone ? this.settings.lineupSec * 1000 : this.p(2500), () => this.firstHalf());
+    const extra = this.windowInfo().open && anyone ? g.P.transfer.extraSec : 0;
+    this.after(anyone ? (this.settings.lineupSec + extra) * 1000 : this.p(2500), () => this.firstHalf());
     this.changed();
   }
   // Lineup for a team: a human's saved choice (unless on auto), otherwise the CPU's best.
@@ -493,7 +499,7 @@ export class Room {
   halftime() {
     this.step = "md.half"; this.openWindow(); this.ready = new Set(); this.applyPlans();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
-    const anyone = this.humanTeams().some((t) => this.humanFor(t.id));
+    const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected && this.onPitchNow(u));
     this.after(anyone ? this.settings.halfSec * 1000 : this.p(1500), () => this.secondHalf());
     this.changed();
   }
@@ -528,7 +534,7 @@ export class Room {
     this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
     this.dealCareerCards(); this.rollStore();
-    this.step = "md.result";
+    this.step = "md.result"; if (!this.windowInfo().open) this.expireOffers();
     this.after(this.p(18000), () => this.nextMatchday());
     this.changed();
   }
@@ -537,6 +543,13 @@ export class Room {
     this.step = "season.end"; this.phase = "season";
     g.history = g.history || []; const top = topScorers(g, 1)[0], awards = seasonAwards(g, this.days.length);
     g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null, awards });
+    for (const u of this.userPlayers()) {                                       // trophies and the end of a boot deal's season for created footballers
+      const p = g.players[u.pid]; if (!p || p.retired) continue;
+      const gp = (g.stats[p.id] || {}).gp || 0, need = Math.ceil(this.days.length * g.P.awards.minShare), day = this.days.length - 1;
+      if (p.team != null && table[0].i === p.team && gp >= need) trophyWon(g, p, "title", day);
+      for (const k of ["ballon", "boot", "playmaker", "glove"]) if (awards[k] && awards[k][0] && awards[k][0].id === p.id) trophyWon(g, p, k, day);
+      seasonEndLife(g, p);
+    }
     this.final = g.season >= this.settings.seasons;
     this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final, awards });
     this.save("seasonEnd");
@@ -620,6 +633,7 @@ export class Room {
     if (this.step === "draft.pick" && me && me.teamId != null) for (const c of this.hands[me.teamId]) if (c.t === "p") ids.add(c.id);
     if (this.reveal && this.reveal.kind === "resign") for (const x of this.reveal.released) ids.add(x.id);
     if (this.reveal && this.reveal.kind === "draft") for (const pk of this.reveal.picks) if (pk.card && pk.card.t === "p") ids.add(pk.card.id);
+    const win = this.windowInfo(); if (win.open && me && me.teamId != null) for (const id of this.windowPool()) ids.add(id);
     for (const p of this.players.values()) if (p.pid != null) ids.add(p.pid);
     for (const p of unsigned(g)) ids.add(p.id);
     for (const b of topScorers(g, 10)) ids.add(b.id);
@@ -635,9 +649,11 @@ export class Room {
     }
     if (this.phase === "offseason" && this.step.startsWith("off.rookie")) v.rookies = { avail: availableRookies(g), order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks };
     if (this.phase === "offseason" && this.step === "off.trade" && !me) v.tradeLog = this.trade ? this.trade.log.slice(-10) : [];
+    v.window = win; if (win.open && me && me.teamId != null) v.window.pool = this.windowPool();
     v.history = g.history || []; v.final = !!this.final;
     v.boot = topScorers(g, 10); v.leaders = seasonLeaders(g, 10); v.lastDay = this.lastDay || null;
     v.store = { open: STORE_STEPS.includes(this.step), stock: this.store }; v.notices = this.notices;
+    if (this.phase === "season" && ["season.intro", "md.lineup", "md.result", "season.end"].includes(this.step)) v.sched = { days: this.days || [], results: this.results.map((r) => [r.day, r.a, r.b, r.ga, r.gb]) };
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
       const t = g.teams[me.teamId];
@@ -650,6 +666,8 @@ export class Room {
       if (this.phase === "season") {
         mv.fin = financeOutlook(g, t.id, { table: this.shownTable || [], left: Math.max(0, (this.days || []).length - (this.mdIdx + (this.step === "md.result" ? 1 : 0))) });
         mv.plan = t.plan || null;
+        mv.rosterRoom = capOf(t, g.P) - t.players.length;
+        if (win.open) mv.trade = this.tradeView(me);
         mv.lineup = t.lineup ? sanitizeLineup(t.lineup, rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P) : bestLineup(rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P);
         if (this.live) {
           const k = this.live.findIndex((m) => m.a === t.id || m.b === t.id);
@@ -665,6 +683,7 @@ export class Room {
         if (this.step === "off.trade") mv.trade = this.tradeView(me);
       }
       if (this.step.startsWith("market.")) mv.offers = (this.offers || []).filter((o) => o.team === t.id && o.from === "human" && o.status !== "withdrawn").slice(-6).map((o) => ({ id: o.id, pid: o.pid, len: o.len, fee: o.fee, status: o.status }));
+      mv.maxLen = maxLen(g, !!g.marketAhead);
       v.me = mv;
       v.formations = Object.fromEntries(FORMATION_NAMES.map((f) => [f, FORMATIONS[f]]));
     }
@@ -672,5 +691,5 @@ export class Room {
   }
 }
 
-Object.assign(Room.prototype, offseasonMethods, usermodeMethods);
+Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods);
 Room.prototype.userWaiting = function () { return !!this.game && [...this.players.values()].some((p) => p.mode === "player" && p.connected && p.pid != null && this.game.players[p.pid].team == null && (this.offers || []).some((o) => o.pid === p.pid && o.status === "open")); };

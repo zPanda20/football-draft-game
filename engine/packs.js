@@ -2,6 +2,7 @@
 // return to the pool. Hands dealt in the same round never share a player.
 import { makeRng, shuffle } from "./rng.js";
 import { teamStrength } from "./roster.js";
+import { maxLen } from "./market.js";
 
 const CB = new Set(["CB", "LB", "RB"]);
 export const isDef = (pos) => CB.has(pos);
@@ -100,7 +101,7 @@ export function applyPicks(game, hands, picks, P) {
     const team = game.teams[ti];
     if (card.t === "p") {
       const p = game.players[card.id];
-      p.team = team.id; p.contract = (P.money.draftContracts && P.money.draftContracts[(game.round || 1) - 1]) || P.money.draftContract; team.players.push(card.id);
+      p.team = team.id; p.contract = Math.min(maxLen(game, false), (P.money.draftContracts && P.money.draftContracts[(game.round || 1) - 1]) || P.money.draftContract); team.players.push(card.id);
       game.pool = game.pool.filter((x) => x !== card.id);
     } else {
       const it = game.items.find((i) => i.id === card.id);
