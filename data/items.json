@@ -218,11 +218,11 @@
   "fx": {
    "all": 5
   },
-  "price": 300,
+  "price": 30,
   "storeOnly": true,
   "banned": true,
   "tier": "rare",
-  "text": "+5 overall for one game. 51% chance of being caught: suspended for 10 games or the rest of the season, whichever is longer."
+  "text": "+5 overall for one game. Cheap, but 51% chance of being caught: suspended for 10 games or the rest of the season, whichever is longer. Use it too often unnoticed and the rumours start."
  },
  {
   "id": "ice-bath",

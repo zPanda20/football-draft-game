@@ -200,6 +200,11 @@ export function finishMatch(game, m, changes = [null, null], hooks = {}) {
     for (const pid of m.fx[i].doped) {
       const rr = makeRng(game.seed, "dope", game.season, m.key, pid);
       if (rr() < P.steroids.catchChance) res.dope.push(suspend(game, pid));
+      else if (t.id != null) {                                             // got away with it: the club's uncaught uses this season
+        const dk = game.season + ":" + t.id, runs = (game.dopeRuns = game.dopeRuns || {});
+        runs[dk] = (runs[dk] || 0) + 1;
+        if (runs[dk] > P.steroids.rumourAfter && !(game.dopeRumour || {})[dk]) (res.rumour = res.rumour || []).push({ pid, team: t.id, runs: runs[dk], key: dk });
+      }
     }
     const played = new Set(res.played[i]);
     for (const p of m.recs[i]) {
@@ -269,14 +274,14 @@ const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "ag
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
-    userPool: game.userPool || [], news: game.news || [], newsSeq: game.newsSeq || 0, pubSeq: game.pubSeq || 0, newsFlags: game.newsFlags || {}, goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
+    userPool: game.userPool || [], news: game.news || [], newsSeq: game.newsSeq || 0, pubSeq: game.pubSeq || 0, newsFlags: game.newsFlags || {}, dopeRuns: game.dopeRuns || {}, dopeRumour: game.dopeRumour || {}, goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
   };
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params, gender: snap.gender || "all" });
-  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.dopeRuns = snap.dopeRuns || {}; g.dopeRumour = snap.dopeRumour || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);

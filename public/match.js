@@ -211,10 +211,11 @@ function pitch(S, l, stamOf) {
     const p = pid != null ? pl(pid) : null, f = p ? fit(p.pos, slotName, sides[i]) : 1, s = p ? Math.round(stamOf(pid)) : 0;
     const isSel = sel && ((sel.kind === "slot" && sel.val === i) || (sel.kind === "p" && p && sel.val === pid));
     const loss = p ? tiredLoss(p.ovr, s) : 0;
+    const pic = p && !p.img && p.slug && st.cat && st.cat.pics ? st.cat.pics[p.slug] : null;   // real-player portrait, when one exists
     const isel = st.ui.itemSel && st.items[st.ui.itemSel], worn = p && S.me ? wornBy(S, pid, activeNow(S)) : [];
     return `<div class="slot pgb-${posGroup(slotName)} ${sel && !isSel ? "swappable" : ""} ${isel && p ? "itemtarget" : ""}" ${isel && p ? `data-hint="${esc(fxBadge(isel))}"` : ""} style="left:${at.x}%;top:${at.y}%" data-act="mslot" data-i="${i}" draggable="true">
       ${worn.length ? `<div class="ib">${worn.map((id) => `<span title="${esc(st.items[id].name)}">${ICON(id)}</span>`).join("")}</div>` : ""}
-      <div class="tok ${p ? tierOf(p.ovr) : "empty"} ${isSel ? "sel" : ""}">${p ? p.ovr : "?"}${loss >= 2 ? `<span class="dn" title="Tired: plays about ${loss} points below his rating">−${loss}</span>` : ""}</div>
+      <div class="tok ${p ? tierOf(p.ovr) : "empty"} ${pic ? "haspic" : ""} ${isSel ? "sel" : ""}">${pic ? `<img class="tpic" src="${esc(pic)}" alt="" draggable="false"><span class="tovr">${p.ovr}</span>` : p ? p.ovr : "?"}${loss >= 2 ? `<span class="dn" title="Tired: plays about ${loss} points below his rating">−${loss}</span>` : ""}</div>
       <div class="nm">${p ? esc(p.name.split(" ").slice(-1)[0]) : "empty"}</div>
       <div class="sl">${slotName}${p && p.pos !== slotName ? ` <span class="fit ${fitCls(f)}">(${p.pos} ${Math.round(f * 100)}%)</span>` : ""}</div>
       ${p ? `<div class="stam"><i class="${s < 35 ? "low" : s < 60 ? "mid" : ""}" style="width:${s}%"></i></div>` : ""}</div>`;
@@ -276,10 +277,12 @@ function lineupEditor(S, half) {
   const stamOf = half ? (id) => me.match.halftime.stamina[id] ?? 100 : (id) => pl(id).stam;
   const onPitch = new Set([l.gk, ...l.out]);
   const sel = st.ui.mSel;
-  const roster = t.players.map((id) => pl(id)).sort((a, b) => (a.susp ? 1 : 0) - (b.susp ? 1 : 0) || b.ovr - a.ovr);
+  // The bench: everyone not in the XI, grouped by position (GK, defenders, midfielders, attackers), best first inside a position, suspended last.
+  const POS_ORDER = ["GK", "CB", "LB", "RB", "CDM", "CM", "LM", "RM", "CAM", "LW", "RW", "ST"], posRank = (p) => { const i = POS_ORDER.indexOf(p.pos); return i < 0 ? 99 : i; };
+  const roster = t.players.map((id) => pl(id)).filter((p) => !onPitch.has(p.id)).sort((a, b) => (a.susp ? 1 : 0) - (b.susp ? 1 : 0) || posRank(a) - posRank(b) || b.ovr - a.ovr);
   const row = (p) => p.susp ? `<div class="benchrow g-${posGroup(p.pos)} dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span></div>` : `<div class="benchrow g-${posGroup(p.pos)} ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
     <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span>
-    <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span>${onPitch.has(p.id) ? `<span class="pill tiny">on</span>` : `<span class="pill tiny acc">bench</span>`}</div>`;
+    <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span></div>`;
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");
   const head = half ? `<div class="bigmatch"><div class="tm">${chip(team(me.match.side ? me.match.opponent : me.teamId), 26)}</div><div class="sc">${me.match.halftime.score[0]} – ${me.match.halftime.score[1]}</div><div class="tm">${chip(team(me.match.side ? me.teamId : me.match.opponent), 26)}</div></div><p class="c mute small">Half-time. Tired players play worse in the second half (the red number is how many rating points). Players on the bench keep their stamina.</p>` : "";
@@ -289,7 +292,7 @@ function lineupEditor(S, half) {
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
     ${half ? planBanner(S) : subPlanCard(S, l)}
     ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
-    <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div data-keep="bench" style="max-height:470px;overflow:auto">${roster.map(row).join("")}</div></div></div></div>`;
+    <div class="pitchwrap mt"><div>${pitch(S, l, stamOf)}</div><div class="col" style="gap:4px">${swapHint(sel)}<div class="tiny mute" style="margin:2px 2px 0"><b>Bench</b> (${roster.length}) · sorted by position</div><div data-keep="bench" style="max-height:450px;overflow:auto">${roster.map(row).join("") || `<div class="tiny mute" style="padding:8px">Nobody on the bench.</div>`}</div></div></div></div>`;
 }
 
 // ---------- playback ----------

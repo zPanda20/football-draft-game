@@ -29,7 +29,7 @@ function client(name, host) {
       const pm = s.pm;
       if (s.store && s.store.open && s.step === "md.lineup" && pm.coins >= 50 && !(pm.items["boots-mizuno-low"] > 0) && once("pbuy", { t: "buy", id: "boots-mizuno-low" })) stats.wallet++;
       if (pm.items["boots-mizuno-low"] > 0 && pm.equip.length === 0) once("peq", { t: "equipSelf", ids: ["boots-mizuno-low"] });
-      if (s.store && s.store.open && pm.coins >= 300 && (s.store.stock.steroids || 0) > 0) once("psteroid", { t: "buy", id: "steroids" });
+      if (s.store && s.store.open && pm.coins >= 30 && (s.store.stock.steroids || 0) > 0) once("psteroid", { t: "buy", id: "steroids" });
       for (const o of pm.offers) if (o.status === "open" && s.step.startsWith("market.") && !stats.done) { stats.offers++; if (o.from === "human" || stats.offers > 6) { send({ t: "offerRespond", id: o.id, accept: true }); } }
       if (pm.offers.some((o) => o.status === "accepted")) stats.accepted = 1;
       for (const c of pm.pending) { send({ t: "card", n: c.n, opt: 0 }); stats.cards++; }
@@ -39,7 +39,7 @@ function client(name, host) {
     const me = s.me; if (!me) return;
     if (name === "Ana" && s.seekers && s.seekers.length && s.step === "market.bid" && !offered && me.rosterRoom > 0) { offered = true; stats.humanOffer++; send({ t: "offer", pid: s.seekers[0].id, len: 1 }); }
     if (s.store && s.store.open && s.step === "md.lineup" && !s.teams[me.teamId].ready) {
-      if ((s.store.stock.steroids || 0) > 0 && me.coins >= 300 && !(me.items.steroids > 0)) { if (once("buyst", { t: "buy", id: "steroids" })) stats.bought++; }
+      if ((s.store.stock.steroids || 0) > 0 && me.coins >= 30 && !(me.items.steroids > 0)) { if (once("buyst", { t: "buy", id: "steroids" })) stats.bought++; }
       if (me.items.steroids > 0 && !(me.active || []).includes("steroids")) {
         const best = s.teams[me.teamId].players.map((id) => [id, s.pd[id].o, s.pd[id].sp || 0]).filter((x) => !x[2]).sort((a, b) => b[1] - a[1])[0];
         if (best && once("eqst", { t: "items", ids: ["steroids"], equip: { steroids: best[0] } })) stats.equipped++;

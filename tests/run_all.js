@@ -178,6 +178,21 @@ t("steroids: caught about 51% of the time, ban is the longer of 10 games and the
   p.susp = 2; p.suspFresh = true; tickSuspensions(g); assert.equal(p.susp, 2); tickSuspensions(g); assert.equal(p.susp, 1);
   const recs = beginMatch(g, 0, 1, "z").recs[0]; assert.ok(!recs.some((q) => q.susp > 0));
 });
+t("steroids: cost 30 coins; more than 3 uncaught uses by a club in a season start one rumour story about the club", async () => {
+  const L = await import("../engine/life.js");
+  const g = fresh(10, 9), tm = g.teams[0]; g.md = { day: 0, total: 18 };
+  g.teams[1].coins = 30; assert.ok(buyItem(g, 1, "steroids", { store: true })); assert.equal(g.teams[1].coins, 0, "steroids cost exactly 30");
+  g.P.steroids.catchChance = 0; tm.items.steroids = 1000; tm.active = ["steroids"];                          // nobody is ever caught
+  const rumours = [];
+  for (let k = 0; k < 6; k++) {
+    const l = bestLineup(rosterOf(g, tm), g.P); tm.equip = { steroids: l.out[0] };
+    const res = finishMatch(g, beginMatch(g, 0, 1, "r" + k, { lineup: () => l }));
+    assert.equal(res.dope.length, 0); for (const d of res.rumour || []) { rumours.push(k); assert.ok(L.rumourStory(g, d)); }
+  }
+  assert.deepEqual(rumours, [3], "the fourth uncaught use is the first past 3, and it only fires once");
+  const n = g.news.find((x) => x.kind === "rumour"); assert.ok(n && n.status === "live" && n.head.includes(tm.name.toUpperCase()) && !n.head.includes(g.players[n.pid].name.toUpperCase()), "about the club, not the player");
+  g.season += 1; tm.items.steroids = 1000; { const l = bestLineup(rosterOf(g, tm), g.P); tm.equip = { steroids: l.out[0] }; assert.ok(!(finishMatch(g, beginMatch(g, 0, 1, "n1", { lineup: () => l })).rumour || []).length, "the count starts again next season"); }
+});
 t("roster cap: a lost slot shrinks next season's roster and the cheapest player goes", () => {
   const g = fresh(10, 12), t0 = g.teams[0];
   while (t0.players.length < 10) { const id = g.pool.pop(); g.players[id].team = 0; g.players[id].contract = 1; t0.players.push(id); }

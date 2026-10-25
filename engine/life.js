@@ -187,6 +187,14 @@ export function steroidStory(game, d) {
   const p = game.players[d.pid], t = d.team != null ? game.teams[d.team].name : "No club";
   return mk(game, p, { prio: 5, abs: true, kind: "steroids", icon: "🧪", head: `DOPING SHOCK: ${p.name.toUpperCase()} BANNED`, sub: `${t}'s ${p.pos} fails a drugs test and is out for ${d.games} games. The lab says the sample was "very clear". Not in a good way.` });
 }
+// A club that keeps getting away with it: more than P.steroids.rumourAfter uncaught uses in one season starts a rumour about the club (not a player).
+// Returns the story, or null when the week's slot is taken by something bigger (it is tried again on that club's next uncaught use).
+export function rumourStory(game, d) {
+  const p = game.players[d.pid], t = game.teams[d.team]; if (!p || !t) return null;
+  const n = mk(game, p, { prio: 5, abs: true, kind: "rumour", icon: "🕵️", head: `RUMOURS OF SHADY GOINGS-ON AT ${t.name.toUpperCase()}`, sub: `Sources say the ${t.name} medical room is "unusually busy" and the lab keeps asking awkward questions. The club says it is "aware of no wrongdoing". Nobody has been caught. Yet.` });
+  if (n) (game.dopeRumour = game.dopeRumour || {})[d.key] = true;
+  return n;
+}
 // A story waiting on a manager: yes publishes, no buries it.
 export function decideStory(game, id, yes) {
   const n = (game.news || []).find((x) => x.id === id && x.status === "pending"); if (!n) return null;

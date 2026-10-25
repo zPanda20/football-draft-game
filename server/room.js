@@ -5,7 +5,7 @@ import { dealRound, applyPicks } from "../engine/packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, catchUpWeights, capOf } from "../engine/market.js";
 import { botDraftPick, botMarketBid, botItemBuys } from "../engine/bots.js";
 import { teamsFor, schedule, standingsOf } from "../engine/fixtures.js";
-import { steroidStory, ensureLife } from "../engine/life.js";
+import { steroidStory, rumourStory, ensureLife } from "../engine/life.js";
 import { clubAllowed } from "../engine/unlocks.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
@@ -357,7 +357,7 @@ export class Room {
     this.setReveal({ kind: "market", round: this.marketRound, wins: wins.map((w) => ({ team: w.team, kind: w.kind, id: w.id, paid: w.paid, len: w.len, contested: w.contested, lost: w.lost })), bidders: bids.map((b) => ({ team: b.team, kind: b.kind, id: b.id })), tally });
     for (const w of wins) this.pushFeed({ kind: "market", team: w.team, what: w.kind, id: w.id, paid: w.paid, len: w.len });
     this.step = "market.reveal";
-    const stop = !wins.length && !this.userWaiting() && (this.quiet >= 2 || !this.humanTeams().some((t) => !t.marketDone));
+    const stop = !wins.length && !humanBid && !this.userWaiting();      // a round where nobody signs anything and no manager even bid: the market is over
     this.after(this.p(wins.length ? 6000 : 2500), () => (stop ? this.finishMarket() : this.nextMarketRound()));
     this.changed();
   }
@@ -513,6 +513,7 @@ export class Room {
         const pp = g.players[d.pid], tn = d.team != null ? g.teams[d.team].name : "no team";
         this.notify(`Failed drugs test: ${pp.name} (${tn}) is suspended for ${d.games} games.${d.penalty ? ` The ban outlasts the contract, so ${g.teams[d.penalty.team].name} lose a roster spot in season ${d.penalty.season}.` : ""}`);
       }
+      for (const d of res.rumour || []) rumourStory(g, d);
       matches.push({ a: m.a, b: m.b, potm: res.potm, all: res.events, first: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), ratings: res.ratings, score: res.score, shots: res.shots, scorers: res.scorers, events: res.events.filter((e) => e.half === 1), flow: res.flow, goals: res.events.filter((e) => e.type === "goal").map((e) => ({ minute: e.minute, team: e.team, player: e.player })), lineups: res.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })) });
     }
     this.pendingTable = standingsOf(this.results, g.teams.length);

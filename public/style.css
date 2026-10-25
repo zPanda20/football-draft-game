@@ -340,6 +340,7 @@ svg.kit{display:inline-block;flex:none}
 .newsban p{font-size:clamp(14px,2vw,19px);margin:0 0 10px;max-width:760px;color:#ffe7e7}.nb-by{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#ffd23f;font-weight:800}
 .newsban.nk-wedding{background:linear-gradient(180deg,#201020,#5a2150 70%,rgba(90,33,80,.94))}
 .newsban.nk-steroids{background:linear-gradient(180deg,#0a1a12,#0f4a2c 70%,rgba(15,74,44,.94))}
+.newsban.nk-rumour{background:linear-gradient(180deg,#0d1114,#2b3a2c 70%,rgba(43,58,44,.94))}
 .newsban.nk-yacht,.newsban.nk-club{background:linear-gradient(180deg,#07182a,#0c4670 70%,rgba(12,70,112,.94))}
 .newsban.nk-proud,.newsban.nk-fun{background:linear-gradient(180deg,#1a1405,#5a4208 70%,rgba(90,66,8,.94))}
 .newsban.nk-boring{background:linear-gradient(180deg,#121417,#3a4047 70%,rgba(58,64,71,.94))}
@@ -466,3 +467,10 @@ table.tb.stats td.mute{color:var(--mute)}
 .trow{margin-top:12px}.trophies{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
 .trophy{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid rgba(240,200,90,.35);border-radius:10px;background:linear-gradient(160deg,rgba(240,200,90,.12),rgba(240,200,90,.03))}
 .trophy .tr-i{font-size:24px;line-height:1}.trophy .grow{display:flex;flex-direction:column;min-width:0}.trophy b{line-height:1.2}
+
+/* pitch tokens with a real portrait: the face fills the circle, the rating sits in a small badge */
+.slot .tok.haspic{width:52px;height:52px;background:#1d2630;overflow:visible}
+.slot .tok.haspic.ruby{background:var(--ruby)}.slot .tok.haspic.gold{background:var(--gold)}.slot .tok.haspic.silver{background:var(--silver)}
+.slot .tok .tpic{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;pointer-events:none}
+.slot .tok .tovr{position:absolute;left:-9px;bottom:-5px;min-width:22px;padding:1px 4px;border-radius:99px;font-size:11px;font-weight:900;line-height:1.35;background:#10151b;color:#fff;border:1.5px solid #fff;pointer-events:none}
+.slot .tok.ruby .tovr{background:var(--ruby)}.slot .tok.gold .tovr{background:var(--gold);color:#10151b}.slot .tok.silver .tovr{background:var(--silver);color:#10151b}

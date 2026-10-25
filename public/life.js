@@ -78,7 +78,7 @@ export function newsCard(S) {
 
 // ---------- the banner ----------
 export const WADA_MARK = `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">`;
-const KIND = { steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", fun: "Spotted", club: "Business" };
+const KIND = { steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business" };
 let queue = [], showing = null, timer = null;
 export function newsTick(S) {
   const n = S.news; if (!n) return;
@@ -94,7 +94,7 @@ function nextBanner() {
   const wada = n.kind === "steroids";
   el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "");
   el.innerHTML = `${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">THE DAILY WHISTLE</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
-    <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${esc(n.name)} · ${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
+    <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
   if (wada) setTimeout(() => { const e = $("#newsban"); if (e && showing === n) e.classList.add("go"); }, 2300);
   timer = setTimeout(closeBanner, wada ? 14000 : 11000);
 }

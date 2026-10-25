@@ -140,7 +140,7 @@ export const DEFAULT_PARAMS = {
   },
   // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----
   awards: { minShare: 0.5, gloveShare: 0.4, base: 6.0, ovrFloor: 60, weights: { rating: 0.30, contrib: 0.25, potm: 0.17, wins: 0.20, star: 0.08 } },
-  steroids: { chance: 0.22, stock: 1, price: 300, catchChance: 0.51, ban: 10 },
+  steroids: { chance: 0.22, stock: 1, price: 30, catchChance: 0.51, ban: 10, rumourAfter: 3 },   // cheap on purpose: the risk is the price. More than rumourAfter uncaught uses by one club in a season starts a rumour story
 };
 
 export function withParams(over = {}) {
