@@ -1,5 +1,5 @@
 // Matchdays: line-up editor, half-time changes, live playback of the halves, results and the league table.
-import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card } from "./core.js";
+import { st, $, $$, esc, send, team, chip, crest, club, kitImg, shirt, matchColors, kitsFor, pl, tierOf, posGroup, flag, miniPlayer, remaining, card, longName } from "./core.js";
 import { ratings, ratingClass } from "./rating.js";
 import { storeCard } from "./store.js";
 import { statsHandlers, playerStats, awardsCard } from "./stats.js";
@@ -556,7 +556,7 @@ export function matchView(S, ctx) {
     case "md.result": main = resultsView(S); break;
     case "season.end": {
       const R = S.reveal, champ = team(R.champion);
-      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(champ.name)}</div><div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${playerStats(S)}${R.final ? finalCard(S) : ""}`;
+      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(longName(champ).title)}</div>${longName(champ).club ? `<div class="small mute">${esc(longName(champ).club)}</div>` : ""}<div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${playerStats(S)}${R.final ? finalCard(S) : ""}`;
       break;
     }
     default: main = `<div class="card">…</div>`;

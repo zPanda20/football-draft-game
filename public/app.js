@@ -5,7 +5,7 @@ import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
 import { storeCard } from "./store.js";
 import { pmHandlers, pmPanel, seekersCard, modeCard, creator } from "./pm.js";
-import { unlockHandlers, unlockSync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
+import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
 import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 
@@ -37,7 +37,7 @@ function connect(first) {
       { const g = m.s.me && m.s.me.gain ? m.s.me.gain : m.s.pm && m.s.pm.gain ? m.s.pm.gain : null;   // money paid after a match: show it once
         if (st.ui.gainSeen === undefined) st.ui.gainSeen = g ? g.seq : 0; else if (g && g.seq > st.ui.gainSeen) { st.ui.gainSeen = g.seq; showGain(g); } }
       { const ns = m.s.notices || [], top = ns.length ? ns[ns.length - 1].id : 0; if (st.ui.noticeSeen === undefined) st.ui.noticeSeen = top; else for (const n of ns) if (n.id > st.ui.noticeSeen) { toast(n.text); st.ui.noticeSeen = n.id; } }
-      newsTick(m.s); unlockSync(m.s);
+      newsTick(m.s); unlockSync(m.s); trophySync(m.s);
       const nt = m.s.speed && m.s.speed.note;
       if (nt && nt.id !== st.ui.paceNoteId) { if (st.ui.paceNoteId !== undefined) toast(nt.text); st.ui.paceNoteId = nt.id; } else if (st.ui.paceNoteId === undefined) st.ui.paceNoteId = 0;
       render();
@@ -239,9 +239,10 @@ function lobby(S) {
   const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
   const cont = st.ui.clubCont || "all", CONTS = ["Europe", "South America", "North America", "Africa", "Asia"];
   const mainsAll = st.cat.clubs.filter((c) => c.kind === "main");
-  const shownClubs = mainsAll.filter((c) => cont === "all" || c.continent === cont).sort(cont === "all" ? (a, b) => (b.fans || 0) - (a.fans || 0) : (a, b) => String(a.country).localeCompare(String(b.country)) || (b.fans || 0) - (a.fans || 0));
-  const fanTxt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "B" : n + "M");
-  const filterBar = `<div class="contbar mt"><button class="btn sm ${cont === "all" ? "pri" : ""}" data-act="clubCont" data-c="all">All (${mainsAll.length})</button>${CONTS.map((k) => `<button class="btn sm ${cont === k ? "pri" : ""}" data-act="clubCont" data-c="${k}">${k} (${mainsAll.filter((c) => c.continent === k).length})</button>`).join("")}</div><p class="tiny mute" style="margin:6px 0 0">${cont === "all" ? "Biggest worldwide fan bases first (rough estimates)." : "Sorted by country, then by fan base."}</p>`;
+  // Sorted by (hidden) fan base; a pinned club (London City Lionesses) leads, so the women's game is visible straight away.
+  const lead = (a, b) => (b.pin || 0) - (a.pin || 0), byFans = (a, b) => (b.fans || 0) - (a.fans || 0);
+  const shownClubs = mainsAll.filter((c) => cont === "all" || c.continent === cont).sort(cont === "all" ? (a, b) => lead(a, b) || byFans(a, b) : (a, b) => String(a.country).localeCompare(String(b.country)) || lead(a, b) || byFans(a, b));
+  const filterBar = `<div class="contbar mt"><button class="btn sm ${cont === "all" ? "pri" : ""}" data-act="clubCont" data-c="all">All (${mainsAll.length})</button>${CONTS.map((k) => `<button class="btn sm ${cont === k ? "pri" : ""}" data-act="clubCont" data-c="${k}">${k} (${mainsAll.filter((c) => c.continent === k).length})</button>`).join("")}</div>`;
   let lastCountry = null;
   const clubs = shownClubs.map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club && fam(you.club) === c.slug, others = owner && owner !== you;
@@ -249,11 +250,11 @@ function lobby(S) {
     const shown = mine && you.club !== c.slug ? st.clubBy[you.club] : c;     // the tile wears the chosen scheme
     const boxes = vars.map((v) => `<label class="vopt" title="Use the ${esc(v.label || v.kind)} colours and art"><input type="checkbox" data-change="clubVar" data-main="${c.slug}" data-slug="${v.slug}" ${mine && you.club === v.slug ? "checked" : ""} ${others ? "disabled" : ""}> ${esc(v.label || v.kind)}</label>`).join("");
     const head = cont !== "all" && c.country !== lastCountry ? `<div class="clubcountry">${esc(c.country)}</div>` : ""; lastCountry = c.country;
-    return `${head}<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : `<div class="tiny mute">${cont === "all" ? esc(c.country) + " · " : ""}~${fanTxt(c.fans || 0)} fans</div>`}${boxes}</span></div>`;
+    return `${head}<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(shown, 28)}<span class="grow"><b>${esc(c.full || c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : cont === "all" ? `<div class="tiny mute">${esc(c.country)}</div>` : ""}${boxes}</span></div>`;
   }).join("");
   const extra = codeClubs(you).map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club === c.slug, others = owner && owner !== you;
-    return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(c, 28)}<span class="grow"><b>${esc(c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></div>`;
+    return `<div class="club ${mine ? "sel" : ""} ${others ? "taken" : ""}" data-act="club" data-slug="${c.slug}" role="button" tabindex="0">${crestOfClub(c, 28)}<span class="grow"><b>${esc(c.full || c.name)}</b>${others ? `<div class="tiny mute">${esc(owner.name)}</div>` : ""}</span></div>`;
   }).join("");
   const s = S.settings, hostOnly = S.host ? "" : "disabled";
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;

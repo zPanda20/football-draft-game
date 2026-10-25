@@ -12,7 +12,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 320
+  "fans": 320,
+  "full": "Juventus FC"
  },
  {
   "slug": "juventus-throwback",
@@ -40,7 +41,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 260
+  "fans": 260,
+  "full": "FC Internazionale Milano"
  },
  {
   "slug": "inter-throwback",
@@ -79,7 +81,8 @@
   ],
   "country": "Spain",
   "continent": "Europe",
-  "fans": 800
+  "fans": 800,
+  "full": "Real Madrid CF"
  },
  {
   "slug": "barcelona",
@@ -95,7 +98,8 @@
   ],
   "country": "Spain",
   "continent": "Europe",
-  "fans": 750
+  "fans": 750,
+  "full": "FC Barcelona"
  },
  {
   "slug": "lille",
@@ -111,7 +115,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 25
+  "fans": 25,
+  "full": "LOSC Lille"
  },
  {
   "slug": "psg",
@@ -127,7 +132,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 350
+  "fans": 350,
+  "full": "Paris Saint-Germain"
  },
  {
   "slug": "psg-twd",
@@ -154,7 +160,9 @@
   ],
   "country": "England",
   "continent": "Europe",
-  "fans": 6
+  "fans": 6,
+  "full": "London City Lionesses",
+  "pin": 1
  },
  {
   "slug": "chelsea",
@@ -169,7 +177,8 @@
   ],
   "country": "England",
   "continent": "Europe",
-  "fans": 350
+  "fans": 350,
+  "full": "Chelsea FC"
  },
  {
   "slug": "man-utd",
@@ -185,7 +194,8 @@
   "c3": "#f2f2f2",
   "country": "England",
   "continent": "Europe",
-  "fans": 650
+  "fans": 650,
+  "full": "Manchester United"
  },
  {
   "slug": "washington-spirit",
@@ -200,7 +210,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 12
+  "fans": 12,
+  "full": "Washington Spirit"
  },
  {
   "slug": "louisville",
@@ -216,7 +227,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 8
+  "fans": 8,
+  "full": "Racing Louisville FC"
  },
  {
   "slug": "portland",
@@ -232,7 +244,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 15
+  "fans": 15,
+  "full": "Portland Thorns FC"
  },
  {
   "slug": "gotham",
@@ -248,7 +261,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 15
+  "fans": 15,
+  "full": "NJ/NY Gotham FC"
  },
  {
   "slug": "parma",
@@ -263,7 +277,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 30
+  "fans": 30,
+  "full": "Parma Calcio 1913"
  },
  {
   "slug": "venezia",
@@ -278,7 +293,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 20
+  "fans": 20,
+  "full": "Venezia FC"
  },
  {
   "slug": "flamengo",
@@ -293,7 +309,8 @@
   ],
   "country": "Brazil",
   "continent": "South America",
-  "fans": 230
+  "fans": 230,
+  "full": "CR Flamengo"
  },
  {
   "slug": "petro-atletico",
@@ -308,7 +325,8 @@
   ],
   "country": "Angola",
   "continent": "Africa",
-  "fans": 8
+  "fans": 8,
+  "full": "Atlético Petróleos de Luanda"
  },
  {
   "slug": "santos",
@@ -323,7 +341,8 @@
   ],
   "country": "Brazil",
   "continent": "South America",
-  "fans": 100
+  "fans": 100,
+  "full": "Santos FC"
  },
  {
   "slug": "corinthians",
@@ -338,7 +357,8 @@
   ],
   "country": "Brazil",
   "continent": "South America",
-  "fans": 150
+  "fans": 150,
+  "full": "SC Corinthians Paulista"
  },
  {
   "slug": "malaga",
@@ -355,7 +375,8 @@
   ],
   "country": "Spain",
   "continent": "Europe",
-  "fans": 25
+  "fans": 25,
+  "full": "Málaga CF"
  },
  {
   "slug": "bayern",
@@ -372,7 +393,8 @@
   ],
   "country": "Germany",
   "continent": "Europe",
-  "fans": 340
+  "fans": 340,
+  "full": "FC Bayern München"
  },
  {
   "slug": "dortmund",
@@ -388,7 +410,8 @@
   ],
   "country": "Germany",
   "continent": "Europe",
-  "fans": 180
+  "fans": 180,
+  "full": "Borussia Dortmund"
  },
  {
   "slug": "bodo-glimt",
@@ -404,7 +427,8 @@
   ],
   "country": "Norway",
   "continent": "Europe",
-  "fans": 12
+  "fans": 12,
+  "full": "FK Bodø/Glimt"
  },
  {
   "slug": "porto",
@@ -420,7 +444,8 @@
   ],
   "country": "Portugal",
   "continent": "Europe",
-  "fans": 60
+  "fans": 60,
+  "full": "FC Porto"
  },
  {
   "slug": "sporting",
@@ -436,7 +461,8 @@
   ],
   "country": "Portugal",
   "continent": "Europe",
-  "fans": 60
+  "fans": 60,
+  "full": "Sporting CP"
  },
  {
   "slug": "as-monaco",
@@ -452,7 +478,8 @@
   ],
   "country": "Monaco",
   "continent": "Europe",
-  "fans": 45
+  "fans": 45,
+  "full": "AS Monaco FC"
  },
  {
   "slug": "ogc-nice",
@@ -468,7 +495,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 35
+  "fans": 35,
+  "full": "OGC Nice"
  },
  {
   "slug": "monza",
@@ -484,7 +512,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 18
+  "fans": 18,
+  "full": "AC Monza"
  },
  {
   "slug": "fiorentina",
@@ -500,7 +529,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 40
+  "fans": 40,
+  "full": "ACF Fiorentina"
  },
  {
   "slug": "fiorentina-throwback",
@@ -527,7 +557,8 @@
   "c3": "#8b8982",
   "country": "Spain",
   "continent": "Europe",
-  "fans": 200
+  "fans": 200,
+  "full": "Club Atlético de Madrid"
  },
  {
   "slug": "aston-villa",
@@ -542,7 +573,8 @@
   ],
   "country": "England",
   "continent": "Europe",
-  "fans": 80
+  "fans": 80,
+  "full": "Aston Villa FC"
  },
  {
   "slug": "inter-miami",
@@ -557,7 +589,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 80
+  "fans": 80,
+  "full": "Inter Miami CF"
  },
  {
   "slug": "philadelphia-union",
@@ -572,7 +605,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 10
+  "fans": 10,
+  "full": "Philadelphia Union"
  },
  {
   "slug": "dc-united",
@@ -587,7 +621,8 @@
   ],
   "country": "United States",
   "continent": "North America",
-  "fans": 10
+  "fans": 10,
+  "full": "D.C. United"
  },
  {
   "slug": "ac-milan",
@@ -604,7 +639,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 300
+  "fans": 300,
+  "full": "AC Milan"
  },
  {
   "slug": "ac-milan-alt",
@@ -630,7 +666,8 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 18
+  "fans": 18,
+  "full": "Como 1907"
  },
  {
   "slug": "wrexham",
@@ -646,7 +683,8 @@
   ],
   "country": "Wales",
   "continent": "Europe",
-  "fans": 50
+  "fans": 50,
+  "full": "Wrexham AFC"
  },
  {
   "slug": "zamalek",
@@ -662,7 +700,8 @@
   ],
   "country": "Egypt",
   "continent": "Africa",
-  "fans": 100
+  "fans": 100,
+  "full": "Zamalek SC"
  },
  {
   "slug": "al-ahly",
@@ -678,7 +717,8 @@
   ],
   "country": "Egypt",
   "continent": "Africa",
-  "fans": 140
+  "fans": 140,
+  "full": "Al Ahly SC"
  },
  {
   "slug": "cape-town-fc",
@@ -693,7 +733,8 @@
   ],
   "country": "South Africa",
   "continent": "Africa",
-  "fans": 8
+  "fans": 8,
+  "full": "Cape Town City FC"
  },
  {
   "slug": "young-boys",
@@ -708,7 +749,8 @@
   ],
   "country": "Switzerland",
   "continent": "Europe",
-  "fans": 20
+  "fans": 20,
+  "full": "BSC Young Boys"
  },
  {
   "slug": "fc-tokyo",
@@ -722,7 +764,8 @@
   ],
   "country": "Japan",
   "continent": "Asia",
-  "fans": 15
+  "fans": 15,
+  "full": "FC Tokyo"
  },
  {
   "slug": "cerezo-osaka",
@@ -736,7 +779,8 @@
   ],
   "country": "Japan",
   "continent": "Asia",
-  "fans": 15
+  "fans": 15,
+  "full": "Cerezo Osaka"
  },
  {
   "slug": "america-cali",
@@ -751,7 +795,8 @@
   ],
   "country": "Colombia",
   "continent": "South America",
-  "fans": 15
+  "fans": 15,
+  "full": "América de Cali"
  },
  {
   "slug": "club-america",
@@ -768,7 +813,8 @@
   ],
   "country": "Mexico",
   "continent": "North America",
-  "fans": 100
+  "fans": 100,
+  "full": "Club América"
  },
  {
   "slug": "colo-colo",
@@ -783,7 +829,8 @@
   ],
   "country": "Chile",
   "continent": "South America",
-  "fans": 40
+  "fans": 40,
+  "full": "Colo-Colo"
  },
  {
   "slug": "crystal-palace",
@@ -798,7 +845,8 @@
   ],
   "country": "England",
   "continent": "Europe",
-  "fans": 50
+  "fans": 50,
+  "full": "Crystal Palace FC"
  },
  {
   "slug": "fc-juarez",
@@ -815,7 +863,8 @@
   ],
   "country": "Mexico",
   "continent": "North America",
-  "fans": 6
+  "fans": 6,
+  "full": "FC Juárez"
  },
  {
   "slug": "le-mans",
@@ -831,7 +880,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 10
+  "fans": 10,
+  "full": "Le Mans FC"
  },
  {
   "slug": "liverpool",
@@ -847,11 +897,12 @@
   ],
   "country": "England",
   "continent": "Europe",
-  "fans": 400
+  "fans": 400,
+  "full": "Liverpool FC"
  },
  {
   "slug": "lyon",
-  "name": "Olympique Lyonnais",
+  "name": "Lyon",
   "short": "LYO",
   "c1": "#f2f2f2",
   "c2": "#e8374f",
@@ -865,11 +916,12 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 90
+  "fans": 90,
+  "full": "Olympique Lyonnais"
  },
  {
   "slug": "marseille",
-  "name": "Olympique de Marseille",
+  "name": "Marseille",
   "short": "OLM",
   "c1": "#f2f2f2",
   "c2": "#2a3640",
@@ -882,7 +934,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 110
+  "fans": 110,
+  "full": "Olympique de Marseille"
  },
  {
   "slug": "palestino",
@@ -898,7 +951,8 @@
   ],
   "country": "Chile",
   "continent": "South America",
-  "fans": 8
+  "fans": 8,
+  "full": "CD Palestino"
  },
  {
   "slug": "palmeiras",
@@ -914,7 +968,8 @@
   ],
   "country": "Brazil",
   "continent": "South America",
-  "fans": 120
+  "fans": 120,
+  "full": "SE Palmeiras"
  },
  {
   "slug": "paris-fc",
@@ -928,7 +983,8 @@
   ],
   "country": "France",
   "continent": "Europe",
-  "fans": 12
+  "fans": 12,
+  "full": "Paris FC"
  },
  {
   "slug": "palermo",
@@ -944,11 +1000,12 @@
   ],
   "country": "Italy",
   "continent": "Europe",
-  "fans": 25
+  "fans": 25,
+  "full": "Palermo FC"
  },
  {
   "slug": "pumas",
-  "name": "Pumas UNAM",
+  "name": "Pumas",
   "short": "PUM",
   "c1": "#f2f2f2",
   "c2": "#384354",
@@ -961,11 +1018,12 @@
   ],
   "country": "Mexico",
   "continent": "North America",
-  "fans": 60
+  "fans": 60,
+  "full": "Pumas UNAM"
  },
  {
   "slug": "tigres",
-  "name": "Tigres UANL",
+  "name": "Tigres",
   "short": "TIG",
   "c1": "#f0c433",
   "c2": "#335eac",
@@ -977,11 +1035,12 @@
   ],
   "country": "Mexico",
   "continent": "North America",
-  "fans": 70
+  "fans": 70,
+  "full": "Tigres UANL"
  },
  {
   "slug": "tijuana",
-  "name": "Xolos de Tijuana",
+  "name": "Xolos",
   "short": "TIJ",
   "c1": "#e72e37",
   "c2": "#f2f2f2",
@@ -990,42 +1049,13 @@
   "aliases": [
    "Tijuana",
    "Club Tijuana",
-   "Xolos"
+   "Xolos",
+   "Xolos de Tijuana"
   ],
   "country": "Mexico",
   "continent": "North America",
-  "fans": 15
- },
- {
-  "slug": "germany-national",
-  "name": "German National Team",
-  "short": "GER",
-  "c1": "#f2f2f2",
-  "c2": "#6a202b",
-  "kind": "main",
-  "aliases": [
-   "Germany",
-   "German National Team"
-  ],
-  "country": "Germany",
-  "continent": "Europe",
-  "fans": 150
- },
- {
-  "slug": "cape-verde",
-  "name": "Cape Verde",
-  "short": "CPV",
-  "c1": "#323667",
-  "c2": "#f2f2f2",
-  "c3": "#d02932",
-  "kind": "main",
-  "aliases": [
-   "Cape Verde",
-   "Cabo Verde"
-  ],
-  "country": "Cape Verde",
-  "continent": "Africa",
-  "fans": 4
+  "fans": 15,
+  "full": "Xolos de Tijuana"
  },
  {
   "slug": "ac-milan-throwback",

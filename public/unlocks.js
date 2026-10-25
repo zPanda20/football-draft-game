@@ -1,5 +1,5 @@
 // Cosmetic unlocks: the Enter Code box and the trophy cabinet of plates, plus keeping the browser's collection in sync.
-import { st, esc, send, store, toast, crestOfClub } from "./core.js";
+import { st, esc, send, store, toast, crestOfClub, club, longName } from "./core.js";
 
 export const unlockHandlers = {
   redeem() { const el = document.getElementById("codein"); const v = el ? el.value.trim() : ""; if (!v) return; send({ t: "redeem", code: v }); if (el) el.value = ""; },
@@ -60,5 +60,42 @@ export function enterCode(you) {
   const tile = (p) => plateTile(p, have.has(p.id), st.ui.flashPlate === p.id);
   return `<div class="card"><h3>Enter code</h3><div class="row" style="gap:8px"><input id="codein" class="grow" placeholder="Got a code? Type it here" maxlength="40" autocomplete="off" spellcheck="false"><button class="btn pri" data-act="redeem">Unlock</button></div>
     <p class="small mute mt">Codes unlock cosmetic extras: club colours, throwback shirts and alternate kits. They stay on this browser, so you only enter each one once.</p>
-    <div class="cabhead mt"><b>Trophy cabinet</b><span class="small mute">${have.size} / ${plates.length} plates</span></div><div class="cabinet mt">${plates.map(tile).join("")}</div></div>`;
+    <div class="cabhead mt"><b>Trophy cabinet</b><span class="small mute">${have.size} / ${plates.length} plates</span></div><div class="cabinet mt">${plates.map(tile).join("")}</div>${trophyShelf()}</div>`;
+}
+
+// ---------- trophies won in games: kept on this browser and shown under the plates ----------
+const KINDS = [["title", "🏆", "League titles"], ["ballon", "🌟", "Ballon d'Or"], ["boot", "⚽", "Golden Boot"], ["playmaker", "🎯", "Playmaker Award"], ["glove", "🧤", "Golden Glove"]];
+const WIN_TXT = { ballon: (r) => `${r.g}G ${r.a}A · ${r.rt.toFixed(1)} avg`, boot: (r) => `${r.g} goals`, playmaker: (r) => `${r.a} assists`, glove: (r) => `${r.cs} clean sheets` };
+const trophies = () => { try { const l = JSON.parse(store("trophies") || "[]"); return Array.isArray(l) ? l : []; } catch { return []; } };
+// Called with every state: at the end of a season, anything the player (or a player on the manager's team) just won is saved once.
+export function trophySync(S) {
+  const R = S.reveal; if (!R || R.kind !== "season" || !S.teams || S.gid == null) return;
+  const you = S.players.find((p) => p.you); if (!you) return;
+  const pid = S.pm ? S.pm.pid : null, mine = you.mode === "player" ? S.teams.find((t) => pid != null && t.players.includes(pid)) : S.teams[you.teamId];
+  if (!mine && pid == null) return;
+  const gid = `${S.room}-${S.gid}`, found = [];
+  const add = (kind, extra = {}) => found.push({ id: `${gid}:${R.season}:${kind}`, kind, season: R.season, team: mine ? mine.name : "", club: mine ? mine.club : "", mode: you.mode === "player" ? "player" : "manager", ...extra });
+  if (mine && R.champion === mine.id) add("title", { pts: (R.table[0] || {}).pts, full: longName(mine).title });
+  const A = R.awards || {};
+  for (const [k] of KINDS.slice(1)) {
+    const w = A[k] && A[k][0]; if (!w) continue;
+    const own = you.mode === "player" ? w.id === pid : mine && w.team === mine.id;
+    if (own) add(k, { who: w.name, stat: WIN_TXT[k](w) });
+  }
+  if (!found.length) return;
+  const have = trophies(), ids = new Set(have.map((x) => x.id)), fresh = found.filter((x) => !ids.has(x.id));
+  if (!fresh.length) return;
+  store("trophies", JSON.stringify([...have, ...fresh.map((x) => ({ ...x, at: Date.now() }))].slice(-400)));
+  toast(fresh.length === 1 ? "Trophy added to your cabinet" : `${fresh.length} trophies added to your cabinet`);
+}
+
+function trophyShelf() {
+  const all = trophies();
+  if (!all.length) return `<div class="cabhead mt"><b>Trophies</b><span class="small mute">0 won</span></div><p class="small mute mt">Win a league title, the Golden Boot, the Ballon d'Or and more. They are kept on this browser and shown here.</p>`;
+  const rows = KINDS.map(([k, icon, name]) => {
+    const l = all.filter((x) => x.kind === k).sort((a, b) => b.at - a.at); if (!l.length) return "";
+    const tile = (x) => { const c = st.clubBy[x.club]; return `<div class="trophy ${k}"><span class="tr-i">${icon}</span><div class="grow"><b>${esc(k === "title" ? x.full || x.team : x.who)}</b><span class="tiny mute">${k === "title" ? `Season ${x.season}${x.pts ? ` · ${x.pts} pts` : ""}` : `Season ${x.season} · ${esc(x.stat || "")}`}</span>${k === "title" ? "" : `<span class="tiny mute">${esc(x.team)}</span>`}</div>${c ? crestOfClub(c, 22) : ""}</div>`; };
+    return `<div class="trow"><div class="small"><b>${icon} ${name}</b> <span class="mute">×${l.length}</span></div><div class="trophies mt">${l.map(tile).join("")}</div></div>`;
+  }).join("");
+  return `<div class="cabhead mt"><b>Trophies</b><span class="small mute">${all.length} won</span></div>${rows}`;
 }

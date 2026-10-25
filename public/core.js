@@ -30,6 +30,12 @@ export function art(c, kind) {
 export const team = (id) => (st.S && st.S.teams ? st.S.teams[id] : null);
 export const myTeam = () => (st.S && st.S.me ? team(st.S.me.teamId) : null);
 export const club = (t) => (t && st.clubBy[t.club]) || null;
+// The club's long name ("Olympique de Marseille"): only for the lobby and the champions screen. A renamed team keeps its own name.
+export function longName(t) {
+  const c = club(t), b = c && (c.base ? st.clubBy[c.base] : c), full = b && (b.full || b.name);
+  const renamed = !!b && t.name !== b.name && t.name !== full;
+  return { title: renamed || !full ? t.name : full, club: renamed ? full : "" };
+}
 
 // A player as the room sees him right now: the data-file record plus whatever has changed.
 export function pl(id) {

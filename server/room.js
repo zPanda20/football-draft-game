@@ -138,7 +138,7 @@ export class Room {
     const fam = (s) => this.clubBySlug.get(s).base || s;                        // a throwback or alt belongs to its main club
     for (const q of this.players.values()) if (q !== p && q.club && fam(q.club) === fam(slug)) return;
     p.club = slug;
-    if (!p.teamName || this.D.clubs.some((c) => c.name === p.teamName)) p.teamName = this.clubBySlug.get(fam(slug)).name;
+    if (!p.teamName || this.D.clubs.some((c) => c.name === p.teamName || c.full === p.teamName)) p.teamName = this.clubBySlug.get(fam(slug)).name;
   }
   setTeamName(token, name) {
     const p = this.players.get(token); if (!p) return;
@@ -596,7 +596,7 @@ export class Room {
   view(token) {
     const g = this.game, me = this.players.get(token);
     const v = {
-      room: this.code, phase: this.phase, step: this.step, paused: this.paused,
+      room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
       players: [...this.players.values()].map((p) => ({ you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
       news: this.game ? this.newsView(token) : null,

@@ -225,6 +225,31 @@
     "inter-vr46"
    ],
    "kind": "variant"
+  },
+  {
+   "id": "duhast",
+   "name": "German National Team",
+   "codes": [
+    "du hast"
+   ],
+   "hint": "A very loud German export.",
+   "clubs": [
+    "germany-national"
+   ],
+   "kind": "club"
+  },
+  {
+   "id": "sharks",
+   "name": "Cape Verde National Team",
+   "codes": [
+    "sharks",
+    "cabo verde"
+   ],
+   "hint": "Ten islands, one very blue shark.",
+   "clubs": [
+    "cape-verde"
+   ],
+   "kind": "club"
   }
  ],
  "clubs": [
@@ -235,7 +260,8 @@
    "c1": "#d62a1f",
    "c2": "#ffcc1a",
    "kind": "code",
-   "unlock": "kachow"
+   "unlock": "kachow",
+   "full": "Lightning McQueen FC"
   },
   {
    "slug": "turtle-fc",
@@ -244,7 +270,8 @@
    "c1": "#3a8f3f",
    "c2": "#c9a66b",
    "kind": "code",
-   "unlock": "grandpa"
+   "unlock": "grandpa",
+   "full": "Turtle FC"
   },
   {
    "slug": "holy-freak-fc",
@@ -253,43 +280,48 @@
    "c1": "#5b2a86",
    "c2": "#f3ecff",
    "kind": "code",
-   "unlock": "sisterfei"
+   "unlock": "sisterfei",
+   "full": "Holy Freak FC"
   },
   {
    "slug": "france-national",
-   "name": "French National Team",
+   "name": "France",
    "short": "FRA",
    "c1": "#223a9a",
    "c2": "#9db8b3",
    "kind": "code",
-   "unlock": "baguette"
+   "unlock": "baguette",
+   "full": "French National Team"
   },
   {
    "slug": "italy-national",
-   "name": "Italian National Team",
+   "name": "Italy",
    "short": "ITA",
    "c1": "#2f67c2",
    "c2": "#ffffff",
    "kind": "code",
-   "unlock": "pineapple"
+   "unlock": "pineapple",
+   "full": "Italian National Team"
   },
   {
    "slug": "mexico-national",
-   "name": "Mexican National Team",
+   "name": "Mexico",
    "short": "MEX",
    "c1": "#006847",
    "c2": "#ce1126",
    "kind": "code",
-   "unlock": "tacos"
+   "unlock": "tacos",
+   "full": "Mexican National Team"
   },
   {
    "slug": "usa-national",
-   "name": "US National Team",
+   "name": "USA",
    "short": "USA",
    "c1": "#ffffff",
    "c2": "#2b3050",
    "kind": "code",
-   "unlock": "guns"
+   "unlock": "guns",
+   "full": "US National Team"
   },
   {
    "slug": "trump-fc",
@@ -298,7 +330,8 @@
    "c1": "#c9a227",
    "c2": "#f3d46b",
    "kind": "code",
-   "unlock": "maga"
+   "unlock": "maga",
+   "full": "Trump FC"
   },
   {
    "slug": "forest-fc",
@@ -307,7 +340,8 @@
    "c1": "#1b4d2e",
    "c2": "#8fd16a",
    "kind": "code",
-   "unlock": "woods"
+   "unlock": "woods",
+   "full": "Forest FC"
   },
   {
    "slug": "jonny-football-fc",
@@ -316,7 +350,8 @@
    "c1": "#2aa8ff",
    "c2": "#ffffff",
    "kind": "code",
-   "unlock": "fifa"
+   "unlock": "fifa",
+   "full": "Jonny Football FC"
   },
   {
    "slug": "max-verstappen-fc",
@@ -325,7 +360,8 @@
    "c1": "#101c4a",
    "c2": "#ff1e00",
    "kind": "code",
-   "unlock": "latifi"
+   "unlock": "latifi",
+   "full": "Max Verstappen FC"
   },
   {
    "slug": "strawhat-fc",
@@ -334,71 +370,79 @@
    "c1": "#c25843",
    "c2": "#f0d264",
    "kind": "code",
-   "unlock": "freedom"
+   "unlock": "freedom",
+   "full": "Strawhat FC"
   },
   {
    "slug": "nfl-green-bay",
-   "name": "Green Bay Packers",
+   "name": "Packers",
    "short": "GBP",
    "c1": "#2e4a45",
    "c2": "#1e436b",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "Green Bay Packers"
   },
   {
    "slug": "nfl-kansas-city",
-   "name": "Kansas City Chiefs",
+   "name": "Chiefs",
    "short": "KCC",
    "c1": "#e31837",
    "c2": "#ffb81c",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "Kansas City Chiefs"
   },
   {
    "slug": "nfl-philadelphia",
-   "name": "Philadelphia Eagles",
+   "name": "Eagles",
    "short": "PHE",
    "c1": "#065f71",
    "c2": "#a5acaf",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "Philadelphia Eagles"
   },
   {
    "slug": "nfl-san-francisco",
-   "name": "San Francisco 49ers",
+   "name": "49ers",
    "short": "SF9",
    "c1": "#9c0045",
    "c2": "#f2f2f2",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "San Francisco 49ers"
   },
   {
    "slug": "nfl-dallas",
-   "name": "Dallas Cowboys",
+   "name": "Cowboys",
    "short": "DAL",
    "c1": "#f2f2f2",
    "c2": "#1b416b",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "Dallas Cowboys"
   },
   {
    "slug": "nfl-pittsburgh",
-   "name": "Pittsburgh Steelers",
+   "name": "Steelers",
    "short": "PIT",
    "c1": "#1a1a1a",
    "c2": "#f2f2f2",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "full": "Pittsburgh Steelers"
   },
   {
    "slug": "nfl-baltimore",
-   "name": "Baltimore Ravens",
+   "name": "Ravens",
    "short": "BAL",
    "c1": "#470880",
    "c2": "#f2f2f2",
    "kind": "code",
    "unlock": "nfl",
-   "c3": "#1a1a1a"
+   "c3": "#1a1a1a",
+   "full": "Baltimore Ravens"
   },
   {
    "slug": "cp-arasaka",
@@ -407,7 +451,8 @@
    "c1": "#b00020",
    "c2": "#111111",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Arasaka"
   },
   {
    "slug": "cp-militech",
@@ -416,7 +461,8 @@
    "c1": "#4b5320",
    "c2": "#c0c0c0",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Militech"
   },
   {
    "slug": "cp-kangtao",
@@ -425,7 +471,8 @@
    "c1": "#0b6e8a",
    "c2": "#e8f1f5",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Kang Tao"
   },
   {
    "slug": "cp-biotechnica",
@@ -434,7 +481,8 @@
    "c1": "#1f8a4c",
    "c2": "#d9ffe9",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Biotechnica"
   },
   {
    "slug": "cp-tygerclaws",
@@ -443,7 +491,8 @@
    "c1": "#6a1b9a",
    "c2": "#ffe14d",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Tyger Claws"
   },
   {
    "slug": "cp-valentinos",
@@ -452,7 +501,8 @@
    "c1": "#c8102e",
    "c2": "#ffd700",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Valentinos"
   },
   {
    "slug": "cp-maelstrom",
@@ -461,7 +511,8 @@
    "c1": "#8b0000",
    "c2": "#cccccc",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Maelstrom"
   },
   {
    "slug": "cp-voodoo",
@@ -470,7 +521,8 @@
    "c1": "#3a0ca3",
    "c2": "#00ffcc",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Voodoo Boys"
   },
   {
    "slug": "cp-aldecaldos",
@@ -479,7 +531,37 @@
    "c1": "#b5651d",
    "c2": "#f4e4c1",
    "kind": "code",
-   "unlock": "choom"
+   "unlock": "choom",
+   "full": "Aldecaldos"
+  },
+  {
+   "slug": "germany-national",
+   "name": "Germany",
+   "short": "GER",
+   "c1": "#f2f2f2",
+   "c2": "#6a202b",
+   "kind": "code",
+   "aliases": [
+    "Germany",
+    "German National Team"
+   ],
+   "full": "German National Team",
+   "unlock": "duhast"
+  },
+  {
+   "slug": "cape-verde",
+   "name": "Cape Verde",
+   "short": "CPV",
+   "c1": "#323667",
+   "c2": "#f2f2f2",
+   "c3": "#d02932",
+   "kind": "code",
+   "aliases": [
+    "Cape Verde",
+    "Cabo Verde"
+   ],
+   "full": "Cape Verde National Team",
+   "unlock": "sharks"
   }
  ]
 }
