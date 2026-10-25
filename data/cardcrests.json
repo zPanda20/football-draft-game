@@ -1,0 +1,37 @@
+{
+ "arsenal": [
+  "Arsenal"
+ ],
+ "manchester-city": [
+  "Manchester City",
+  "Man City"
+ ],
+ "roma": [
+  "AS Roma",
+  "Roma"
+ ],
+ "tottenham": [
+  "Tottenham Hotspur",
+  "Tottenham",
+  "Spurs"
+ ],
+ "west-ham": [
+  "West Ham United",
+  "West Ham"
+ ],
+ "brighton": [
+  "Brighton & Hove Albion",
+  "Brighton"
+ ],
+ "eintracht-frankfurt": [
+  "Eintracht Frankfurt"
+ ],
+ "chicago-fire": [
+  "Chicago Fire FC",
+  "Chicago Fire"
+ ],
+ "angel-city": [
+  "Angel City FC",
+  "Angel City"
+ ]
+}

@@ -17,4 +17,5 @@ An alt marked `"kitsFrom": "base"` in `data/teams.json` (`psg-twd`, `inter-vr46`
 
 **Colours follow the kits:** in `data/teams.json`, `c1` is the home kit's colour, `c2` the away kit's and `c3` the third kit's (set `c3` when you add a third kit). A match is drawn in the colours of the kits the two sides wear. If they are too close, the away side changes into its third kit, else the home side does, else the pair of kits that sit furthest apart is used.
 Player cards match on the real club name (see `aliases` in `data/teams.json`): a card for a player at Real Madrid shows the `real-madrid` badge.
+Clubs that only show up on player cards (Arsenal, Man City, Roma...) get a crest from `public/assets/crests/<slug>.png`; the club names each file answers to are listed in `data/cardcrests.json`.
 Run `npm run assets` to see what is still missing.

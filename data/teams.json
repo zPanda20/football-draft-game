@@ -151,13 +151,14 @@
   "slug": "man-utd",
   "name": "Man Utd",
   "short": "MUN",
-  "c1": "#da291c",
-  "c2": "#fbe122",
+  "c1": "#c2132a",
+  "c2": "#21355e",
   "kind": "main",
   "aliases": [
    "Man Utd",
    "Manchester United"
-  ]
+  ],
+  "c3": "#f2f2f2"
  },
  {
   "slug": "washington-spirit",
@@ -428,14 +429,15 @@
   "slug": "atletico-madrid",
   "name": "Atlético Madrid",
   "short": "ATM",
-  "c1": "#cb3524",
-  "c2": "#272e61",
+  "c1": "#cd2222",
+  "c2": "#1a1a1a",
   "kind": "main",
   "aliases": [
    "Atlético Madrid",
    "Atlético de Madrid",
    "Atletico Madrid"
-  ]
+  ],
+  "c3": "#8b8982"
  },
  {
   "slug": "aston-villa",
@@ -453,8 +455,8 @@
   "slug": "inter-miami",
   "name": "Inter Miami",
   "short": "MIA",
-  "c1": "#f7b5cd",
-  "c2": "#231f20",
+  "c1": "#f0a7c0",
+  "c2": "#1a1a1a",
   "kind": "main",
   "aliases": [
    "Inter Miami",
@@ -465,8 +467,8 @@
   "slug": "philadelphia-union",
   "name": "Philadelphia Union",
   "short": "PHI",
-  "c1": "#071b2c",
-  "c2": "#b19b69",
+  "c1": "#1f354c",
+  "c2": "#dbe2e6",
   "kind": "main",
   "aliases": [
    "Philadelphia Union",
@@ -477,8 +479,8 @@
   "slug": "dc-united",
   "name": "DC United",
   "short": "DCU",
-  "c1": "#111111",
-  "c2": "#ef3e42",
+  "c1": "#1a1a1a",
+  "c2": "#f2f2f2",
   "kind": "main",
   "aliases": [
    "DC United",
@@ -606,5 +608,251 @@
   "aliases": [
    "Cerezo Osaka"
   ]
+ },
+ {
+  "slug": "america-cali",
+  "name": "América de Cali",
+  "short": "AME",
+  "c1": "#e01e30",
+  "c2": "#f2f2f2",
+  "kind": "main",
+  "aliases": [
+   "America de Cali",
+   "América de Cali"
+  ]
+ },
+ {
+  "slug": "club-america",
+  "name": "Club América",
+  "short": "CAM",
+  "c1": "#f1e7a0",
+  "c2": "#36434f",
+  "c3": "#16b0ad",
+  "kind": "main",
+  "aliases": [
+   "Club America",
+   "Club América",
+   "América"
+  ]
+ },
+ {
+  "slug": "colo-colo",
+  "name": "Colo-Colo",
+  "short": "COL",
+  "c1": "#f2f2f2",
+  "c2": "#1a1a1a",
+  "kind": "main",
+  "aliases": [
+   "Colo Colo",
+   "Colo-Colo"
+  ]
+ },
+ {
+  "slug": "crystal-palace",
+  "name": "Crystal Palace",
+  "short": "CRY",
+  "c1": "#1b3fa8",
+  "c2": "#f4da16",
+  "c3": "#1a1a1a",
+  "kind": "main",
+  "aliases": [
+   "Crystal Palace"
+  ]
+ },
+ {
+  "slug": "fc-juarez",
+  "name": "FC Juárez",
+  "short": "JUA",
+  "c1": "#7ac135",
+  "c2": "#f2f2f2",
+  "c3": "#1a1a1a",
+  "kind": "main",
+  "aliases": [
+   "FC Juarez",
+   "FC Juárez",
+   "Juárez"
+  ]
+ },
+ {
+  "slug": "le-mans",
+  "name": "Le Mans FC",
+  "short": "LEM",
+  "c1": "#d5191d",
+  "c2": "#e9d61c",
+  "c3": "#145854",
+  "kind": "main",
+  "aliases": [
+   "Le Mans",
+   "Le Mans FC"
+  ]
+ },
+ {
+  "slug": "liverpool",
+  "name": "Liverpool",
+  "short": "LIV",
+  "c1": "#c01232",
+  "c2": "#1a1a1a",
+  "c3": "#f2f2f2",
+  "kind": "main",
+  "aliases": [
+   "Liverpool",
+   "Liverpool FC"
+  ]
+ },
+ {
+  "slug": "lyon",
+  "name": "Olympique Lyonnais",
+  "short": "LYO",
+  "c1": "#f2f2f2",
+  "c2": "#e8374f",
+  "c3": "#1a1a1a",
+  "kind": "main",
+  "aliases": [
+   "Lyon",
+   "Olympique Lyonnais",
+   "OL Lyonnes",
+   "OL Lyon"
+  ]
+ },
+ {
+  "slug": "marseille",
+  "name": "Olympique de Marseille",
+  "short": "OLM",
+  "c1": "#f2f2f2",
+  "c2": "#2a3640",
+  "c3": "#b8c0ea",
+  "kind": "main",
+  "aliases": [
+   "Marseille",
+   "Olympique de Marseille",
+   "OM"
+  ]
+ },
+ {
+  "slug": "palestino",
+  "name": "Palestino",
+  "short": "PAL",
+  "c1": "#f2f2f2",
+  "c2": "#1a1a1a",
+  "c3": "#e6d3cf",
+  "kind": "main",
+  "aliases": [
+   "Palestino",
+   "CD Palestino"
+  ]
+ },
+ {
+  "slug": "palmeiras",
+  "name": "Palmeiras",
+  "short": "PAM",
+  "c1": "#2d524b",
+  "c2": "#f2f2f2",
+  "c3": "#cea25d",
+  "kind": "main",
+  "aliases": [
+   "Palmeiras",
+   "SE Palmeiras"
+  ]
+ },
+ {
+  "slug": "paris-fc",
+  "name": "Paris FC",
+  "short": "PFC",
+  "c1": "#2c3c5d",
+  "c2": "#97cee5",
+  "kind": "main",
+  "aliases": [
+   "Paris FC"
+  ]
+ },
+ {
+  "slug": "palermo",
+  "name": "Palermo",
+  "short": "PLM",
+  "c1": "#f2b3c4",
+  "c2": "#1a1a1a",
+  "c3": "#e8ece4",
+  "kind": "main",
+  "aliases": [
+   "Palermo",
+   "Palermo FC"
+  ]
+ },
+ {
+  "slug": "pumas",
+  "name": "Pumas UNAM",
+  "short": "PUM",
+  "c1": "#f2f2f2",
+  "c2": "#384354",
+  "c3": "#bd8f60",
+  "kind": "main",
+  "aliases": [
+   "Pumas",
+   "Pumas UNAM",
+   "UNAM Pumas"
+  ]
+ },
+ {
+  "slug": "tigres",
+  "name": "Tigres UANL",
+  "short": "TIG",
+  "c1": "#f0c433",
+  "c2": "#335eac",
+  "c3": "#1a1a1a",
+  "kind": "main",
+  "aliases": [
+   "Tigres",
+   "Tigres UANL"
+  ]
+ },
+ {
+  "slug": "tijuana",
+  "name": "Xolos de Tijuana",
+  "short": "TIJ",
+  "c1": "#e72e37",
+  "c2": "#f2f2f2",
+  "c3": "#4a1a20",
+  "kind": "main",
+  "aliases": [
+   "Tijuana",
+   "Club Tijuana",
+   "Xolos"
+  ]
+ },
+ {
+  "slug": "germany-national",
+  "name": "German National Team",
+  "short": "GER",
+  "c1": "#f2f2f2",
+  "c2": "#6a202b",
+  "kind": "main",
+  "aliases": [
+   "Germany",
+   "German National Team"
+  ]
+ },
+ {
+  "slug": "cape-verde",
+  "name": "Cape Verde",
+  "short": "CPV",
+  "c1": "#323667",
+  "c2": "#f2f2f2",
+  "c3": "#d02932",
+  "kind": "main",
+  "aliases": [
+   "Cape Verde",
+   "Cabo Verde"
+  ]
+ },
+ {
+  "slug": "ac-milan-throwback",
+  "name": "AC Milan Throwback",
+  "short": "ACT",
+  "c1": "#9d2a2c",
+  "c2": "#f2f2f2",
+  "c3": "#1a1a1a",
+  "kind": "throwback",
+  "base": "ac-milan",
+  "label": "Throwback"
  }
 ]

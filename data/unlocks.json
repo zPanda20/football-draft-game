@@ -331,8 +331,8 @@
    "slug": "strawhat-fc",
    "name": "Strawhat FC",
    "short": "STW",
-   "c1": "#f0d264",
-   "c2": "#c1272d",
+   "c1": "#c25843",
+   "c2": "#f0d264",
    "kind": "code",
    "unlock": "freedom"
   },
@@ -340,8 +340,8 @@
    "slug": "nfl-green-bay",
    "name": "Green Bay Packers",
    "short": "GBP",
-   "c1": "#203731",
-   "c2": "#ffb612",
+   "c1": "#2e4a45",
+   "c2": "#1e436b",
    "kind": "code",
    "unlock": "nfl"
   },
@@ -358,7 +358,7 @@
    "slug": "nfl-philadelphia",
    "name": "Philadelphia Eagles",
    "short": "PHE",
-   "c1": "#004c54",
+   "c1": "#065f71",
    "c2": "#a5acaf",
    "kind": "code",
    "unlock": "nfl"
@@ -367,8 +367,8 @@
    "slug": "nfl-san-francisco",
    "name": "San Francisco 49ers",
    "short": "SF9",
-   "c1": "#aa0000",
-   "c2": "#b3995d",
+   "c1": "#9c0045",
+   "c2": "#f2f2f2",
    "kind": "code",
    "unlock": "nfl"
   },
@@ -376,8 +376,8 @@
    "slug": "nfl-dallas",
    "name": "Dallas Cowboys",
    "short": "DAL",
-   "c1": "#003594",
-   "c2": "#869397",
+   "c1": "#f2f2f2",
+   "c2": "#1b416b",
    "kind": "code",
    "unlock": "nfl"
   },
@@ -385,8 +385,8 @@
    "slug": "nfl-pittsburgh",
    "name": "Pittsburgh Steelers",
    "short": "PIT",
-   "c1": "#101820",
-   "c2": "#ffb612",
+   "c1": "#1a1a1a",
+   "c2": "#f2f2f2",
    "kind": "code",
    "unlock": "nfl"
   },
@@ -394,10 +394,11 @@
    "slug": "nfl-baltimore",
    "name": "Baltimore Ravens",
    "short": "BAL",
-   "c1": "#241773",
-   "c2": "#9e7c0c",
+   "c1": "#470880",
+   "c2": "#f2f2f2",
    "kind": "code",
-   "unlock": "nfl"
+   "unlock": "nfl",
+   "c3": "#1a1a1a"
   },
   {
    "slug": "cp-arasaka",

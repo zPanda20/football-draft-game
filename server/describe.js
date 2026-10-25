@@ -1,6 +1,6 @@
 import { ACT_INFO, SHOP, SHOP_CATS } from "../engine/life.js";
 // The static catalogue sent to every browser once: players, items, clubs and the position map.
-import { readdirSync, statSync, existsSync } from "node:fs";
+import { readdirSync, statSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { POSITIONS, SLOT_W, XY } from "../engine/roster.js";
 
@@ -28,6 +28,18 @@ export function playerPics(publicDir) {
     rank[slug] = r; out[slug] = `/assets/players/${encodeURIComponent(f)}?v=${Math.floor(statSync(join(dir, f)).mtimeMs / 1000)}`;
   }
   picCache = { at: Date.now(), dir: publicDir, v: out };
+  return out;
+}
+// Crests for clubs that are not game clubs but appear on player cards (Arsenal, Man City, Roma...):
+// public/assets/crests/<slug>.png, with the club names each one answers to listed in data/cardcrests.json.
+// Returns [{ names, img }].
+export function cardCrests(publicDir, dataDir = join(publicDir, "..", "data")) {
+  const file = join(dataDir, "cardcrests.json"), dir = join(publicDir, "assets", "crests"); if (!existsSync(file) || !existsSync(dir)) return [];
+  const map = JSON.parse(readFileSync(file, "utf8")), files = new Map(readdirSync(dir).map((f) => [f.toLowerCase(), f])), out = [];
+  for (const [slug, names] of Object.entries(map)) for (const ext of EXTS) {
+    const f = files.get(slug + "." + ext);
+    if (f) { out.push({ names, img: `/assets/crests/${encodeURIComponent(f)}?v=${Math.floor(statSync(join(dir, f)).mtimeMs / 1000)}` }); break; }
+  }
   return out;
 }
 export function clubsWithArt(clubs, publicDir) {

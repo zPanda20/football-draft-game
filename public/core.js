@@ -14,7 +14,8 @@ export function buildIndex() {
   st.items = Object.fromEntries(st.cat.items.map((i) => [i.id, i]));
   st.clubBy = Object.fromEntries(st.cat.clubs.map((c) => [c.slug, c]));
   // the real-world club names on player cards -> the game's club (so cards can show its badge)
-  st.clubAlias = {};
+  st.clubAlias = {}; st.cardAlias = {};
+  for (const e of st.cat.cardCrests || []) for (const n of e.names) st.cardAlias[norm(n)] = e.img;
   for (const c of st.cat.clubs) if (c.kind === "main") for (const n of [c.name, ...(c.aliases || [])]) st.clubAlias[norm(n)] = c.slug;
 }
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -69,7 +70,7 @@ export function flag(nat) {
 const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 export const initials = (n) => { const w = String(n).split(/\s+/).filter(Boolean); return ((w[0] || "")[0] || "") + (w.length > 1 ? w[w.length - 1][0] : (w[0] || "")[1] || ""); };
 export function clubBadge(name, size = 22) {
-  const c = clubByName(name), img = c && art(c, "badge");
+  const c = clubByName(name), img = (c && art(c, "badge")) || (!c && st.cardAlias && st.cardAlias[norm(name)]);
   if (img) return `<img class="cbadge img" src="${esc(img)}" alt="${esc(name)}" title="${esc(name)}" style="--s:${size}px" loading="lazy">`;
   if (c) return `<span class="cbadge tc" style="--s:${size}px;--a:${c.c1};--b:${c.c2}" title="${esc(name)}">${esc(c.short.slice(0, 3))}</span>`;
   return `<span class="cbadge" style="--s:${size}px;--h:${hue(name)}" title="${esc(name)}">${esc(initials(name).toUpperCase())}</span>`;

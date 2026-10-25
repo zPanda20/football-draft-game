@@ -454,3 +454,6 @@ table.tb.stats td.mute{color:var(--mute)}
 .subwarn{color:var(--warn);margin-top:6px}
 .plannote{padding:10px 12px;border:1px solid var(--acc);border-radius:10px;background:color-mix(in srgb,var(--acc) 9%,var(--panel2))}.plannote.over{border-color:var(--line);background:var(--panel2)}
 .plannote .chgs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px}.plannote .chg{font-size:13px}.plannote .neg{color:var(--bad)}.plannote .pos{color:var(--good)}
+
+/* position colour on the bench / team list rows */
+.benchrow.g-gk{box-shadow:inset 3px 0 0 #ff9a2e}.benchrow.g-def{box-shadow:inset 3px 0 0 #ffd23f}.benchrow.g-mid{box-shadow:inset 3px 0 0 #46d37a}.benchrow.g-att{box-shadow:inset 3px 0 0 #4aa8ff}

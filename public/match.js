@@ -272,8 +272,8 @@ function lineupEditor(S, half) {
   const onPitch = new Set([l.gk, ...l.out]);
   const sel = st.ui.mSel;
   const roster = t.players.map((id) => pl(id)).sort((a, b) => (a.susp ? 1 : 0) - (b.susp ? 1 : 0) || b.ovr - a.ovr);
-  const row = (p) => p.susp ? `<div class="benchrow dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span></div>` : `<div class="benchrow ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
-    <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="mute small">${p.pos}</span></span>
+  const row = (p) => p.susp ? `<div class="benchrow g-${posGroup(p.pos)} dim"><span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span><span class="pill bad tiny">SUSP ${p.susp}</span></div>` : `<div class="benchrow g-${posGroup(p.pos)} ${sel && sel.kind === "p" && sel.val === p.id ? "sel" : sel ? "swappable" : ""}" data-act="mplayer" data-id="${p.id}" draggable="true">
+    <span class="ovrb ${tierOf(p.ovr)}">${p.ovr}</span><span class="grow"><b>${esc(p.name)}</b> <span class="pg pg-${posGroup(p.pos)}">${esc(p.pos)}</span></span>
     <span class="tiny mute" title="Stamina. Tired players play below their rating.">${Math.round(stamOf(p.id))}%${tiredLoss(p.ovr, stamOf(p.id)) >= 2 ? ` <span class="neg">−${tiredLoss(p.ovr, stamOf(p.id))}</span>` : ""}</span>${onPitch.has(p.id) ? `<span class="pill tiny">on</span>` : `<span class="pill tiny acc">bench</span>`}</div>`;
   const isReady = t.ready;
   const forms = Object.keys(S.formations).map((f) => `<button class="btn sm ${l.formation === f ? "on" : ""}" data-act="mform" data-f="${f}">${f}</button>`).join("");

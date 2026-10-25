@@ -245,7 +245,7 @@ t("clubs: unique slugs, colours, variants point at a main club, art files are pi
   const names = new Set(D.players.map((p) => p.club)); const norm = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const alias = new Map(); for (const c of cl) if (c.kind === "main") for (const n of [c.name, ...(c.aliases || [])]) alias.set(norm(n), c.slug);
   for (const n of ["Real Madrid", "FC Barcelona", "FC Bayern München", "Paris Saint-Germain", "Lombardia FC (Inter Milan)", "Milano FC (AC Milan)", "Atlético de Madrid", "Manchester United", "Racing Louisville FC", "ACF Fiorentina", "Portland Thorns", "Inter Miami CF"]) { assert.ok(names.has(n), n); assert.ok(alias.has(norm(n)), "no crest for " + n); }
-  assert.ok(!alias.has(norm("Paris FC")));
+  assert.equal(alias.get(norm("Paris FC")), "paris-fc"); assert.equal(alias.get(norm("Paris Saint-Germain")), "psg", "Paris FC and PSG are different clubs");
 });
 t("player portraits: a file named after a player's slug is picked up, png wins over other formats, strangers are ignored", async () => {
   const { playerPics } = await import("../server/describe.js");
