@@ -183,7 +183,7 @@ export function brandMark(id, h = 34, o = {}) {
   const art = st.cat && st.cat.art && st.cat.art.brands, u = art && art[id], b = st.cat && st.cat.life && st.cat.life.brands.find((x) => x.id === id);
   if (!u) return `<span class="brandtxt">${esc(b ? b.name : id)}</span>`;
   let bg;
-  if (o.tex) bg = `url(/assets/cards/${o.tex}.jpg) center/cover`;
+  if (o.tex) bg = `url(/assets/cards/boots/${o.tex}.jpg) center/cover`;   // the flat original textures: the new busy card art makes a small logo unreadable
   else if (o.cols && o.cols[0]) { const [a, c] = o.cols; bg = c && c !== a ? `linear-gradient(115deg,${a} 0 52%,${c} 52% 100%)` : a; }
   else bg = "#fff";
   return `<span class="bmark" role="img" aria-label="${esc(b ? b.name : id)}" style="--m:url('${esc(u)}');--h:${h}px;background:${bg}"><img src="${esc(u)}" alt="" loading="lazy"></span>`;

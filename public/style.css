@@ -562,4 +562,4 @@ table.tb.stats td.mute{color:var(--mute)}
 .gd-nav{display:flex;align-items:center;gap:10px;margin-top:16px}.gd-dots{flex:1;display:flex;gap:6px;justify-content:center}.gd-dots i{width:9px;height:9px;border-radius:50%;background:var(--line,#3a4a44);cursor:pointer}.gd-dots i.on{background:var(--acc)}
 body.helping{overflow:hidden}
 @media (max-width:560px){#helpov{padding:0}.help-card{max-height:100vh;height:100%;border-radius:0}.gd h2{font-size:22px}}
-.icard .bmark{filter:brightness(1.5) saturate(1.15) drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.icard .bmark{filter:brightness(1.18) saturate(1.35) drop-shadow(0 1px 1px rgba(0,0,0,.5))}

@@ -13,7 +13,7 @@ One folder per club (the folder name is the club's `slug` in `data/teams.json`).
 `png`, `webp`, `svg`, `jpg` and `jpeg` all work. Transparent PNG or SVG is best for badges and kits. Reload the page after adding files; no restart needed.
 
 A throwback or alt club (e.g. `juventus-throwback`) with no badge or wallpaper of its own borrows the main club's.
-An alt marked `"kitsFrom": "base"` in `data/teams.json` (`psg-twd`, `inter-vr46`) is only a new **away kit**: its folder holds just `kit-away.png`, and the home kit, third kit, badge and wallpaper are the main club's.
+An alt marked `"kitsFrom": "base"` in `data/teams.json` (`psg-twd`, `inter-vr46`, `ac-milan-alt`) is only a new **away kit**: its folder holds just `kit-away.png`, and the home kit, third kit, badge and wallpaper are the main club's.
 
 **Colours follow the kits:** in `data/teams.json`, `c1` is the home kit's colour, `c2` the away kit's and `c3` the third kit's (set `c3` when you add a third kit). A match is drawn in the colours of the kits the two sides wear. If they are too close, the away side changes into its third kit, else the home side does, else the pair of kits that sit furthest apart is used.
 Player cards match on the real club name (see `aliases` in `data/teams.json`): a card for a player at Real Madrid shows the `real-madrid` badge.

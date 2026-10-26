@@ -645,12 +645,13 @@
  {
   "slug": "ac-milan-alt",
   "name": "AC Milan Alt",
-  "short": "MIA",
-  "c1": "#f5f5f5",
-  "c2": "#fb090b",
+  "short": "MLA",
+  "c1": "#d31a1f",
+  "c2": "#efe6d2",
   "kind": "alt",
   "base": "ac-milan",
-  "label": "Alt"
+  "label": "Alt",
+  "kitsFrom": "base"
  },
  {
   "slug": "como",
