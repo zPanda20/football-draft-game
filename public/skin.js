@@ -23,6 +23,18 @@ function phaseText(S) {
     default: return null;
   }
 }
+// ---------- one banner at a time ----------
+// Kick-off, Goal, Half-time, Full time and the stage banners all go through this queue, so two of them never cover each other.
+const q = []; let busy = false;
+function runQ() {
+  if (busy) return; const j = q.shift(); if (!j) return; busy = true;
+  let el = $("#" + j.id); if (!el) { el = document.createElement("div"); el.id = j.id; document.body.appendChild(el); }
+  el.className = j.base; void el.offsetWidth;
+  el.innerHTML = j.html; el.className = j.base + " go" + (j.quick ? " quick" : "");
+  setTimeout(() => { busy = false; runQ(); }, j.ms + 60);
+}
+function enqueue(j) { if (q.length > 3) q.shift(); q.push(j); runQ(); }
+const QUICK = new Set(["md.half1", "md.half", "md.result"]);          // the match banners: a second on screen, then the clock starts
 let lastKey = null;
 export function phaseBanner(S) {
   if (!S || S.step === "lobby") { lastKey = null; return; }
@@ -31,19 +43,14 @@ export function phaseBanner(S) {
   const first = lastKey === null; lastKey = key;
   if (first || reduced()) return;                                    // not on a page reload
   const t = phaseText(S); if (!t) return;
-  let el = $("#phasebanner"); if (!el) { el = document.createElement("div"); el.id = "phasebanner"; document.body.appendChild(el); }
-  el.className = "phasebanner"; void el.offsetWidth;
-  el.innerHTML = `<div class="pb-in"><b>${esc(t[0])}</b><span>${esc(t[1])}</span></div>`;
-  el.className = "phasebanner go";
+  const quick = QUICK.has(S.step);
+  enqueue({ id: "phasebanner", base: "phasebanner", quick, ms: quick ? 1100 : 2500, html: `<div class="pb-in"><b>${esc(t[0])}</b><span>${esc(t[1])}</span></div>` });
 }
 
 // ---------- the GOAL call ----------
 export function goalCall(who, team, minute) {
   if (reduced()) return;
-  let el = $("#goalcall"); if (!el) { el = document.createElement("div"); el.id = "goalcall"; document.body.appendChild(el); }
-  el.className = "goalcall"; void el.offsetWidth;
-  el.innerHTML = `<div class="gc-in"><b>GOAL</b><span>${esc(who)} · ${esc(team)} · ${minute}'</span></div>`;
-  el.className = "goalcall go";
+  enqueue({ id: "goalcall", base: "goalcall", ms: 2100, html: `<div class="gc-in"><b>GOAL</b><span>${esc(who)} · ${esc(team)} · ${minute}'</span></div>` });
 }
 
 // ---------- tilt and glare on cards ----------

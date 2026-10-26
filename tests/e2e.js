@@ -10,7 +10,7 @@ const srv = spawn("node", ["server/index.js"], { env: { ...process.env, PORT, TE
 await new Promise((r) => srv.stdout.on("data", (d) => String(d).includes("http://localhost") && r()));
 
 const log = [], seen = new Set();
-const planSeen = { n: 0 };
+const planSeen = { n: 0 }, packs = { n: 0 };
 function client(name, host) {
   const token = "tok-" + name, ws = new WebSocket(`ws://localhost:${PORT}/ws`);
   const c = { ws, token, s: null, name };
@@ -37,7 +37,13 @@ function client(name, host) {
     if (s.step === "md.half" && name === "Ana" && me.match && me.match.halftime.plan && !me.match.halftime.plan.over) planSeen.n++;
     if ((s.step === "md.lineup" || s.step === "md.half") && !s.teams[me.teamId].ready) send({ t: "ready" });
     if (s.step === "off.resign" && !s.teams[me.teamId].ready) { for (const r of me.resign || []) if (me.coins >= r.fees[0]) send({ t: "resign", id: r.id, len: 1 }); send({ t: "ready" }); }
-    if (s.step === "off.rookie.turn" && me.myTurn && s.rookies.avail.length) send({ t: "rookie", id: s.rookies.avail[0] });
+    if (s.step === "off.rookie.turn" && me.myTurn) {          // pack draft: Ana opens packs, Bo takes leftovers when there are any, Cy abstains
+      const R = s.rookies;
+      if (name === "Cy") send({ t: "rookiePass" });
+      else if (R.stage === "pack") { send({ t: "rookie", id: R.pack[0] }); packs.n++; }
+      else if (name === "Bo" && R.avail.length) send({ t: "rookie", id: R.avail[0] });
+      else send({ t: "rookiePack" });
+    }
     if (s.step === "off.trade" && !s.teams[me.teamId].ready) send({ t: "ready" });
   });
   return c;
@@ -66,5 +72,7 @@ if (log.length) console.log(log.join("\n"));
 srv.kill();
 for (const c of [host, ...others]) c.ws.close();
 if (!ok) { console.error("FAILED: season did not finish"); process.exit(1); }
+console.log("packs kept by hand:", packs.n);
+if (!packs.n) { console.error("FAILED: nobody opened a rookie pack"); process.exit(1); }
 console.log("e2e ok");
 process.exit(0);

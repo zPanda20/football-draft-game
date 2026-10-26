@@ -146,9 +146,9 @@ export function userTags(t) {
   const us = t.players.map((id) => pl(id)).filter((p) => p && p.user);
   return us.map((p) => `<span class="utag" title="Created footballer">★ ${esc(p.name)}</span>`).join("");
 }
-export function chip(t, size = 22, owner = false) {
+export function chip(t, size = 22, owner = true) {   // a manager's name always sits in brackets after the club
   if (!t) return "";
-  return `<span class="tchip">${crest(t, size)}<span class="n">${esc(t.name)}${owner && t.owner ? ` <span class="own">(${esc(t.owner)})</span>` : ""}</span></span>`;
+  return `<span class="tchip">${crest(t, size)}<span class="n">${esc(t.name)}${owner && t.owner ? ` <span class="ownr">(${esc(t.owner)})</span>` : ""}</span></span>`;
 }
 // Position colours: keepers orange, defence yellow, midfield green, attack blue.
 export const posGroup = (pos) => (pos === "GK" ? "gk" : ["CB", "LB", "RB"].includes(pos) ? "def" : ["LW", "RW", "ST"].includes(pos) ? "att" : "mid");
@@ -176,9 +176,29 @@ export function miniPlayer(id, extra = "") {
   const p = pl(id); if (!p) return "";
   return `<span class="mini ${tierOf(p.ovr)} pgb-${posGroup(p.pos)}"><i>${p.ovr}</i><b>${esc(p.pos)}</b><span class="nm">${esc(p.name)}</span>${p.susp ? `<span class="pill bad tiny" title="Suspended">SUSP ${p.susp}</span>` : ""}${extra}</span>`;
 }
+// A boot maker's logo is a white shape. It is painted either in the user's club colours (`cols`) or, on boots, with the card texture of the
+// boot's quality (`tex`: silver / gold / ruby), so every logo is one or two flat colours and always matches the page.
+export const BOOT_TEX = { low: "silver", mid: "gold", top: "ruby" };
+export function brandMark(id, h = 34, o = {}) {
+  const art = st.cat && st.cat.art && st.cat.art.brands, u = art && art[id], b = st.cat && st.cat.life && st.cat.life.brands.find((x) => x.id === id);
+  if (!u) return `<span class="brandtxt">${esc(b ? b.name : id)}</span>`;
+  let bg;
+  if (o.tex) bg = `url(/assets/cards/${o.tex}.jpg) center/cover`;
+  else if (o.cols && o.cols[0]) { const [a, c] = o.cols; bg = c && c !== a ? `linear-gradient(115deg,${a} 0 52%,${c} 52% 100%)` : a; }
+  else bg = "#fff";
+  return `<span class="bmark" role="img" aria-label="${esc(b ? b.name : id)}" style="--m:url('${esc(u)}');--h:${h}px;background:${bg}"><img src="${esc(u)}" alt="" loading="lazy"></span>`;
+}
+// The user's club colours, nudged lighter if too dark to read on the page; used to paint a brand logo.
+export function clubInk(c) {
+  if (!c) return null;
+  const show = (h) => (lum(h) > 0.07 ? h : lighten(h, 0.4));
+  const a = show(c.c1), b = c.c2 ? show(c.c2) : null;
+  return b && colorDist(a, b) > 90 ? [a, b] : [a];
+}
+const bootMark = (i) => { const m = /^boots-([a-z]+)-/.exec(i.id || ""); return m ? `<div class="ibrand">${brandMark(m[1], 26, { tex: BOOT_TEX[i.tier] || "silver" })}</div>` : ""; };
 export function itemCard(it, opts = {}) {
   const i = typeof it === "string" ? st.items[it] : it; if (!i) return "";
-  return `<div class="icard ${i.tier || ""} ${opts.cls || ""}" data-iid="${esc(i.id)}"><div class="iname">${esc(i.name)}</div><div class="itext">${esc(i.text)}</div><div class="imeta">${i.scope === "player" ? "player" : "team"} · ${i.uses}× use${i.uses > 1 ? "s" : ""}${i.supply != null ? " · only " + i.supply : ""}</div>${opts.tag ? `<div class="ctag">${opts.tag}</div>` : ""}</div>`;
+  return `<div class="icard ${i.tier || ""} ${opts.cls || ""}" data-iid="${esc(i.id)}">${bootMark(i)}<div class="iname">${esc(i.name)}</div><div class="itext">${esc(i.text)}</div><div class="imeta">${i.scope === "player" ? "player" : "team"} · ${i.uses}× use${i.uses > 1 ? "s" : ""}${i.supply != null ? " · only " + i.supply : ""}</div>${opts.tag ? `<div class="ctag">${opts.tag}</div>` : ""}</div>`;
 }
 
 export function remaining() { const S = st.S; if (!S || S.paused || !S.deadline) return null; return Math.max(0, S.deadline - now()); }

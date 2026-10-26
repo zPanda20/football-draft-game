@@ -32,8 +32,8 @@ export function playerPics(publicDir) {
 }
 // Loose art, one folder per kind, one file per thing (png / webp / svg / jpg), picked up on a page reload:
 //   partners/<id>.png (people to date)   brands/<id>.png (boot makers)   trophies/<kind>.png (title, ballon, boot, playmaker, glove)
-//   news/<kind>.jpg (a picture for each kind of headline)   ui/<name>.jpg (start page wallpaper "start", paper masthead "masthead")
-export const ART_FOLDERS = ["partners", "brands", "trophies", "news", "ui"];
+//   sources/<id>.png (newspaper and magazine mastheads, white on clear)   news/<kind>.jpg (a picture for each kind of headline)   ui/<name>.jpg (start page wallpaper "start", paper masthead "masthead")
+export const ART_FOLDERS = ["partners", "brands", "trophies", "news", "ui", "sources"];
 let miscCache = { at: 0, dir: null, v: null };
 export function miscArt(publicDir) {
   if (miscCache.v && miscCache.dir === publicDir && Date.now() - miscCache.at < 4000) return miscCache.v;

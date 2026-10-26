@@ -18,7 +18,8 @@ Open the page, create a game, share the 4-letter code. `/screen?room=CODE` is th
 - **Money**: 650 start coins, 45 base income per matchday plus a catch-up share for teams low in the table and +10 for a win or +5 for a draw (shown as a small animation after full time). Draft contracts run 3/3/2/2/2/1/1/1 years by pack round; re-signing your own player costs 75% of the normal fee.
 - **Market**: a market-value lottery for free agents and items (offer at least market value times the contract multiplier, extra coins raise your tickets, only the winner pays).
 - **Season**: round-robin, 3-1-0 table. Each match is two simulated halves with a half-time window for substitutions, formation and items. Live momentum and possession graphs, a results screen with every scorer and minute, a Player of the Match for every game, season stats for every player (goals, assists, chances created, shots, xG, tackles, interceptions, saves, clean sheets, wins, average rating, POTM awards), end-of-season awards (Ballon d'Or, Golden Boot, Playmaker, Golden Glove), a substitution plan managers set between matches that runs at half-time unless overridden, and an item store that is open between matches (with rare Steroids, and Ice Baths for post-match stamina).
-- **Off-season**: retirements, ageing, re-signing, a one-round rookie draft (worst team first), a trade window, then free agency.
+- **Off-season**: retirements, ageing, re-signing, the rookie pack draft (worst team first: open a pack of three and keep one, take a leftover, or abstain; unopened rookies wait a year without ageing), a trade window, then free agency. The History card holds the all-time table and every past season.
+- **Lite mode** (per person): the club plays like a CPU club for whatever is switched off (XI, half-time changes, re-signing, trades, stats). No bonus, no softer economy; `npm run lite` prints the numbers. A "?" button opens the start guide on every screen.
 - **Player mode**: a person creates a footballer (rolled numbers, 81 to 86 overall), grows him with career cards, takes offers from managers and computer clubs, and chooses push or conserve at half-time.
 - Idle and disconnected managers are handled (the room stops waiting for them), pace voting, pause and skip for the host, checkpoints saved to `DATA_DIR` and restored on restart.
 
@@ -38,7 +39,9 @@ Team art (badge, wallpaper, home/away/third kits) is dropped into `public/assets
 
 Player portraits go in `public/assets/players/`, named after the player's `slug` in `data/players.json` (e.g. `kylian-mbappe.png`; png, webp, svg or jpg). A card shows the portrait in place of the initials; a transparent cutout of the head and shoulders works best, roughly square. Reload the page after adding files. Photos for footballers a person creates in the lobby are separate: those go in `public/assets/faces/`.
 
-Card textures are `public/assets/cards/ruby.jpg` (90+), `gold.jpg` (85 to 89) and `silver.jpg`; the old gradients show underneath if a file is missing.
+Boot-maker logos are white shapes in `public/assets/brands/<id>.png`; the client paints them in the user's club colours (deals) or with the card texture of the boot's quality (items). Newspaper and magazine mastheads are in `public/assets/sources/<id>.png` (sun, athletic, telegraph, lequipe, gq, bazaar, vogue).
+
+Card textures are `public/assets/cards/ruby.jpg` (90+), `gold.jpg` (85 to 89), `silver.jpg` and `legend.jpg` (reserved for the legends draft); the old gradients show underneath if a file is missing.
 
 All tunable numbers live in `engine/params.js`. Balance tests change those, never the code.
 

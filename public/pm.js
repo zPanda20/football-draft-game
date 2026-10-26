@@ -1,5 +1,5 @@
 // Player mode screens: the character creator (lobby), the career panel shown over every game screen, and the manager's list of free players.
-import { st, esc, send, team, chip, crest, card, pl, miniPlayer, coins, flag, tierOf, avatar, faceOf, SKIN, HAIRC, HAIR_NAMES, ISO_NATIONS } from "./core.js";
+import { st, esc, send, team, chip, crest, card, pl, miniPlayer, itemCard, coins, flag, tierOf, avatar, faceOf, SKIN, HAIRC, HAIR_NAMES, ISO_NATIONS } from "./core.js";
 
 const POS = ["ST", "LW", "RW", "CAM", "CM", "LM", "RM", "CDM", "CB", "LB", "RB", "GK"];
 const OUT = ["PAC", "SHO", "PAS", "DRI", "DEF", "PHY"], GKL = ["DIV", "HAN", "KIC", "REF", "SPE", "POS"];
@@ -33,6 +33,7 @@ export const pmHandlers = {
     ids = ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...ids, a.id].slice(0, cap);
     send({ t: "equipSelf", ids });
   },
+  openPack() { send({ t: "itemPack" }); },
   effort(a) { send({ t: "effort", mode: a.mode === (st.S.pm && st.S.pm.effort) ? null : a.mode }); },
 };
 
@@ -83,8 +84,16 @@ export function pmPanel(S) {
   const ban = pm.susp ? `<div class="pill bad" style="margin-top:8px">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</div>` : "";
   const eff = pm.onPitch ? `<div class="mt"><b>Half-time</b><div class="row mt" style="gap:8px"><button class="btn ${pm.effort === "push" ? "pri" : ""}" data-act="effort" data-mode="push">Push</button><button class="btn ${pm.effort === "conserve" ? "pri" : ""}" data-act="effort" data-mode="conserve">Conserve</button></div><p class="small mute mt">Push: a little sharper, tires you faster. Conserve: save your legs for later.</p></div>` : "";
   return `<div class="card pmp"><div class="row wrap" style="gap:16px;align-items:flex-start">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div>${ban}${last}</div></div>${wallet}
-    ${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
+    ${packStrip(S)}${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
     ${open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "")}${eff}</div>`;
+}
+
+// Item packs: shown during the draft; each holds boots, an ice bath or a purse of coins. What is left is opened when the draft ends.
+function packStrip(S) {
+  const pm = S.pm, draft = S.step.startsWith("draft.");
+  const log = (pm.packLog || []).map((r) => r.kind === "coins" ? `<span class="pill good">${coins(r.amt)}</span>` : st.items[r.id] ? `<span class="pill good" title="${esc(st.items[r.id].text)}">${esc(st.items[r.id].name)}</span>` : "").join(" ");
+  if (!pm.packs && !log) return "";
+  return `<div class="mt"><div class="row wrap" style="gap:10px;align-items:center"><b>Item packs</b>${pm.packs ? `<button class="btn pri ${draft ? "nudgeme" : ""}" data-act="openPack" ${draft ? "" : "disabled"}>Open a pack (${pm.packs} left)</button>` : ""}<span class="small mute">${pm.packs ? (draft ? "One item or a purse of coins each. Unopened packs open themselves when the draft ends." : "Packs can be opened during the draft.") : "All opened."}</span></div>${log ? `<div class="row wrap mt" style="gap:6px">Pulled: ${log}</div>` : ""}</div>`;
 }
 
 // ---------- manager's view of players looking for a club ----------

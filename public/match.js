@@ -6,6 +6,8 @@ import { storeCard } from "./store.js";
 import { statsHandlers, playerStats, awardsCard } from "./stats.js";
 import { frontPage } from "./life.js";
 import { goalCall } from "./skin.js";
+import { historyCard } from "./history.js";
+import { lt, isLite, lcCard, lcMark, liteTeam, liteHalf, moreView } from "./lite.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // A team with its kit right next to the crest (side 0 = home kit, 1 = away kit).
@@ -277,6 +279,7 @@ function planBanner(S) {
 }
 function lineupEditor(S, half) {
   const me = S.me, t = team(me.teamId);
+  if (!half && !lt(S).xi) return liteTeam(S, itemsTray);
   const l = half ? me.match.halftime.lineup : me.lineup;
   const stamOf = half ? (id) => me.match.halftime.stamina[id] ?? 100 : (id) => pl(id).stam;
   const onPitch = new Set([l.gk, ...l.out]);
@@ -299,7 +302,7 @@ function lineupEditor(S, half) {
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
       ${half ? `<button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button>` : ""}</div>
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
-    ${half ? planBanner(S) : subPlanCard(S, l)}
+    ${half ? (lt(S).subs ? planBanner(S) : "") : (lt(S).subs ? subPlanCard(S, l) : "")}
     ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
     <div class="pitchfirst mt">${swapHint(sel)}${pitch(S, l, stamOf)}<div class="tray"><div class="th"><b>Bench</b><span>${roster.length} player${roster.length === 1 ? "" : "s"} · drag a card onto the pitch to swap, or tap two players</span></div><div class="tl" data-keep="bench">${roster.map(tile).join("") || `<div class="tiny mute" style="padding:8px">Nobody on the bench.</div>`}</div></div></div></div>`;
 }
@@ -310,7 +313,7 @@ function pbInfo(S) {
   let t = 1;
   if (S.step === "md.half1" || S.step === "md.half2") {
     const r = remaining();
-    t = r == null ? (st.ui.pbLast ?? 0) : S.dur > 0 ? 1 - r / S.dur : 1;
+    t = r == null ? (st.ui.pbLast ?? 0) : S.dur > 0 ? ((1 - r / S.dur) - (R.lead || 0)) / (1 - (R.lead || 0)) : 1;   // the first second is the banner's
     t = Math.max(0, Math.min(1, t)); st.ui.pbLast = t;
   }
   return { R, half: R.kind === "half2" ? 1 : 0, t };
@@ -458,7 +461,7 @@ function focusK(S) {
 function scoreboard(S, m, k) {
   const [HC, AC] = matchColors(club(team(m.a)), club(team(m.b))), ink = (c) => (lum(c) > 0.4 ? "#10151b" : "#ffffff");
   const half = S.step === "md.half1" ? "First half" : S.step === "md.half" ? "Half-time" : S.step === "md.half2" ? "Second half" : "Full time";
-  const one = (ti, opp, side, cls) => `<div class="sbs ${cls}">${crest(team(ti), 52)}${shirt(club(team(ti)), kitOf(ti, opp, side), 46)}<span class="tn">${esc(team(ti).name)}</span></div>`;
+  const one = (ti, opp, side, cls) => `<div class="sbs ${cls}">${crest(team(ti), 52)}${shirt(club(team(ti)), kitOf(ti, opp, side), 46)}<span class="tn">${esc(team(ti).name)}${team(ti).human && team(ti).owner ? ` <small class="ownr">(${esc(team(ti).owner)})</small>` : ""}</span></div>`;
   return `<div class="sbar" id="sbar" data-k="${k}" style="--hc:${HC};--ac:${AC};--hn:${ink(HC)};--an:${ink(AC)}">${one(m.a, m.b, 0, "h")}<div class="mid"><div class="sc" data-pb="score" data-k="${k}"></div><div class="clk" data-pb="clock" data-k="${k}"></div><div class="half">${half}</div></div>${one(m.b, m.a, 1, "a")}</div>`;
 }
 function playbackView(S) {
@@ -543,26 +546,31 @@ function hubHome(S) {
   const hero = fx ? `<div class="hh-vs">${side(fx[0], fx[1], 0)}<div class="hh-mid">V<small>${myTi === fx[0] ? "HOME" : myTi === fx[1] ? "AWAY" : "NEXT"}</small></div>${side(fx[1], fx[0], 1)}</div>${kitNote(fx)}` : "";
   const dec = biggestDecision(S, me, t), info = [];
   const winTxt = winOpen(S) ? `Window open · ${S.window.left} matchday${S.window.left === 1 ? "" : "s"} left` : "";
+  const L = lt(S), lite = isLite(S);
   const tiles = [
-    winOpen(S) ? tile("transfers", "🔁", "Transfers", `${winCountdown(S)}${incomingOffers(S) ? ` · <span class="rarepip">${incomingOffers(S)} offer${incomingOffers(S) === 1 ? "" : "s"} for you</span>` : ""}`, "windowtile") : "",
+    winOpen(S) && L.trades ? tile("transfers", "🔁", "Transfers", `${winCountdown(S)}${incomingOffers(S) ? ` · <span class="rarepip">${incomingOffers(S)} offer${incomingOffers(S) === 1 ? "" : "s"} for you</span>` : ""}`, "windowtile") : "",
     me ? tile("team", "📋", "Team", `${esc(me.lineup ? me.lineup.formation : "")} · tactics &amp; items`) : "",
     tile("standings", "🏆", "Standings", row ? `${ordinal(rank + 1)} · ${row.pts} pts` : "Table &amp; results"),
-    me && me.fin ? tile("finance", "💰", "Finance", me.fin.expiring.length ? `${me.fin.expiring.length} expiring` : "All set") : "",
-    tile("stats", "📊", "Stats", "Goals, ratings, awards"),
+    me && me.fin && L.finance ? tile("finance", "💰", "Finance", me.fin.expiring.length ? `${me.fin.expiring.length} expiring` : "All set") : "",
+    L.stats ? tile("stats", "📊", "Stats", "Goals, ratings, awards") : "",
     tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item</span>" : ""}`),
-    tile("news", "📰", "News", ((S.news && S.news.list) || []).length ? `${S.news.list.length} stor${S.news.list.length === 1 ? "y" : "ies"}` : "The Daily Whistle"),
+    L.stats ? tile("news", "📰", "News", ((S.news && S.news.list) || []).length ? `${S.news.list.length} stor${S.news.list.length === 1 ? "y" : "ies"}` : "The Daily Whistle") : "",
+    me && lite ? tile("more", "⋯", "More", "Hidden screens &amp; switches") : "",
     me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
   ].join("");
   return `<div class="card hub-hero"><div class="hh-top"><span>Matchday ${d + 1} of ${S.season.total}</span>${winTxt ? `<span class="win">${winTxt}</span>` : ""}</div>${hero}
     <div class="hh-foot">${myTi != null ? `<span class="hh-rank">${row ? ordinal(rank + 1) : "–"}<small>${row ? `${row.pts} pts · ${row.w}-${row.d}-${row.l}` : ""}</small></span>` : ""}<span class="grow"></span><span class="coin">${Math.round(have)}<i></i></span></div>
     ${dec.to ? `<button class="decision ${dec.ok ? "ok" : ""}" data-act="${dec.to === "mready" ? "mready" : "hubgo"}" data-to="${dec.to}"><span class="di">${dec.ic}</span><span><b>${dec.ok ? "All good" : "Needs you"}</b><span class="dt">${dec.text}</span></span></button>` : `<div class="decision ${dec.ok ? "ok" : ""}"><span class="di">${dec.ic}</span><span><b>${dec.ok ? "All good" : "Needs you"}</b><span class="dt">${dec.text}</span></span></div>`}</div>
-    <div class="hubgrid compact">${tiles}</div>${fixturesPreview(S)}`;
+    ${lcCard(S)}<div class="hubgrid compact ${lite ? "litegrid" : ""}">${tiles}</div>${fixturesPreview(S)}`;
 }
 // Phone: the menu lives in a bar at the bottom of the screen, on every menu page.
 function hubDock(S) {
   const me = S.me, ready = me && S.teams[me.teamId].ready, hub = st.ui.hub || "home";
   const b = (to, ic, name, extra = "") => `<button class="${hub === to ? "on" : ""}" data-act="${to === "home" ? "hubback" : "hubgo"}" data-to="${to}"><span class="ic">${ic}</span>${name}${extra}</button>`;
-  return `<nav class="hubdock">${b("home", "🏠", "Home")}${me ? b("team", "📋", "Team") : ""}${b("standings", "🏆", "Table")}${winOpen(S) ? b("transfers", "🔁", "Window", incomingOffers(S) ? `<i class="dotb"></i>` : "") : me && me.fin ? b("finance", "💰", "Money") : b("stats", "📊", "Stats")}${b("news", "📰", "News")}${me ? `<button class="rd ${ready ? "done" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span>${ready ? "Ready" : "Go"}</button>` : ""}</nav>`;
+  const L = lt(S), lite = isLite(S);
+  const slot4 = winOpen(S) && L.trades ? b("transfers", "🔁", "Window", incomingOffers(S) ? `<i class="dotb"></i>` : "") : me && me.fin && L.finance ? b("finance", "💰", "Money") : L.stats ? b("stats", "📊", "Stats") : b("store", "🛒", "Store");
+  const slot5 = L.stats ? b("news", "📰", "News") : me && lite ? b("more", "⋯", "More") : b("news", "📰", "News");
+  return `<nav class="hubdock">${b("home", "🏠", "Home")}${me ? b("team", "📋", "Team") : ""}${b("standings", "🏆", "Table")}${slot4}${slot5}${me ? `<button class="rd ${ready ? "done" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span>${ready ? "Ready" : "Go"}</button>` : ""}</nav>`;
 }
 function teamViewer(S, i) {
   const t = team(i), c = club(t), row = (S.table || []).findIndex((r) => r.i === i), tr = row >= 0 ? S.table[row] : null;
@@ -616,8 +624,10 @@ function financeView(S) {
 function hubView(S) {
   if (st.ui.hubDay !== S.season.day || st.ui.hubSeason !== S.seasonNo) { st.ui.hubDay = S.season.day; st.ui.hubSeason = S.seasonNo; st.ui.hub = null; st.ui.viewTeam = null; st.ui.mSel = null; st.ui.itemSel = null; }
   const hub = st.ui.hub;
+  if (S.me && isLite(S)) { if (hub === "team") lcMark("team"); else if (hub === "store") lcMark("store"); else if (hub === "standings") lcMark("table"); }
   let body;
   if (!hub || (hub === "team" && !S.me)) body = hubHome(S);
+  else if (hub === "more" && S.me) body = moreView(S, (t) => hubBar(S, t));
   else if (hub === "team") body = hubBar(S, "Team: tactics and items") + lineupEditor(S, false);
   else if (hub === "finance" && S.me && S.me.fin) body = hubBar(S, "Finance") + financeView(S);
   else if (hub === "transfers") body = hubBar(S, "Transfers") + transfersView(S);
@@ -642,11 +652,11 @@ export function matchView(S, ctx) {
     case "md.half1": case "md.half2":
       main = playbackView(S); break;
     case "md.half":
-      main = (me && me.match ? lineupEditor(S, true) : "") + playbackView(S); break;
+      main = (me && me.match ? (lt(S).subs ? lineupEditor(S, true) : liteHalf(S)) : "") + playbackView(S); break;
     case "md.result": main = resultsView(S); break;
     case "season.end": {
       const R = S.reveal, champ = team(R.champion);
-      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(longName(champ).title)}</div>${longName(champ).club ? `<div class="small mute">${esc(longName(champ).club)}</div>` : ""}<div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${playerStats(S)}${R.final ? finalCard(S) : ""}`;
+      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(longName(champ).title)}</div>${longName(champ).club ? `<div class="small mute">${esc(longName(champ).club)}</div>` : ""}<div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${historyCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${lt(S).stats ? playerStats(S) : `<div class="card"><p class="small mute">The stats table is switched off in Lite. <a href="#" data-act="liteSw" data-k="stats">Turn it on</a></p></div>`}${R.final ? finalCard(S) : ""}`;
       break;
     }
     default: main = `<div class="card">…</div>`;

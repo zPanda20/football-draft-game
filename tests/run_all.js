@@ -1,5 +1,6 @@
 // Fast invariant tests. Run with: npm test
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
 import { D, createGame, runDraft, runMarket, playSeason, rosterOf } from "./lib.js";
 import { teamsFor, legsFor, matchesPerTeam, schedule } from "../engine/fixtures.js";
 import { dealRound, applyPicks } from "../engine/packs.js";
@@ -569,6 +570,48 @@ t("followers, milestones, trophies, boot deals and feuds", async () => {
 t("in-season finance outlook: re-sign costs for one, two and three seasons ahead", () => {
   const g = createGame({ D, N: 10, seed: 41 }); runDraft(g); runMarket(g); const out = game_outlook(g);
   assert.ok(out.ahead.length === 3 && out.ahead.every((a) => Array.isArray(a.list)));
+});
+
+import { introduceRookies, rookieDraftStart, rookiePack, rookieTake, rookieDraftEnd, botRookieMove } from "../engine/offseason.js";
+import { BOOT_BRANDS, DEAL_RANKS, dealOffer, ensureLife, SOURCE_OF } from "../engine/life.js";
+t("rookie pack draft: packs of three, carry-over without ageing, abstain, leftovers to free agency", () => {
+  const g = createGame({ D, N: 10, seed: 51 }); runDraft(g); runMarket(g); playSeason(g);
+  const ids = introduceRookies(g, 1, D); assert.ok(ids.length >= 10);
+  const d = rookieDraftStart(g); const total = d.unopened.length; assert.equal(d.left.length, 0);
+  const pk = rookiePack(g); assert.equal(pk.length, g.P.rookies.pack); assert.equal(g.rdraft.unopened.length, total - pk.length);
+  assert.ok(pk.every((id) => g.rdraft.left.includes(id)), "an opened pack's rookies become leftovers");
+  rookieTake(g, 0, pk[0]); assert.equal(g.players[pk[0]].team, 0); assert.ok(!g.rdraft.left.includes(pk[0]));
+  const unopened = g.rdraft.unopened.slice(), left = g.rdraft.left.slice();
+  const end = rookieDraftEnd(g);
+  assert.deepEqual(end.toPool.sort(), left.sort(), "unpicked leftovers go to the free-agent pool");
+  assert.deepEqual(end.carry.sort(), unopened.sort(), "never-opened rookies wait for next year");
+  const age = g.players[end.carry[0]].age; ageAllCheck(g, end.carry[0], age);
+});
+function ageAllCheck(g, id, age) { ageAll(g, D); assert.equal(g.players[id].age, age, "a carried rookie does not age"); }
+t("rookie class: Endrick, Mora and Sullivan always have high potential", () => {
+  const all = D.rookies.flatMap((c) => c.players).filter((p) => /Endrick|Mora|Sullivan/.test(p.name));
+  assert.ok(all.length >= 1 && all.every((p) => p.pot === "high" || p.potential === "high"));
+});
+t("boot makers: 11 brands, small makers come first, giants only at the top tiers", () => {
+  assert.ok(["on", "newbalance", "skechers", "umbro", "reebok", "lotto", "joma"].every((id) => BOOT_BRANDS.some((b) => b.id === id)));
+  assert.ok(BOOT_BRANDS.every((b) => b.rival && BOOT_BRANDS.some((x) => x.id === b.rival)));
+  const g = createGame({ D, N: 10, seed: 52 }); runDraft(g); runMarket(g);
+  const p = Object.values(g.players).find((x) => x.team != null); const L = ensureLife(g, p);
+  for (let tier = 0; tier < DEAL_RANKS.length; tier++) {
+    L.offer = null; L.hit.tier = tier - 1; L.deal = null; L.fol = 5_000_000;
+    const o = dealOffer(g, p, 1); const b = BOOT_BRANDS.find((x) => x.id === o.brand);
+    assert.ok(b.rank >= DEAL_RANKS[tier][0] && b.rank <= DEAL_RANKS[tier][1], `tier ${tier} offered ${b.id}`);
+  }
+});
+t("style press: GQ, Harper's Bazaar and Vogue only write about the famous; every story has a paper", () => {
+  assert.ok(Object.values(SOURCE_OF).every((x) => typeof x === "string"));
+  assert.ok(g_has_style());
+});
+function g_has_style() { return /id: "vogue"/.test(readFileSync("engine/life.js", "utf8")) && /id: "gq"/.test(readFileSync("engine/life.js", "utf8")) && /id: "bazaar"/.test(readFileSync("engine/life.js", "utf8")); }
+t("lite: nothing in the engine knows about Lite; defaults are Full", async () => {
+  const m = await import("../server/lite.js");
+  assert.deepEqual(m.liteOf({}), m.FULL); assert.equal(m.isLite({}), false); assert.equal(m.isLite({ lite: { ...m.FULL, subs: false } }), true);
+  for (const f of readdirSync("engine")) if (f.endsWith(".js")) assert.ok(!/\blite\b/i.test(readFileSync("engine/" + f, "utf8")), f);
 });
 
 await Promise.all(pending);

@@ -52,7 +52,7 @@ export function ageAll(game) {
   const P = game.P, r = makeRng(game.seed, "age", game.season), moves = [];
   for (const p of Object.values(game.players)) {
     const g = gauss(r) * P.age.noise; // always drawn
-    if (p.retired) continue;
+    if (p.retired || p.carried) continue;                                     // a rookie nobody opened waits a year without ageing
     p.age += 1;
     let d = driftFor(p, P);
     if (d > 0 && p.pot) d *= P.age.potential[p.pot] ?? 1;
@@ -108,27 +108,77 @@ export function botResign(game, ti) {
 // ---- rookies ----
 export function introduceRookies(game, classNo, D) {
   const cls = (D.rookies || []).find((c) => c.class === classNo) || (D.rookies || [])[classNo - 1];
-  if (!cls) return [];
+  if (!cls && !(game.carry || []).length) return [];
   const ids = [];
-  for (const raw of cls.players) {
+  for (const id of game.carry || []) { const c = game.players[id]; if (c && c.team == null && !c.drafted && !c.retired) { c.carried = false; ids.push(id); } }   // last year's unopened rookies
+  game.carry = [];
+  for (const raw of (cls ? cls.players : [])) {
     if (!genderOk(game.gender, raw.gender)) continue;                        // a women's or men's league only gets its own rookies
     const p = { stam: 100, team: null, contract: 0, rookie: true, class: classNo, ...raw };
+    if ((game.P.rookies.alwaysHigh || []).includes(p.slug)) p.pot = "high";
     game.players[p.id] = rate(p, game.P); ids.push(p.id);
   }
   game.rookies = ids.slice();
   return ids;
 }
-// One round, worst team first. pickFor(teamIdx, availableIds) -> id|null for humans; bots take the best ovr/potential mix.
-export function runRookieDraft(game, worstFirst, pickFor = null) {
-  const P = game.P, res = [];
+// ---- the rookie pack draft ----
+// The weakest club moves first. On its turn a club can (a) take one of the rookies left over from earlier packs, (b) open a fresh
+// pack of three unseen rookies and keep one of them, or (c) abstain. Whoever is not kept from an opened pack stays on the table for the
+// clubs after it. When every club has had its turn the leftovers go to free agency and rookies nobody ever saw wait for next year's draft.
+export function rookieDraftStart(game) {
+  game.rdraft = { unopened: availableRookies(game).slice(), left: [], seen: [], seq: 0 };
+  return game.rdraft;
+}
+export function rookiePack(game) {
+  const d = game.rdraft; if (!d || !d.unopened.length) return null;
+  const r = makeRng(game.seed, "rpack", game.season, d.seq++), n = Math.min(game.P.rookies.pack ?? 3, d.unopened.length), out = [];
+  for (let i = 0; i < n; i++) out.push(d.unopened.splice(Math.floor(r() * d.unopened.length), 1)[0]);
+  d.left.push(...out); d.seen.push(...out);
+  return out;
+}
+export function rookieTake(game, ti, id) {
+  const d = game.rdraft; if (!d || !d.left.includes(id)) return false;
+  d.left = d.left.filter((x) => x !== id); takeRookie(game, ti, id); return true;
+}
+const POT_BONUS = { low: 0, med: 1.5, high: 3 };
+const rookieValue = (game, id) => { const p = game.players[id]; return p.ovr + (POT_BONUS[p.pot] || 0); };
+// Expected value of the best of a fresh pack (exact: the i-th best unseen rookie tops a pack of k with probability C(n-i, k-1) / C(n, k)).
+function packExpectation(game, k) {
+  const v = game.rdraft.unopened.map((id) => rookieValue(game, id)).sort((a, b) => b - a), n = v.length; if (!n) return -Infinity;
+  k = Math.min(k, n); const C = (a, b) => { if (b < 0 || b > a) return 0; let x = 1; for (let i = 0; i < b; i++) x = (x * (a - i)) / (i + 1); return x; };
+  let e = 0; for (let i = 0; i < n; i++) e += v[i] * (C(n - 1 - i, k - 1) / C(n, k));
+  return e;
+}
+// CPU: take the best leftover unless a fresh pack is expected to beat it. Returns { act: "pick", id } | { act: "pack" } | { act: "pass" }.
+export function botRookieMove(game, ti) {
+  const d = game.rdraft, t = game.teams[ti];
+  if (t.players.length >= (t.cap ?? game.P.money.rosterMax)) return { act: "pass" };
+  const best = d.left.slice().sort((a, b) => rookieValue(game, b) - rookieValue(game, a) || a - b)[0];
+  if (!d.unopened.length) return best != null ? { act: "pick", id: best } : { act: "pass" };
+  if (best != null && rookieValue(game, best) >= packExpectation(game, game.P.rookies.pack ?? 3) - 0.5) return { act: "pick", id: best };
+  return { act: "pack" };
+}
+export function botRookiePickFrom(game, ids) { return botRookiePick(game, ids); }
+// Headless run (tests, simulations): every club is a CPU.
+export function runRookieDraft(game, worstFirst) {
+  const d = rookieDraftStart(game), res = [];
   for (const ti of worstFirst) {
-    const t = game.teams[ti], avail = game.rookies.filter((id) => game.players[id].team == null && !game.players[id].drafted);
-    if (!avail.length || t.players.length >= (t.cap ?? P.money.rosterMax)) { res.push({ team: ti, id: null }); continue; }
-    let id = pickFor ? pickFor(ti, avail) : null;
-    if (id == null || !avail.includes(id)) id = botRookiePick(game, avail);
-    takeRookie(game, ti, id); res.push({ team: ti, id });
+    const t = game.teams[ti];
+    if (t.players.length >= (t.cap ?? game.P.money.rosterMax) || (!d.left.length && !d.unopened.length)) { res.push({ team: ti, id: null }); continue; }
+    const mv = botRookieMove(game, ti);
+    if (mv.act === "pass") { res.push({ team: ti, id: null }); continue; }
+    if (mv.act === "pick") { rookieTake(game, ti, mv.id); res.push({ team: ti, id: mv.id, how: "left" }); continue; }
+    const pk = rookiePack(game), id = botRookiePick(game, pk); rookieTake(game, ti, id); res.push({ team: ti, id, how: "pack", pack: pk });
   }
   return res;
+}
+// The draft is over: leftovers from opened packs go to free agency, unseen rookies wait for next year (no ageing).
+export function rookieDraftEnd(game) {
+  const d = game.rdraft || { left: [], unopened: [] }, toPool = [], carry = [];
+  for (const id of d.left) { const p = game.players[id]; if (p.team == null && !game.pool.includes(id)) { game.pool.push(id); toPool.push(id); } }
+  for (const id of d.unopened) { const p = game.players[id]; if (p.team == null) { p.carried = true; carry.push(id); } }
+  game.carry = carry; game.rookies = []; game.rdraft = null;
+  return { toPool, carry };
 }
 export function takeRookie(game, ti, id) {
   const p = game.players[id], t = game.teams[ti];

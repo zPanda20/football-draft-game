@@ -211,6 +211,136 @@
   "text": "+4 attacking for the player who wears them."
  },
  {
+  "id": "boots-newbalance-low",
+  "name": "New Balance Boots (low)",
+  "brand": "New Balance",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-newbalance-mid",
+  "name": "New Balance Boots (mid)",
+  "brand": "New Balance",
+  "tier": "mid",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 4
+  },
+  "price": 110,
+  "text": "+4 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-on-low",
+  "name": "ON Boots (low)",
+  "brand": "ON",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-on-mid",
+  "name": "ON Boots (mid)",
+  "brand": "ON",
+  "tier": "mid",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 4
+  },
+  "price": 110,
+  "text": "+4 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-umbro-low",
+  "name": "Umbro Boots (low)",
+  "brand": "Umbro",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-umbro-mid",
+  "name": "Umbro Boots (mid)",
+  "brand": "Umbro",
+  "tier": "mid",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 4
+  },
+  "price": 110,
+  "text": "+4 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-reebok-low",
+  "name": "Reebok Boots (low)",
+  "brand": "Reebok",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-lotto-low",
+  "name": "Lotto Boots (low)",
+  "brand": "Lotto",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-joma-low",
+  "name": "Joma Boots (low)",
+  "brand": "Joma",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
+  "id": "boots-skechers-low",
+  "name": "Skechers Boots (low)",
+  "brand": "Skechers",
+  "tier": "low",
+  "uses": 3,
+  "scope": "player",
+  "fx": {
+   "off": 2
+  },
+  "price": 50,
+  "text": "+2 attacking for the player who wears them."
+ },
+ {
   "id": "steroids",
   "name": "Steroids",
   "uses": 1,

@@ -1,4 +1,6 @@
 // Off-season screens: retirements, development, re-signing, rookie draft, trade window.
+import { lt } from "./lite.js";
+import { historyCard } from "./history.js";
 import { st, $, esc, send, team, chip, card, pl, miniPlayer, tierOf, flag, coins, crest, userTags } from "./core.js";
 
 const POT = { low: "Low potential", med: "Medium potential", high: "High potential" };
@@ -11,6 +13,8 @@ export const offHandlers = {
   resign(a) { send({ t: "resign", id: +a.id, len: +a.len }); },
   offDone() { send({ t: "ready", on: !st.S.teams[st.S.me.teamId].ready }); },
   rkSel(a) { st.ui.rk = +a.id; st.render(); },
+  rkOpen() { send({ t: "rookiePack" }); st.ui.rk = null; },
+  rkPass() { send({ t: "rookiePass" }); st.ui.rk = null; },
   rkPick() { if (st.ui.rk != null) { send({ t: "rookie", id: st.ui.rk }); st.ui.rk = null; } },
   trTo(a) { const T = tr(); T.to = a.value === "" ? null : +a.value; T.get = []; st.render(); },
   trToggle(a) { const T = tr(), list = a.side === "give" ? T.give : T.get, key = (a.k || "p") + ":" + a.id; const i = list.indexOf(key); if (i >= 0) list.splice(i, 1); else list.push(key); st.render(); },
@@ -49,11 +53,12 @@ function resignPage(S) {
   const me = S.me;
   if (!me) return `<div class="card c"><h3>Re-signing window</h3><p class="mute">Managers are deciding who to keep.</p></div>`;
   const list = me.resign || [];
+  const litenote = lt(S).finance ? "" : `<div class="card" style="padding:10px"><span class="pill">Lite</span> <span class="small">The club re-signs your expiring players for you at the end of this step, the way a CPU club does. You can still do it yourself below. <a href="#" data-act="liteSw" data-k="finance">Take over finance</a></span></div>`;
   const rows = list.map((r) => { const p = pl(r.id); return `<div class="card" style="padding:10px"><div class="row wrap" style="gap:14px">${card(r.id, { size: "sm" })}<div class="grow col" style="gap:6px"><div><b>${esc(p.name)}</b> <span class="mute small">${p.pos} · ${p.age}y · market value ${p.mv}</span></div>
       <div class="row wrap" style="gap:6px">${r.fees.slice(0, me.maxLen || 3).map((f, i) => `<button class="btn sm" data-act="resign" data-id="${r.id}" data-len="${i + 1}" ${me.coins < f ? "disabled" : ""}>${i + 1} season${i ? "s" : ""} · ${f}</button>`).join("")}</div><span class="small mute">Not re-signed = he walks into the free-agent pool.</span></div></div></div>`; }).join("");
   return `<div class="card"><div class="row wrap"><h3 style="margin:0">Re-signing window</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><button class="btn pri" data-act="offDone">${S.teams[me.teamId].ready ? "Not done" : "Done"}</button></div>
     <p class="small mute mt">These contracts have run out. Re-sign at market value (longer = pricier), no draw. Everyone you let go joins free agency, where anyone can bid for them.</p></div>
-    ${rows || `<div class="card c"><p class="mute">None of your contracts expire this year.</p></div>`}`;
+    ${litenote}${rows || `<div class="card c"><p class="mute">None of your contracts expire this year.</p></div>`}`;
 }
 function resignReveal(S) {
   const R = S.reveal, me = S.me ? S.me.teamId : -1;
@@ -63,19 +68,36 @@ function resignReveal(S) {
     <div class="card"><h3>Released to free agency</h3>${rl.map(([t, xs]) => `<div class="mt">${chip(team(t), 18, true)}<div class="col mt" style="gap:3px">${xs.map((x) => miniPlayer(x.id)).join("")}</div></div>`).join("") || `<p class="mute">Nobody was released.</p>`}</div></div>`;
 }
 function rookiePage(S) {
-  const RK = S.rookies, me = S.me, myTurn = me && me.myTurn;
+  const RK = S.rookies, me = S.me, myTurn = !!(me && me.myTurn);
   const cur = RK.order[RK.idx] != null ? team(RK.order[RK.idx]) : null;
   const sel = st.ui.rk;
-  const avail = RK.avail.map((id) => pl(id)).sort((a, b) => b.ovr - a.ovr);
-  const order = `<div class="row wrap" style="gap:6px">${RK.order.map((ti, i) => { const pk = RK.picks[i]; return `<span class="pill ${i === RK.idx ? "acc" : ""}" title="${esc(team(ti).name)}">${i + 1}. ${crest(team(ti), 14)} ${pk && pk.id != null ? esc(pl(pk.id).name.split(" ").slice(-1)[0]) : ""}</span>`; }).join("")}</div>`;
-  const head = myTurn ? `<p class="pill good" style="margin-bottom:8px">Your pick. Choose a rookie and press Draft.</p>` : `<p class="mute small" style="margin-bottom:8px">${cur ? esc(cur.name) + " is on the clock." : "Draft complete."} Rookies come on a 3-season deal with no fee. Potential decides how much they tend to grow.</p>`;
-  return `<div class="card"><h3>Rookie draft · new intake</h3>${head}${order}</div>
-    <div class="card"><div class="row wrap"><h3 style="margin:0">Available rookies (${avail.length})</h3><div class="grow"></div><button class="btn pri" data-act="rkPick" ${myTurn && sel != null ? "" : "disabled"}>Draft${sel != null ? " " + esc(pl(sel).name.split(" ").slice(-1)[0]) : ""}</button></div>
-    <div class="hand mt" style="justify-content:flex-start;gap:10px">${avail.map((p) => `<div data-act="rkSel" data-id="${p.id}">${card(p.id, { size: "md", tag: POT[p.pot] || "", cls: "pickable" + (sel === p.id ? " chosen" : "") })}</div>`).join("")}</div></div>`;
+  const inPack = RK.stage === "pack" && RK.pack;
+  const avail = RK.avail.map((id) => pl(id)).filter(Boolean).sort((a, b) => b.ovr - a.ovr);
+  const how = { pack: "opened a pack", left: "took a leftover", pass: "abstained", none: "no room" };
+  const order = `<div class="row wrap" style="gap:6px">${RK.order.map((ti, i) => { const pk = RK.picks[i]; const nm = pk ? (pk.id != null ? esc(pl(pk.id).name.split(" ").slice(-1)[0]) : "–") : ""; return `<span class="pill ${i === RK.idx ? "acc" : ""}" title="${esc(team(ti).name)}${pk ? " · " + (how[pk.how] || "") : ""}">${i + 1}. ${crest(team(ti), 14)} ${nm}</span>`; }).join("")}</div>`;
+  const left = RK.unopened;
+  const steps = `<ol class="small mute" style="margin:6px 0 0 18px;padding:0"><li>Worst club picks first. On your turn <b>open a pack</b> (3 unseen rookies, keep one) or <b>take a leftover</b> that someone already revealed.</li><li>Rookies you pass on from an opened pack stay on the table for later clubs.</li><li>You may abstain. Unpicked rookies who were in a pack go to free agency; rookies never revealed wait for next year's draft, without ageing.</li></ol>`;
+  let head;
+  if (myTurn && inPack) head = `<p class="pill good" style="margin-bottom:8px">Your pack: keep one rookie. The other two stay available to later clubs.</p>`;
+  else if (myTurn) head = `<p class="pill good" style="margin-bottom:8px">Your turn. Open a pack${avail.length ? ", take a leftover" : ""} or abstain.</p>`;
+  else head = `<p class="mute small" style="margin-bottom:8px">${cur ? esc(cur.name) + (inPack ? " has opened a pack." : " is on the clock.") : "Draft complete."} Rookies sign for 3 seasons with no fee. Potential decides how much they tend to grow.</p>`;
+  const last = RK.last && RK.last.took != null && pl(RK.last.took) ? `<p class="small mute mt">Last pick: ${chip(team(RK.last.team), 16, true)} ${RK.last.ids && RK.last.ids.length ? "opened a pack and kept " : "took "}<b>${esc(pl(RK.last.took).name)}</b>.</p>` : "";
+  let body;
+  if (inPack) {
+    const pk = RK.pack.map((id) => pl(id)).filter(Boolean);
+    body = `<div class="card"><div class="row wrap"><h3 style="margin:0">${myTurn ? "Your pack" : "Opened pack"}</h3><div class="grow"></div>${myTurn ? `<button class="btn pri" data-act="rkPick" ${sel != null && RK.pack.includes(sel) ? "" : "disabled"}>Keep${sel != null && RK.pack.includes(sel) ? " " + esc(pl(sel).name.split(" ").slice(-1)[0]) : ""}</button><button class="btn" data-act="rkPass">Abstain</button>` : ""}</div>
+      <div class="hand mt" style="justify-content:flex-start;gap:10px">${pk.map((p) => `<div data-act="rkSel" data-id="${p.id}">${card(p.id, { size: "md", tag: POT[p.pot] || "", cls: "pickable" + (sel === p.id ? " chosen" : "") })}</div>`).join("")}</div></div>`;
+  } else {
+    body = `<div class="card"><div class="row wrap"><h3 style="margin:0">Leftovers (${avail.length})</h3><span class="pill">${left} still sealed</span><div class="grow"></div>
+      ${myTurn ? `<button class="btn pri" data-act="rkPick" ${sel != null && RK.avail.includes(sel) ? "" : "disabled"}>Draft${sel != null && RK.avail.includes(sel) ? " " + esc(pl(sel).name.split(" ").slice(-1)[0]) : ""}</button><button class="btn" data-act="rkOpen" ${left ? "" : "disabled"}>Open a pack</button><button class="btn" data-act="rkPass">Abstain</button>` : ""}</div>
+      ${avail.length ? `<div class="hand mt" style="justify-content:flex-start;gap:10px">${avail.map((p) => `<div data-act="rkSel" data-id="${p.id}">${card(p.id, { size: "md", tag: POT[p.pot] || "", cls: "pickable" + (sel === p.id ? " chosen" : "") })}</div>`).join("")}</div>` : `<p class="mute mt">No leftovers yet. ${myTurn ? "Open a pack to reveal three rookies." : "The next pick opens a pack."}</p>`}</div>`;
+  }
+  return `<div class="card"><h3>Rookie draft · pack draft</h3>${head}${order}${last}<details class="mt"><summary class="small">How this draft works</summary>${steps}</details></div>${body}`;
 }
 function rookieReveal(S) {
-  const R = S.reveal;
-  return `<div class="card"><h3>Rookie draft results</h3><div class="reveal-row">${R.picks.map((p) => `${chip(team(p.team), 20, true)}<span>${p.id != null ? miniPlayer(p.id, `<span class="mute tiny">${esc(POT[pl(p.id).pot] || "")}</span>`) : `<span class="mute">no pick</span>`}</span>`).join("")}</div><p class="small mute mt">Undrafted rookies go to the free-agent pool.</p></div>`;
+  const R = S.reveal, how = { pack: "opened a pack", left: "took a leftover", pass: "abstained", none: "no room" };
+  return `<div class="card"><h3>Rookie draft results</h3><div class="reveal-row">${R.picks.map((p) => `${chip(team(p.team), 20, true)}<span>${p.id != null ? miniPlayer(p.id, `<span class="mute tiny">${esc(POT[pl(p.id).pot] || "")} · ${how[p.how] || ""}</span>`) : `<span class="mute">${p.how === "pass" ? "abstained" : "no pick"}</span>`}</span>`).join("")}</div>
+    <p class="small mute mt">${(R.toPool || []).length} unpicked rookie${(R.toPool || []).length === 1 ? "" : "s"} from opened packs join free agency.${R.carry ? ` ${R.carry} never-opened rookie${R.carry === 1 ? "" : "s"} wait for next year's draft and do not age.` : ""}</p></div>`;
 }
 
 // ---------- trade window ----------
@@ -107,6 +129,7 @@ export function tradeBody(S) {
 }
 function tradePage(S) {
   const me = S.me; if (!me) return tradeBody(S);
+  if (!lt(S).trades) return `<div class="card c"><h3>Trade window</h3><p class="mute">Trades are switched off in Lite, so your club sits this window out. Offers from other managers can still reach you.</p><button class="btn pri mt" data-act="liteSw" data-k="trades">Turn trading on</button></div>`;
   const ready = team(me.teamId).ready;
   return `<div class="card"><div class="row wrap"><h3 style="margin:0">Trade window</h3><div class="grow"></div><span>Coins ${coins(me.coins)}</span><button class="btn ${ready ? "" : "pri"}" data-act="offDone">${ready ? "Keep trading" : "I'm done trading"}</button></div></div>${tradeBody(S)}`;
 }
@@ -128,5 +151,6 @@ export function offView(S, ctx) {
     const t = team(S.me.teamId);
     squad = `<div class="card"><h3>Your squad (${t.players.length}/${t.cap})</h3><div class="col" style="gap:5px">${t.players.map((id) => { const p = pl(id); return miniPlayer(id, `<span class="mute tiny">${p.contract}y</span>`); }).join("") || `<span class="mute small">Nobody.</span>`}</div></div>`;
   }
+  main += historyCard(S, { collapsible: true, open: ["off.retire", "off.age", "off.resign.reveal", "off.rookie.reveal"].includes(S.step) });
   return { main, side: squad + ctx.teamsList(S) + ctx.chatCard(S) };
 }

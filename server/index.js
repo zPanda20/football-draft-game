@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -179,6 +179,9 @@ function handle(ws, m) {
     case "planSkip": room.planSkip(t); break;
     case "resign": room.resignPlayer(t, m.id | 0, m.len | 0); break;
     case "rookie": room.pickRookie(t, m.id | 0); break;
+    case "rookiePack": room.openRookiePack(t); break;
+    case "rookiePass": room.passRookie(t); break;
+    case "itemPack": room.openItemPack(t); break;
     case "tradeOffer": room.tradeOffer(t, m.to, m.give, m.get); break;
     case "tradeRespond": room.tradeRespond(t, m.id | 0, !!m.accept); break;
     case "tradeCancel": room.tradeCancel(t, m.id | 0); break;
@@ -189,6 +192,7 @@ function handle(ws, m) {
     case "equipSelf": room.equipSelf(t, m.ids); break;
     case "ready": room.setReady(t, m.on !== false); break;
     case "auto": room.setAuto(t, !!m.on); break;
+    case "lite": room.setLite(t, m); break;
     case "chat": room.addChat(t, m.text); break;
     case "continue": room.continueGame(t); break;
     case "skip": if (room.isHost(t)) room.skip(); break;

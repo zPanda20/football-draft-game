@@ -4,6 +4,9 @@ import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
 import { storeCard } from "./store.js";
+import { histHandlers } from "./history.js";
+import { helpHandlers, helpButton, maybeFirstGuide, drawHelp } from "./help.js";
+import { liteHandlers, liteChooser, isLite } from "./lite.js";
 import { pmHandlers, pmPanel, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
 import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
@@ -54,6 +57,7 @@ function landing() {
   const saved = store("room");
   el.body.innerHTML = `<div class="landing"><span class="logo"><b></b> Football Draft</span>
     <div class="hero">Draft the squad.<br>Win the <em>league</em>.</div>
+    <div><button class="btn" data-act="helpOpen">How to play</button></div>
     <p class="lead">Open packs, pick your six, bid for the rest, then watch your team play a season. A game for a room full of laptops.</p>
     <div class="stack">
       <div class="card"><h3>Your name</h3><input id="nm" style="width:100%" maxlength="24" placeholder="Name" value="${esc(store("name") || "")}"></div>
@@ -87,7 +91,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -185,8 +189,8 @@ function nowLine(S) {
     case "off.resign.reveal": return { kind: "info", text: "Re-signing results. Released players go to free agency." };
     case "off.rookie.turn": {
       const RK = S.rookies, cur = RK && team(RK.order[RK.idx]);
-      if (me && me.myTurn) return { kind: "you", text: "Your pick: choose a rookie and press Draft." };
-      return { kind: "info", text: cur ? `${cur.owner || cur.name} is on the clock. The weakest team picks first.` : "Rookie draft." };
+      if (me && me.myTurn) return { kind: "you", text: RK.stage === "pack" ? "Your pack is open: keep one rookie or abstain." : "Your turn: open a pack, take a leftover, or abstain." };
+      return { kind: "info", text: cur ? `${cur.owner || cur.name} ${RK.stage === "pack" ? "has opened a pack" : "is on the clock"}. The weakest team picks first.` : "Rookie draft." };
     }
     case "off.rookie.reveal": return { kind: "info", text: "Rookie draft results." };
     case "off.trade": return me ? (S.teams[me.teamId].ready ? { kind: "wait", text: "You are done trading. Waiting for the others." } : { kind: "you", text: "Trade window: swap players, items and coins with other managers. Press Done when finished." }) : { kind: "info", text: "Managers are trading." };
@@ -209,7 +213,7 @@ function renderTop() {
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;
   const hud = nl ? `<div class="hud ${nl.kind}" id="hud"><span class="hmsg">${esc(nl.text)}</span>${clock ? `<span class="hclock" id="hclock"></span><i class="hbar" id="hbar"></i>` : ""}</div>` : "";
   const sp = S.speed, lv = ["Relaxed", "Normal", "Fast", "Turbo"][sp.levels.indexOf(sp.pace)];
-  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span>
+  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span>${helpButton()}
     ${S.step !== "lobby" && S.me ? `<span class="coin" title="Your coins">${Math.round(S.me.coins)}<i></i></span>` : ""}
     ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}`;
   tick();
@@ -223,7 +227,18 @@ function tick() {
   $("#hud")?.classList.toggle("low", r < 6000 && r > 0);
   const bar = $("#hbar"); if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, r / Math.max(tot, 1)))})`;
 }
-setInterval(() => { tick(); playbackTick(); }, 250);
+// ---------- "press Ready" nudge: no click for 10 seconds while the line-up is open makes the Ready buttons flash (and, in Lite mode, a big prompt appears) ----------
+let lastAct = Date.now(), lastStep = "";
+for (const ev of ["pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => { lastAct = Date.now(); nudge(); }, { capture: true, passive: true });
+function nudge() {
+  const S = st.S; if (S && S.step !== lastStep) { lastStep = S.step; lastAct = Date.now(); }
+  const me = S && S.me, on = !!(me && !st.watch && (S.step === "md.lineup" || S.step === "md.half") && !me.auto && S.teams[me.teamId] && !S.teams[me.teamId].ready && !S.paused && Date.now() - lastAct >= 10000);
+  document.body.classList.toggle("nudge", on); document.body.classList.toggle("nudge-strong", on && isLite(S));
+  let cta = $("#readycta");
+  if (on && isLite(S)) { if (!cta) { cta = document.createElement("button"); cta.id = "readycta"; cta.dataset.act = "mready"; cta.className = "btn pri big"; cta.textContent = "▶ Press Ready when you are happy with the team"; document.body.appendChild(cta); } }
+  else if (cta) cta.remove();
+}
+setInterval(() => { tick(); playbackTick(); nudge(); }, 250);
 
 // ---------- lobby ----------
 function chatCard(S) {
@@ -264,7 +279,7 @@ function lobby(S) {
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    ${modeCard(S)}${you && you.mode === "player" ? creator(S) : ""}
+    ${modeCard(S)}${liteChooser(S)}${you && you.mode === "player" ? creator(S) : ""}
     <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}${filterBar}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     ${enterCode(you)}`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
@@ -322,7 +337,7 @@ function render() {
   const log = $("#chatlog"); if (log) log.scrollTop = log.scrollHeight;
   if (st.ui.lastStep !== S.step) { st.ui.lastStep = S.step; window.scrollTo(0, 0); }
   document.body.dataset.view = S.step === "lobby" ? "lobby" : S.step === "md.lineup" ? "hub" : /^md\./.test(S.step) ? "match" : "other";
-  playbackTick(); pcardSync(); phaseBanner(S);
+  playbackTick(); pcardSync(); phaseBanner(S); maybeFirstGuide(S);
 }
 st.render = render;
 window.__st = st;

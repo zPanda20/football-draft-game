@@ -1,6 +1,6 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
-import { st, $, esc, send, coins, pl, initials } from "./core.js";
+import { st, $, esc, send, coins, pl, initials, team, brandMark, clubInk } from "./core.js";
 
 const ui = () => st.ui;
 export const lifeHandlers = {
@@ -84,15 +84,16 @@ function prefRow(lf) {
   return `<div class="prefrow mt"><span class="small mute">When you are away or run out of time, you mostly…</span><div class="row wrap" style="gap:6px">${ks.map((k) => `<button class="btn sm ${lf.pref === k ? "pri" : ""}" data-act="setPref" data-k="${k}" title="${esc(info[k].text)}">${info[k].icon} ${esc(info[k].name)}</button>`).join("")}</div></div>`;
 }
 // ---------- boot sponsors ----------
-const brandMark = (id, size = 34) => { const b = st.cat.life.brands.find((x) => x.id === id), u = st.cat.art && st.cat.art.brands && st.cat.art.brands[id]; return u ? `<img class="brandlogo" src="${esc(u)}" alt="${esc(b ? b.name : id)}" height="${size}">` : `<span class="brandtxt">${esc(b ? b.name : id)}</span>`; };
+const myInk = () => { const pm = st.S && st.S.pm; return pm && pm.team != null ? clubInk(team(pm.team)) : null; };
+const brandMarkFor = (id, size, tier) => brandMark(id, size, { cols: myInk(), tex: myInk() ? null : ["silver", "silver", "gold", "ruby"][tier ?? 0] });
 function dealOfferCard(lf) {
   const o = lf.offer; if (!o) return "";
   const b = st.cat.life.brands.find((x) => x.id === o.brand);
-  return `<div class="dealcard mt">${brandMark(o.brand, 40)}<div class="grow"><b>${esc(b ? b.name : o.brand)} want to sign you</b><div class="small mute">A ${o.seasons}-season boot deal: <b>${o.pay} coins every matchday</b>. Wear a rival's boots under contract and it is a breach: a fine and no deal. Picking one maker over another can start a feud.</div></div><button class="btn pri" data-act="dealYes">Sign</button><button class="btn" data-act="dealNo">No thanks</button></div>`;
+  return `<div class="dealcard mt">${brandMarkFor(o.brand, 40, o.tier)}<div class="grow"><b>${esc(b ? b.name : o.brand)} want to sign you</b><div class="small mute">A ${o.seasons}-season boot deal: <b>${o.pay} coins every matchday</b>. Wear a rival's boots under contract and it is a breach: a fine and no deal. Picking one maker over another can start a feud.</div></div><button class="btn pri" data-act="dealYes">Sign</button><button class="btn" data-act="dealNo">No thanks</button></div>`;
 }
 function dealLine(lf) {
   if (!lf.deal) return "";
-  return `<div class="small mt dealline">${brandMark(lf.deal.brand, 20)} <span>Boot deal: <b>+${lf.deal.pay}</b> a matchday · ${lf.deal.left} season${lf.deal.left === 1 ? "" : "s"} left</span></div>`;
+  return `<div class="small mt dealline">${brandMarkFor(lf.deal.brand, 20, lf.deal.tier)} <span>Boot deal: <b>+${lf.deal.pay}</b> a matchday · ${lf.deal.left} season${lf.deal.left === 1 ? "" : "s"} left</span></div>`;
 }
 const TROPHY_ICON = { title: "🏆", ballon: "🌟", boot: "⚽", playmaker: "🎯", glove: "🧤" }, TROPHY_NAME = { title: "League title", ballon: "Ballon d'Or", boot: "Golden Boot", playmaker: "Playmaker", glove: "Golden Glove" };
 function cabinet(lf) {
@@ -133,19 +134,22 @@ export function frontPage(S, { cols = 6 } = {}) {
   const [lead, ...rest] = l, pic = art(lead.kind);
   const by = (n) => `${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}`;
   return `<div class="frontpage"><div class="fp-mast">${masthead}</div>${meta}
-    <div class="fp-lead"><div><div class="fp-head">${esc(lead.head)}</div><p class="fp-sub">${esc(lead.sub)}</p><div class="tiny" style="margin-top:6px;letter-spacing:.1em;text-transform:uppercase;color:#7a6f55">${by(lead)} · season ${lead.season}, matchday ${lead.day + 1}</div></div>
+    <div class="fp-lead"><div><div class="fp-head">${esc(lead.head)}</div><p class="fp-sub">${esc(lead.sub)}</p><div class="tiny" style="margin-top:6px;letter-spacing:.1em;text-transform:uppercase;color:#7a6f55">${by(lead)} · season ${lead.season}, matchday ${lead.day + 1}</div>${lead.src ? `<div class="fp-src">${srcMark(lead.src, 20)}</div>` : ""}</div>
       <div class="fp-pic" ${pic ? `style="background-image:url('${esc(pic)}')"` : ""}>${pic ? "" : esc(lead.kind === "steroids" ? "💉" : lead.icon)}<em>${esc(KIND[lead.kind] || "News")}</em></div></div>
-    ${rest.length ? `<div class="fp-cols">${rest.slice(0, cols).map((n) => `<div class="fp-col"><small>${esc(KIND[n.kind] || "News")} · S${n.season} MD${n.day + 1}</small><b>${esc(n.head)}</b><span>${esc(n.sub.length > 120 ? n.sub.slice(0, 118) + "…" : n.sub)}</span></div>`).join("")}</div>` : ""}</div>`;
+    ${rest.length ? `<div class="fp-cols">${rest.slice(0, cols).map((n) => `<div class="fp-col"><small>${esc(KIND[n.kind] || "News")} · S${n.season} MD${n.day + 1}</small>${n.src ? `<div class="fp-src">${srcMark(n.src, 14)}</div>` : ""}<b>${esc(n.head)}</b><span>${esc(n.sub.length > 120 ? n.sub.slice(0, 118) + "…" : n.sub)}</span></div>`).join("")}</div>` : ""}</div>`;
 }
 export function newsCard(S) {
   const l = S.news && S.news.list; if (!l || !l.length) return "";
   if (["md.result", "season.end", "season.intro"].includes(S.step)) return frontPage(S, { cols: 3 });
-  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div></div>`).join("")}</div></div>`;
+  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div>${n.src ? srcMark(n.src, 16) : ""}</div>`).join("")}</div></div>`;
 }
 
 // ---------- the banner ----------
 export const WADA_MARK = `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">`;
-const KIND = { milestone: "Milestone", troll: "Online beef", camera: "Caught on camera", sponsor: "Boots business", trophy: "Silverware", steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business" };
+const KIND = { milestone: "Milestone", troll: "Online beef", camera: "Caught on camera", sponsor: "Boots business", trophy: "Silverware", steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business", style: "Style press" };
+const SRCNAME = { sun: "The Sun", athletic: "The Athletic", telegraph: "The Telegraph", lequipe: "L'Équipe", gq: "GQ", bazaar: "Harper's Bazaar", vogue: "Vogue" };
+// A paper or magazine logo on a cream plate, so dark and coloured mastheads all read the same.
+const srcMark = (id, h = 22) => { const u = id && st.cat.art && st.cat.art.sources && st.cat.art.sources[id]; return u ? `<span class="srcplate" title="${esc(SRCNAME[id] || id)}"><img src="${esc(u)}" alt="${esc(SRCNAME[id] || id)}" style="height:${h}px"></span>` : ""; };
 let queue = [], showing = null, timer = null;
 const mast = () => { const u = st.cat.art && st.cat.art.ui && st.cat.art.ui.masthead; return u ? `<img class="nb-mast" src="${esc(u)}" alt="The Daily Whistle">` : "THE DAILY WHISTLE"; };
 export function newsTick(S) {
@@ -162,7 +166,7 @@ function nextBanner() {
   const wada = n.kind === "steroids";
   el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "");
   const pic = st.cat.art && st.cat.art.news && st.cat.art.news[n.kind];
-  el.innerHTML = `${pic ? `<div class="nb-pic" style="background-image:url('${esc(pic)}')"></div>` : ""}${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">${mast()}</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
+  el.innerHTML = `${pic ? `<div class="nb-pic" style="background-image:url('${esc(pic)}')"></div>` : ""}${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">${srcMark(n.src, 26) || mast()}</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
     <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;
   if (wada) setTimeout(() => { const e = $("#newsban"); if (e && showing === n) e.classList.add("go"); }, 2300);
   timer = setTimeout(closeBanner, wada ? 14000 : 11000);

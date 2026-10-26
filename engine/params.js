@@ -84,8 +84,8 @@ export const DEFAULT_PARAMS = {
     rookieContract: 3,
     extraCap: 2.0,                                  // extra coins count up to +200% of the minimum offer
     catchUp: 1.0,                                   // lottery weight 1 / (1 + catchUp * value / mean value)
-    incomePerMatch: 58, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
-    seasonBoost: { 3: 1.35, 5: 1.35 },              // income multiplier in these seasons (the re-sign cliff years)
+    incomePerMatch: 54, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
+    seasonBoost: { 3: 1.3, 5: 1.3 },              // income multiplier in these seasons (the re-sign cliff years)
     refMatches: 24,                                 // a season of this many matches earns the plain income; fewer matches earn more per match (clamped), so short leagues are not squeezed
     winBonus: 10, drawBonus: 5,                     // paid on top of the base, win or draw
     rosterMax: 10, rosterMin: 6,
@@ -101,9 +101,10 @@ export const DEFAULT_PARAMS = {
     paceDecline: 1.4, phyDecline: 1.0, staAfter: 28, staPerYear: 0.8, // stat shape of decline
     potential: { low: 0.55, med: 1.0, high: 1.5 },  // multiplies the growth of a young player
   },
-  rookies: { classSize: 34, placeholder: true },
+  rookies: { classSize: 34, placeholder: true, pack: 3, alwaysHigh: ["endrick", "gilberto-mora", "cavan-sullivan"] },   // the rookie draft opens packs of `pack` unseen players; these three always have high potential
   seasons: 4,                                       // default length of a game (needs one rookie class per off-season)
   trade: { maxAssets: 6, botMargin: 1.10 },
+  lineup: { earlyDays: 2, earlySec: 20 },           // the first two matchdays of a season give this many extra seconds to set the line-up
   transfer: { windowWeeks: 5, extraSec: 15 },       // in-season window: open before matchdays 1..5 and between them; the line-up timer gets this many extra seconds while it is open
 
   // ---- player mode (a human plays one footballer instead of managing a team) ----
@@ -119,6 +120,7 @@ export const DEFAULT_PARAMS = {
     maxOpenOffers: 3,                               // per manager
     startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
     itemCap: 2,                                     // items a created player can wear in one match
+    packs: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },
 
@@ -147,7 +149,8 @@ export const DEFAULT_PARAMS = {
     deals: [{ fol: 15000, pay: 6, seasons: 2 }, { fol: 60000, pay: 12, seasons: 2 }, { fol: 250000, pay: 22, seasons: 3 }, { fol: 1000000, pay: 36, seasons: 3 }], // boot-maker offers by followers
     feudChance: 0.6, breachFine: 40,
     boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3, perWeek: 1,
-    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5 },
+    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5, style: 0.35 },
+    style: { gq: 40000, bazaar: 100000, vogue: 250000 },    // followers needed before a style magazine writes about the player
   },
   // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----
   awards: { minShare: 0.5, gloveShare: 0.4, base: 6.0, ovrFloor: 60, weights: { rating: 0.30, contrib: 0.25, potm: 0.17, wins: 0.20, star: 0.08 } },

@@ -10,7 +10,7 @@ import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
 import { resolveMarketRound, buyItem, marketValue, feeFor, incomeScale } from "./market.js";
 import { pickArchetype, botDraftPick, botMarketBid, botItemBuys } from "./bots.js";
-import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookiesToPool, meanDrift, driftFor, retireChance } from "./offseason.js";
+import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookieDraftEnd, meanDrift, driftFor, retireChance } from "./offseason.js";
 
 export function createGame({ D, N = 20, seed = 1, params = {}, bots = null, gender = "all" }) {
   const P = withParams(params);
@@ -278,7 +278,7 @@ export function runWholeSeason(game) {
 const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot", "susp"];
 export function serializeGame(game) {
   return {
-    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, seasons: game.seasons || null, marketAhead: !!game.marketAhead, supply: game.supply, pool: game.pool, rookies: game.rookies || [], history: game.history || [],
+    seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, seasons: game.seasons || null, marketAhead: !!game.marketAhead, supply: game.supply, pool: game.pool, rookies: game.rookies || [], carry: game.carry || [], history: game.history || [],
     userPool: game.userPool || [], news: game.news || [], newsSeq: game.newsSeq || 0, pubSeq: game.pubSeq || 0, newsFlags: game.newsFlags || {}, dopeRuns: game.dopeRuns || {}, dopeRumour: game.dopeRumour || {}, goals: game.goals || {}, stats: game.stats || {}, gender: game.gender || "all",
     players: Object.fromEntries(Object.values(game.players).map((p) => [p.id, p.rookie || p.user ? { ...p, r: undefined } : Object.fromEntries(PLAYER_KEYS.map((k) => [k, p[k]]))])),
     teams: game.teams.map((t) => ({ ...t })),
@@ -286,7 +286,7 @@ export function serializeGame(game) {
 }
 export function restoreGame(D, snap) {
   const g = createGame({ D, N: snap.N, seed: snap.seed, params: snap.params, gender: snap.gender || "all" });
-  g.season = snap.season; g.seasons = snap.seasons || undefined; g.marketAhead = !!snap.marketAhead; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.dopeRuns = snap.dopeRuns || {}; g.dopeRumour = snap.dopeRumour || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.history = snap.history || [];
+  g.season = snap.season; g.seasons = snap.seasons || undefined; g.marketAhead = !!snap.marketAhead; g.supply = snap.supply || {}; g.pool = snap.pool; g.userPool = snap.userPool || []; g.goals = snap.goals || {}; g.news = snap.news || []; g.newsSeq = snap.newsSeq || 0; g.pubSeq = snap.pubSeq || 0; g.newsFlags = snap.newsFlags || {}; g.dopeRuns = snap.dopeRuns || {}; g.dopeRumour = snap.dopeRumour || {}; g.stats = snap.stats || {}; g.rookies = snap.rookies || []; g.carry = snap.carry || []; g.history = snap.history || [];
   for (const [id, f] of Object.entries(snap.players)) {
     if (!g.players[id]) g.players[id] = { ...f }; else Object.assign(g.players[id], f);
     rate(g.players[id], g.P);
@@ -305,8 +305,8 @@ export function runOffseason(game, D, hooks = {}) {
   game.teams.forEach((t, ti) => { for (const pk of botResign(game, ti)) resign(game, ti, pk.id, pk.len); });
   out.released = releaseExpired(game);
   out.rookies = introduceRookies(game, game.season, D);
-  out.draft = runRookieDraft(game, worstFirst, hooks.rookiePick);
-  rookiesToPool(game);
+  out.draft = runRookieDraft(game, worstFirst);
+  out.draftEnd = rookieDraftEnd(game);
   game.season += 1;
   for (const t of game.teams) { t.lineup = null; t.htLineup = null; t.active = undefined; t.equip = undefined; t.marketDone = false; }
   runMarket(game, "fa" + game.season);

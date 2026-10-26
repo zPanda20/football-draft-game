@@ -15,6 +15,7 @@ import { cleanPlan, applyPlan } from "../engine/subplan.js";
 import { expiring, availableRookies } from "../engine/offseason.js";
 import { offseasonMethods } from "./offseason.js";
 import { usermodeMethods } from "./usermode.js";
+import { liteMethods, liteOf, isLite } from "./lite.js";
 import { unsigned, buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
@@ -68,6 +69,8 @@ export class Room {
   }
   changed() { this.settle(); this.onChange(this); }
   p(ms) { return ms * this.settings.pace; }
+  // The kick-off / half-time / full-time banners need a second on screen before the clock runs: whenever somebody is actively playing (and the room is not on Turbo).
+  lead() { return this.settings.pace <= 0.5 || ![...this.players.values()].some((q) => q.connected && !q.idle) ? 0 : 1000; }
 
   // ---------- idle players ----------
   // A manager who lets three choice windows run out without touching anything goes idle. The room stops waiting for
@@ -270,6 +273,7 @@ export class Room {
   // ---------- pre-season market (market-value lottery) ----------
   startMarket(kind = "pre") {
     const g = this.game;
+    if (kind === "pre") this.autoOpenPacks();
     this.marketKind = kind;
     g.round = 0; this.phase = kind === "pre" ? "market" : "offseason"; this.marketRound = -1; this.quiet = 0;
     for (const t of g.teams) t.marketDone = false;
@@ -403,14 +407,21 @@ export class Room {
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
     for (const u of this.userPlayers()) { const pp = this.game.players[u.pid]; ensureOptions(this.game, pp, this.mdIdx); if (u.auto) ensureLife(this.game, pp).act = null; }
     const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected);
-    const extra = this.windowInfo().open && anyone ? g.P.transfer.extraSec : 0;
+    const extra = (this.windowInfo().open && anyone ? g.P.transfer.extraSec : 0) + (this.mdIdx < (g.P.lineup?.earlyDays ?? 2) ? (g.P.lineup?.earlySec ?? 20) : 0);
     this.after(anyone ? (this.settings.lineupSec + extra) * 1000 : this.p(2500), () => this.firstHalf());
     this.changed();
   }
   // Lineup for a team: a human's saved choice (unless on auto), otherwise the CPU's best.
   lineupHook(team, recs) {
-    if (team.human && team.lineup && !this.playerOfTeam(team.id)?.auto) return sanitizeLineup(team.lineup, recs, this.game.P);
+    const p = this.playerOfTeam(team.id);
+    if (team.human && p && !p.auto && !liteOf(p).xi) return this.cpuXI(team, recs);        // Lite: the formation is theirs, the eleven are picked the way a CPU club picks
+    if (team.human && team.lineup && !p?.auto) return sanitizeLineup(team.lineup, recs, this.game.P);
     return null;
+  }
+  cpuXI(team, recs) {
+    const P = this.game.P, f = team.lineup && FORMATIONS[team.lineup.formation] ? team.lineup.formation : null;
+    const l = f ? chooseForFormation(recs, f, P) : bestLineup(recs, P);
+    return { formation: l.formation, gk: l.gk, out: l.out, bench: l.bench };
   }
   setLineup(token, l) {
     const p = this.players.get(token); if (!p || p.teamId == null) return;
@@ -438,7 +449,7 @@ export class Room {
     const g = this.game;
     for (const m of this.live || []) [0, 1].forEach((i) => {
       const t = m.sides[i], p = this.playerOfTeam(t.id);
-      if (!t.human || (p && p.auto) || !t.plan || t.plan.on === false) return;
+      if (!t.human || (p && p.auto) || (p && !liteOf(p).subs) || !t.plan || t.plan.on === false) return;
       const score = i === 0 ? m.ht.score : [m.ht.score[1], m.ht.score[0]];
       const res = applyPlan(t.plan, m.lineups[i], halftimeRecs(m, i), score, g.P);
       if (res.changes.length) { t.htLineup = { formation: res.lineup.formation, gk: res.lineup.gk, out: res.lineup.out, bench: res.lineup.bench }; t.htPlan = { changes: res.changes, over: false }; }
@@ -471,7 +482,7 @@ export class Room {
     if (on) this.ready.add(teamId); else this.ready.delete(teamId);
     const next = { "md.lineup": () => this.firstHalf(), "md.half": () => this.secondHalf(), "off.resign": () => this.finishResign(), "off.trade": () => this.endTrade() }[this.step];
     if (on && next) {
-      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.playerOfTeam(t.id)?.auto && (this.step !== "off.resign" || expiring(this.game, t.id).length)) || (this.step === "md.lineup" && this.lifeOpen());
+      const open = this.humanTeams().some((t) => this.humanFor(t.id) && !this.ready.has(t.id) && !this.passive(this.playerOfTeam(t.id)) && (this.step !== "off.resign" || expiring(this.game, t.id).length)) || (this.step === "md.lineup" && this.lifeOpen());
       if (!open) { const st0 = this.step; this.after(900, () => { if (this.step === st0) next(); }); }
     }
     this.changed();
@@ -491,25 +502,27 @@ export class Room {
     const hooks = { lineup: (t, recs) => this.lineupHook(t, recs) };
     this.live = day.map(([a, b], k) => beginMatch(g, a, b, `${this.mdIdx}-${a}-${b}`, hooks));
     this.ready = new Set(); this.openWindow();
-    this.setReveal({ kind: "half1", day: this.mdIdx, matches: this.live.map((m) => ({ a: m.a, b: m.b, all: m.ht.events, lineups: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), score: m.ht.score, events: m.ht.events, flow: m.ht.flow })) });
+    const lead = this.lead(), len = this.p(HALF_MS);
+    this.setReveal({ kind: "half1", lead: lead / (len + lead), day: this.mdIdx, matches: this.live.map((m) => ({ a: m.a, b: m.b, all: m.ht.events, lineups: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), score: m.ht.score, events: m.ht.events, flow: m.ht.flow })) });
     this.step = "md.half1";
-    this.after(this.p(HALF_MS), () => this.halftime());
+    this.after(len + lead, () => this.halftime());
     this.changed();
   }
   halftime() {
     this.step = "md.half"; this.openWindow(); this.ready = new Set(); this.applyPlans();
-    for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
-    const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected && this.onPitchNow(u));
-    this.after(anyone ? this.settings.halfSec * 1000 : this.p(1500), () => this.secondHalf());
+    for (const p of this.players.values()) if (this.passive(p) && p.teamId != null) this.ready.add(p.teamId);
+    const anyone = this.humanTeams().some((t) => { const h = this.humanFor(t.id); return h && (h.auto || !this.passive(h)); }) || this.userPlayers().some((u) => u.connected && this.onPitchNow(u));
+    this.after(anyone ? this.settings.halfSec * 1000 + this.lead() : this.p(1500), () => this.secondHalf());
     this.changed();
   }
   secondHalf() {
     this.closeWindow();
     const g = this.game, day = this.mdIdx, matches = [];
+    this.hold = { stats: JSON.parse(JSON.stringify(g.stats || {})), goals: JSON.parse(JSON.stringify(g.goals || {})) };   // the season tables keep showing the old numbers until full time (no spoilers)
     for (const m of this.live) {
       const changes = [0, 1].map((i) => {
         const t = m.sides[i], p = this.playerOfTeam(t.id);
-        if (!t.human || (p && p.auto)) return null;               // CPU (or a manager on auto) re-picks with half-time stamina
+        if (!t.human || (p && p.auto) || (p && !liteOf(p).subs)) return null;               // CPU (or a manager on auto, or Lite without the plan editor) re-picks with half-time stamina
         return t.htLineup || m.lineups[i];                         // a manager who does nothing keeps the first-half lineup
       });
       const res = finishMatch(g, m, changes, { effort: (t) => this.effortHook(t) });
@@ -525,12 +538,14 @@ export class Room {
     this.pendingTable = standingsOf(this.results, g.teams.length);
     this.pendingIncome = incomeBreakdown(g, this.pendingTable, this.results.filter((r) => r.day === day)); tickSuspensions(g);
     this.pendingLast = { day, matches: matches.map((m) => ({ a: m.a, b: m.b, score: m.score, goals: m.goals })) };
-    this.setReveal({ kind: "half2", day, matches });
+    const lead = this.lead(), len = this.p(HALF_MS);
+    this.setReveal({ kind: "half2", lead: lead / (len + lead), day, matches });
     this.step = "md.half2";
-    this.after(this.p(HALF_MS), () => this.showResult());
+    this.after(len + lead, () => this.showResult());
     this.changed();
   }
   showResult() {
+    this.hold = null;
     this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
     this.dealCareerCards(); this.rollStore();
@@ -542,7 +557,7 @@ export class Room {
     const g = this.game, table = standingsOf(this.results, g.teams.length);
     this.step = "season.end"; this.phase = "season";
     g.history = g.history || []; const top = topScorers(g, 1)[0], awards = seasonAwards(g, this.days.length);
-    g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null, awards });
+    g.history.push({ season: g.season, champion: table[0].i, pts: table[0].pts, table: table.slice(0, 3).map((r) => r.i), tab: table.map((r) => [r.i, r.p, r.w, r.d, r.l, r.gf, r.ga, r.pts]), boot: top ? { id: top.id, name: g.players[top.id].name, team: top.team, g: top.g } : null, awards });
     for (const u of this.userPlayers()) {                                       // trophies and the end of a boot deal's season for created footballers
       const p = g.players[u.pid]; if (!p || p.retired) continue;
       const gp = (g.stats[p.id] || {}).gp || 0, need = Math.ceil(this.days.length * g.P.awards.minShare), day = this.days.length - 1;
@@ -569,7 +584,7 @@ export class Room {
     const snap = {
       code: this.code, hostToken: this.hostToken, seed: this.seed, settings: this.settings, kind, created: this.created,
       game: serializeGame(this.game),
-      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, mode: p.mode, char: p.char, pid: p.pid })),
+      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, mode: p.mode, char: p.char, pid: p.pid })),
       results: this.results, days: this.days,
     };
     this.onSave(this, snap);
@@ -603,7 +618,7 @@ export class Room {
     if (p.susp > 0) o.sp = p.susp;
     if (p.user) { o.st = [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta]; o.u = { name: p.name, nat: p.nat, pos: p.pos, club: p.club, img: p.img, g: p.gender }; }
     if (p.pot) o.pot = p.pot;
-    { const x = this.game.stats && this.game.stats[id]; if (x && x.gp) o.x = [x.gp, x.g, x.a, x.kp, x.tk, x.ic, x.sv, +(x.rt / x.gp).toFixed(2), x.sh, +x.xg.toFixed(1), x.ga, x.mo || 0, x.w || 0, x.cs || 0]; }   // season line: games, goals, assists, chances created, tackles, interceptions, saves, average rating, shots, xG, goals against, player-of-the-match awards, wins, clean sheets
+    { const st = this.hold ? this.hold.stats : this.game.stats, x = st && st[id]; if (x && x.gp) o.x = [x.gp, x.g, x.a, x.kp, x.tk, x.ic, x.sv, +(x.rt / x.gp).toFixed(2), x.sh, +x.xg.toFixed(1), x.ga, x.mo || 0, x.w || 0, x.cs || 0]; }   // season line: games, goals, assists, chances created, tackles, interceptions, saves, average rating, shots, xG, goals against, player-of-the-match awards, wins, clean sheets
     return o;
   }
 
@@ -612,7 +627,7 @@ export class Room {
     const v = {
       room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
-      players: [...this.players.values()].map((p) => ({ you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      players: [...this.players.values()].map((p) => ({ you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
       news: this.game ? this.newsView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
@@ -629,7 +644,8 @@ export class Room {
     // live player records for everyone who is on a team (compact)
     const ids = new Set(); for (const t of g.teams) for (const id of t.players) ids.add(id);
     if (this.step.startsWith("market.")) for (const id of g.pool) ids.add(id);
-    if (this.step.startsWith("off.rookie") && g.rookies) for (const id of g.rookies) ids.add(id);
+    if (this.step === "off.rookie.turn" && g.rdraft) for (const id of g.rdraft.seen) ids.add(id);                         // only rookies that have been in a pack are shown
+    if (this.reveal && this.reveal.kind === "rookies") for (const id of this.reveal.toPool || []) ids.add(id);
     if (this.step === "draft.pick" && me && me.teamId != null) for (const c of this.hands[me.teamId]) if (c.t === "p") ids.add(c.id);
     if (this.reveal && this.reveal.kind === "resign") for (const x of this.reveal.released) ids.add(x.id);
     if (this.reveal && this.reveal.kind === "draft") for (const pk of this.reveal.picks) if (pk.card && pk.card.t === "p") ids.add(pk.card.id);
@@ -647,17 +663,18 @@ export class Room {
       const w = catchUpWeights(g, g.P);
       v.market = { round: this.marketRound, total: MARKET_ROUNDS, pool: g.pool, supply: g.supply, locked: [...this.bids].filter(([, b]) => b.locked).map(([id]) => id), odds: w.map((x) => +x.toFixed(3)) };
     }
-    if (this.phase === "offseason" && this.step.startsWith("off.rookie")) v.rookies = { avail: availableRookies(g), order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks };
+    if (this.phase === "offseason" && this.step === "off.rookie.turn" && g.rdraft) v.rookies = { avail: g.rdraft.left, unopened: g.rdraft.unopened.length, pack: this.rPack, stage: this.rStage, packSize: g.P.rookies.pack, order: this.worstFirst, idx: this.rIdx, picks: this.rookiePicks, last: this.rLast };
     if (this.phase === "offseason" && this.step === "off.trade" && !me) v.tradeLog = this.trade ? this.trade.log.slice(-10) : [];
     v.window = win; if (win.open && me && me.teamId != null) v.window.pool = this.windowPool();
     v.history = g.history || []; v.final = !!this.final;
-    v.boot = topScorers(g, 10); v.leaders = seasonLeaders(g, 10); v.lastDay = this.lastDay || null;
+    const gv = this.hold ? Object.assign(Object.create(g), { stats: this.hold.stats, goals: this.hold.goals }) : g;
+    v.boot = topScorers(gv, 10); v.leaders = seasonLeaders(gv, 10); v.lastDay = this.lastDay || null;
     v.store = { open: STORE_STEPS.includes(this.step), stock: this.store }; v.notices = this.notices;
     if (this.phase === "season" && ["season.intro", "md.lineup", "md.result", "season.end"].includes(this.step)) v.sched = { days: this.days || [], results: this.results.map((r) => [r.day, r.a, r.b, r.ga, r.gb]) };
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
       const t = g.teams[me.teamId];
-      const mv = { gain: this.gain && this.gain.byTeam.get(t.id) ? { seq: this.gain.seq, ...this.gain.byTeam.get(t.id) } : null, teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
+      const mv = { gain: this.gain && this.gain.byTeam.get(t.id) ? { seq: this.gain.seq, ...this.gain.byTeam.get(t.id) } : null, teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, lite: { ...liteOf(me), on: isLite(me) }, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
       if (this.step === "draft.pick") { mv.hand = this.hands[t.id]; const h = this.picks.get(t.id); mv.pick = h ? { idx: h.idx, locked: h.locked } : null; }
       if (this.step.startsWith("market.")) {
         const b = this.bids.get(t.id); mv.bid = b || null; mv.done = !!t.marketDone;
@@ -668,7 +685,7 @@ export class Room {
         mv.plan = t.plan || null;
         mv.rosterRoom = capOf(t, g.P) - t.players.length;
         if (win.open) mv.trade = this.tradeView(me);
-        mv.lineup = t.lineup ? sanitizeLineup(t.lineup, rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P) : bestLineup(rosterOf(g, t).filter((q) => !(q.susp > 0)), g.P);
+        { const recs = rosterOf(g, t).filter((q) => !(q.susp > 0)); mv.lineup = !liteOf(me).xi ? this.cpuXI(t, recs) : t.lineup ? sanitizeLineup(t.lineup, recs, g.P) : bestLineup(recs, g.P); }
         if (this.live) {
           const k = this.live.findIndex((m) => m.a === t.id || m.b === t.id);
           if (k >= 0) {
@@ -691,5 +708,5 @@ export class Room {
   }
 }
 
-Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods);
+Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods, liteMethods);
 Room.prototype.userWaiting = function () { return !!this.game && [...this.players.values()].some((p) => p.mode === "player" && p.connected && p.pid != null && this.game.players[p.pid].team == null && (this.offers || []).some((o) => o.pid === p.pid && o.status === "open")); };

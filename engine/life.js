@@ -46,10 +46,17 @@ export const PARTNER_LIST = [
 ].map(([id, name, g]) => ({ id, name, g }));
 export const partnerById = (id) => PARTNER_LIST.find((x) => x.id === id) || null;
 // Boot makers that can sign a footballer. Logos go in public/assets/brands/<id>.png. `rival` is who they would love to annoy.
+// `rank` is how big the maker is: 1 = budget label, 2 = established, 3 = global giant. Bigger makers only come knocking at higher follower tiers.
 export const BOOT_BRANDS = [
-  { id: "nike", name: "Nike", rival: "adidas" }, { id: "adidas", name: "Adidas", rival: "puma" },
-  { id: "puma", name: "Puma", rival: "adidas" }, { id: "mizuno", name: "Mizuno", rival: "nike" },
+  { id: "nike", name: "Nike", rival: "adidas", rank: 3 }, { id: "adidas", name: "Adidas", rival: "puma", rank: 3 },
+  { id: "puma", name: "Puma", rival: "adidas", rank: 3 }, { id: "mizuno", name: "Mizuno", rival: "nike", rank: 2 },
+  { id: "newbalance", name: "New Balance", rival: "nike", rank: 2 }, { id: "on", name: "ON", rival: "nike", rank: 2 },
+  { id: "umbro", name: "Umbro", rival: "puma", rank: 1 }, { id: "reebok", name: "Reebok", rival: "adidas", rank: 1 },
+  { id: "lotto", name: "Lotto", rival: "mizuno", rank: 1 }, { id: "joma", name: "Joma", rival: "lotto", rank: 1 },
+  { id: "skechers", name: "Skechers", rival: "nike", rank: 1 },
 ];
+// Which makers may offer at each deal tier (0 = first small deal, 3 = the biggest).
+export const DEAL_RANKS = [[1, 1], [1, 2], [2, 3], [3, 3]];
 export const brandById = (id) => BOOT_BRANDS.find((x) => x.id === id) || null;
 export const brandOfItem = (itemId) => { const m = /^boots-([a-z]+)-/.exec(itemId || ""); return m ? m[1] : null; };
 const CLUBNAMES = ["Offside", "The Back Post", "Extra Time", "VAR Room", "Golden Boot", "Stoppage", "Nutmeg", "Top Bins", "The Dugout", "Panenka"];
@@ -200,6 +207,13 @@ const STORIES = [
     build: (c) => ({ head: `GYM RAT ALERT: ${c.p.name.toUpperCase()} LOCKED IN THE GYM`, sub: `Cleaners found ${him(c.p)} still doing calf raises at midnight. The floodlights were switched off "as a hint".`, fx: { fol: 500 }, flag: "gym" }) },
   { id: "wild", prio: 1, chance: (c) => c.P.chance.wild, kind: "party", icon: "🍾", when: (c) => c.act === "party",
     build: (c, r) => ({ head: pick(r, [`WILD NIGHT OUT: ${c.p.name.toUpperCase()} SPOTTED AT 4AM`, `${c.p.name.toUpperCase()} DANCES ON A TABLE. IT HOLDS.`, `STARS OUT: ${c.p.name.toUpperCase()} LEADS THE CONGA LINE`]), sub: pick(r, [`Witnesses say the ${club(c.game, c.p)} ${c.p.pos} was "in great spirits" and had lost one shoe.`, `Fans filmed it all. The group chat has not recovered.`, `A kebab was involved. So was a traffic cone.`]), fx: { fol: 1500 } }) },
+  // ---- style press: GQ, Harper's Bazaar and Vogue only write about the properly famous (one piece per magazine per season) ----
+  { id: "gq", prio: 2, chance: (c) => c.P.chance.style, kind: "style", src: "gq", icon: "🕴️", when: (c) => c.L.fol >= c.P.style.gq && !c.L.flags["gq" + c.game.season],
+    build: (c, r) => ({ head: pick(r, [`GQ BEST DRESSED: ${c.p.name.toUpperCase()} MAKES THE LIST`, `${c.p.name.toUpperCase()} IN GQ: "THE SUIT THAT LAUNCHED A THOUSAND TRANSFER RUMOURS"`, `GQ PROFILE: ${c.p.name.toUpperCase()} ON TAILORING, TUNNELS AND TRAINERS`]), sub: pick(r, [`${club(c.game, c.p)}'s ${c.p.pos} poses in a double-breasted blazer and says ${he(c.p).toLowerCase()} "only wears things ${he(c.p).toLowerCase()} could sprint in". Fans have counted the buttons.`, `Eight pages, one watch, no shin pads. The shoot reportedly ran two hours over because ${he(c.p).toLowerCase()} kept asking the photographer about the offside rule.`, `Style editors call it "football's quiet luxury". The ${club(c.game, c.p)} kit man calls it "a lot of dry cleaning".`]), flag: "gq" + c.game.season, fx: { fol: 2500 } }) },
+  { id: "bazaar", prio: 2, chance: (c) => c.P.chance.style, kind: "style", src: "bazaar", icon: "👗", when: (c) => c.L.fol >= c.P.style.bazaar && !c.L.flags["bazaar" + c.game.season] && (c.L.own.house || c.L.own.cars.length > 0 || !!c.L.partner),
+    build: (c, r) => ({ head: pick(r, [`HARPER'S BAZAAR: A WEEKEND WITH ${c.p.name.toUpperCase()}`, `${c.p.name.toUpperCase()} OPENS THE WARDROBE FOR HARPER'S BAZAAR`, `HARPER'S BAZAAR: THE ${c.p.name.split(" ").slice(-1)[0].toUpperCase()} EFFECT ON THE HIGH STREET`]), sub: pick(r, [`${he(c.p)} talks about ${his(c.p)} favourite coat, ${his(c.p)} least favourite away trip, and why every pair of shoes is "basically a cleat in disguise".`, `The magazine says one jacket worn on the touchline sold out in a day. ${club(c.game, c.p)}'s shop is now asking for a word.`, `A photo essay on the training ground, the kitchen and a very patient dog. The dog gets most of the column inches.`]), flag: "bazaar" + c.game.season, fx: { fol: 3500 } }) },
+  { id: "vogue", prio: 3, chance: (c) => c.P.chance.style, kind: "style", src: "vogue", icon: "📖", when: (c) => c.L.fol >= c.P.style.vogue && !c.L.flags["vogue" + c.game.season],
+    build: (c, r) => ({ head: pick(r, [`VOGUE COVER: ${c.p.name.toUpperCase()} STEPS OUT OF THE STADIUM`, `${c.p.name.toUpperCase()} IS ON THE COVER OF VOGUE`, `VOGUE: THE FOOTBALLER WHO CHANGED WHAT A FOOTBALLER LOOKS LIKE`]), sub: pick(r, [`Ten pages, three outfits and one very quiet ${club(c.game, c.p)} press officer. The editor calls ${c.p.name} "the most photographed ${c.p.pos} in the world".`, `The cover line asks if ${c.p.name} is "football's first true fashion house". ${club(c.game, c.p)} supporters have asked for the shirt-sponsor money instead.`, `Shot over two days in Paris between training sessions. The interview runs on the cost of a haircut and the ${c.p.pos} position in equal measure.`]), flag: "vogue" + c.game.season, fx: { fol: 9000 } }) },
   // ---- milestones, rivals, sponsors, wedding and relationship gossip ----
   { id: "m100k", g: true, retry: true, prio: 4, kind: "milestone", icon: "📈", when: (c) => c.L.fol >= 100000 && !c.L.hit.m100k,
     build: (c) => ({ head: `100K AND COUNTING: ${c.p.name.toUpperCase()} HITS SIX FIGURES`, sub: `${c.p.name} passes 100,000 followers. ${club(c.game, c.p)}'s social media intern has been given "a raise, and a nap". The sponsors have noticed.`, fx: { coins: c.P.milestone.m100k }, hit: "m100k" }) },
@@ -222,6 +236,8 @@ const STORIES = [
     build: (c, r) => { const f = c.L.hit.feud, b = brandById(f.brand); delete c.L.hit.feud;
       return { head: `${b.name.toUpperCase()} V ${c.p.name.toUpperCase()}: THE BOOT WAR IS ON`, sub: f.why === "breach" ? `${c.p.name} was seen in ${b.name} boots while under contract with ${brandById(f.other).name}. Lawyers, a fine and a lot of thumbs-down emojis are in play.` : pick(r, [`${b.name} are "disappointed" ${c.p.name} chose ${brandById(f.other).name}. Their billboard now just says "WE REMEMBER". It is outside the training ground.`, `${b.name}'s marketing chief called ${brandById(f.other).name} "a fancy sock company" on live TV. ${c.p.name} replied with one eyebrow.`]), fx: { fol: f.why === "breach" ? 1200 : 3000, coins: f.why === "breach" ? -c.P.breachFine : 0 } }; } },
 ];
+// Which paper or magazine carries each kind of story (public/assets/sources/<id>.png). A story can name its own with `src`.
+export const SOURCE_OF = { party: "sun", drunk: "sun", camera: "sun", trouble: "sun", rumour: "sun", fun: "sun", club: "sun", troll: "athletic", boring: "athletic", proud: "athletic", milestone: "athletic", sponsor: "telegraph", yacht: "telegraph", wedding: "telegraph", steroids: "lequipe", trophy: "lequipe", style: "gq" };
 const kindIcon = Object.fromEntries(STORIES.map((s) => [s.kind, s.icon]));
 export { kindIcon };
 
@@ -256,7 +272,7 @@ function mk(game, p, s) {
   if (room.replace) overwrite(game, room.replace);
   game.newsSeq = (game.newsSeq || 0) + 1; game.pubSeq = game.pubSeq || 0;
   const status = s.approval && p.team != null && game.teams[p.team].human ? "pending" : "live";
-  const n = { id: game.newsSeq, season: game.season, day: s.day ?? game.weekDay ?? (game.md ? game.md.day : 0), kind: s.kind, icon: s.icon, pid: p.id, name: p.name, team: p.team, clubName: club(game, p), head: s.head, sub: s.sub, status, approver: status === "pending" ? p.team : null, prio: s.prio ?? 0, abs: !!s.abs, fx: s.fx || null, flag: s.flag || null, gflag: s.gflag || null };
+  const n = { id: game.newsSeq, season: game.season, day: s.day ?? game.weekDay ?? (game.md ? game.md.day : 0), kind: s.kind, icon: s.icon, pid: p.id, name: p.name, team: p.team, clubName: club(game, p), src: s.src || SOURCE_OF[s.kind] || null, head: s.head, sub: s.sub, status, approver: status === "pending" ? p.team : null, prio: s.prio ?? 0, abs: !!s.abs, fx: s.fx || null, flag: s.flag || null, gflag: s.gflag || null };
   if (status === "live") n.pub = ++game.pubSeq;
   (game.news = game.news || []).push(n); if (game.news.length > 60) game.news.shift();
   weekSlot(game).ids.push(n.id);
@@ -347,7 +363,7 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
     if (b.flag) L.flags[b.flag] = true; if (b.hit) L.hit[b.hit] = true; if (b.gflag) (game.newsFlags = game.newsFlags || {})[b.gflag + game.season] = true;
     if (!can) { if (b.fx) applyFx(game, p, b.fx); continue; }                  // a certain event overwritten by a bigger one still happens, quietly
     if (!s.g) L.sCount++;
-    const n = mk(game, p, { kind: s.kind, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
+    const n = mk(game, p, { kind: s.kind, src: s.src, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
     if (n) { out.push(n); printed = true; }
   }
   L.last = { act, cost, day, wed: !!marry };
@@ -368,7 +384,7 @@ export function dealOffer(game, p, day) {
   if (L.offer) return null;
   const next = (L.hit.tier ?? -1) + 1; if (next >= T.length || L.fol < T[next].fol) return null;
   const r = makeRng(game.seed, "deal", p.id, next), cur = L.deal && L.deal.brand;
-  const choices = BOOT_BRANDS.filter((b) => b.id !== cur); const b = choices[Math.floor(r() * choices.length)];
+  const [lo, hi] = DEAL_RANKS[Math.min(next, DEAL_RANKS.length - 1)], choices = BOOT_BRANDS.filter((b) => b.id !== cur && b.rank >= lo && b.rank <= hi); const b = choices[Math.floor(r() * choices.length)];
   L.hit.tier = next;
   if (L.deal && L.deal.pay >= T[next].pay) return null;                          // already on better money
   L.offer = { brand: b.id, tier: next, pay: T[next].pay, seasons: T[next].seasons, day };

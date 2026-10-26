@@ -40,7 +40,7 @@ export function createUserPlayer(game, { token, name, pos, nums, ovr, assign, na
   const p = {
     id, slug: "user-" + id, name: String(name || "Player").slice(0, 22), gender: gender === "F" ? "F" : "M", img: String(img || "0-0-0").slice(0, 40), age: 21, nat: nat || "", club: "Free Agent", pos,
     ovr, pac: 0, sho: 0, pas: 0, dri: 0, def: 0, phy: 0, sta: 80, tier: ovr >= 90 ? "ruby" : ovr >= 85 ? "gold" : "silver",
-    stam: 100, team: null, contract: 0, user: true, owner: token, ovrf: ovr, career: { pending: [], log: [], n: 0 }, coins: P.player.startCoins, items: {}, equip: [],
+    stam: 100, team: null, contract: 0, user: true, owner: token, ovrf: ovr, career: { pending: [], log: [], n: 0 }, coins: P.player.startCoins, items: {}, equip: [], packs: P.player.packs, packLog: [],
   };
   STAT_KEYS.forEach((k, i) => { p[k] = nums[a[i]]; });
   game.players[p.id] = rate(p, P);
@@ -190,4 +190,22 @@ export function cpuTakes(game, p) {
   if (t) return signUser(game, p, t.id, P.player.cpuContract, true) !== false;
   const cpu = game.teams.filter((x) => !x.human).sort((a, b) => a.players.length - b.players.length || a.coins - b.coins)[0] || game.teams[0];
   return makeRoom(game, cpu.id) && signUser(game, p, cpu.id, P.player.cpuContract, true) !== false;
+}
+
+// ---------- item packs (opened during the pack draft) ----------
+// Each pack holds one thing: a low or mid pair of boots, an ice bath, or a small purse of coins. Same seed, same packs.
+export function packOdds(game) {
+  const own = game.items.filter((i) => i.scope === "player" && i.supply == null && !i.storeOnly);
+  const lows = own.filter((i) => i.tier === "low"), mids = own.filter((i) => i.tier === "mid"), rest = own.filter((i) => !i.tier);
+  return [...lows.map((i) => ({ w: 30 / Math.max(1, lows.length), id: i.id })), ...mids.map((i) => ({ w: 22 / Math.max(1, mids.length), id: i.id })), ...rest.map((i) => ({ w: 18 / Math.max(1, rest.length), id: i.id })), { w: 12, coins: true }];
+}
+export function openItemPack(game, p) {
+  if (!p || !p.user || !(p.packs > 0)) return null;
+  const n = (p.packLog || []).length, r = makeRng(game.seed, "ipack", p.id, n), odds = packOdds(game), tot = odds.reduce((a, o) => a + o.w, 0);
+  let x = r() * tot, pick = odds[odds.length - 1]; for (const o of odds) { if ((x -= o.w) < 0) { pick = o; break; } }
+  let res;
+  if (pick.coins) { const [lo, hi] = game.P.player.packCoins, amt = lo + Math.floor(r() * (hi - lo + 1)); p.coins += amt; res = { kind: "coins", amt }; }
+  else { const it = game.items.find((i) => i.id === pick.id); p.items[it.id] = (p.items[it.id] || 0) + it.uses; res = { kind: "item", id: it.id, uses: it.uses }; }
+  p.packs--; p.packLog = [...(p.packLog || []), res];
+  return res;
 }
