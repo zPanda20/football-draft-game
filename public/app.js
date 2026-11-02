@@ -16,6 +16,7 @@ import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
 import { applyLook, lookPicker, lookHandlers } from "./look.js";
 import { rivalButton } from "./story.js";
+import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
 app.innerHTML = `<div id="top"></div><div id="body"></div><div id="hostbar"></div>`;
@@ -56,23 +57,11 @@ function connect(first) {
 const nameVal = () => ($("#nm")?.value || "").trim() || store("name") || "Manager";
 function landing() {
   st.S = null; el.top.innerHTML = ""; el.host.innerHTML = "";
-  const saved = store("room");
-  el.body.innerHTML = `<div class="landing"><span class="logo"><b></b> Football Draft</span>
-    <div class="hero">Draft the squad.<br>Win the <em>league</em>.</div>
-    <div>${lookPicker()}</div>
-    <div><button class="btn" data-act="helpOpen">How to play</button></div>
-    <p class="lead">Open packs, pick your six, bid for the rest, then watch your team play a season. A game for a room full of laptops.</p>
-    <div class="stack">
-      <div class="card"><h3>Your name</h3><input id="nm" style="width:100%" maxlength="24" placeholder="Name" value="${esc(store("name") || "")}"></div>
-      <div class="grid2">
-        <div class="card col"><h3>Host a game</h3><p class="small mute">Start a room and share the code.</p><button class="btn pri big" data-act="create">Create game</button></div>
-        <div class="card col"><h3>Join a game</h3><input class="big" id="jc" maxlength="4" placeholder="CODE" value="${esc(st.room || "")}"><button class="btn pri" data-act="join">Join</button></div>
-      </div>
-      <div class="card row wrap"><div class="grow"><h3>Big-screen view</h3><div class="small mute">For the projector. Shows the matches and tables, no controls.</div></div><input id="wc" maxlength="4" placeholder="CODE" style="width:90px;text-transform:uppercase;text-align:center"><button class="btn" data-act="watch">Watch</button></div>
-      ${saved && !st.watch ? `<div class="card row"><div class="grow">Rejoin room <span class="code">${esc(saved)}</span></div><button class="btn pri" data-act="rejoin">Rejoin</button></div>` : ""}
-    </div></div>`;
+  document.body.classList.add("onmenu"); const bg = $("#bg"); if (bg) bg.classList.remove("wall");
+  el.body.innerHTML = menuView();
   applyLook(null);
 }
+st.landing = landing;
 
 // ---------- actions ----------
 const go = () => { if (!st.ws || st.ws.readyState > 1) connect(); else st.ws.send(JSON.stringify({ token: st.token, ...intent })); };
@@ -97,7 +86,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -121,7 +110,7 @@ app.addEventListener("input", (e) => {
   const t = e.target;
   if (t.dataset.input && A[t.dataset.input]) A[t.dataset.input]({ ...t.dataset, value: t.value }, t);
 });
-app.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "chatin") A.chatSend(); if (e.key === "Enter" && e.target.id === "jc") A.join(); if (e.key === "Enter" && e.target.id === "codein") A.redeem(); });
+app.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.id === "chatin") A.chatSend(); if (e.key === "Enter" && e.target.id === "jc") A.join(); if (e.key === "Enter" && e.target.id === "wc") A.watch(); if (e.key === "Enter" && e.target.id === "nm") A.lvl({ v: level() || "beginner" }); if (e.key === "Enter" && e.target.id === "codein") A.redeem(); });
 
 // ---------- top bar ----------
 function phaseLabel(S) {
@@ -340,7 +329,7 @@ function hostBar(S) {
 let lastMain = "", lastSide = "";
 function render() {
   const S = st.S; if (!S) return;
-  applyTheme(); applyLook(S); renderTop();
+  document.body.classList.remove("onmenu"); applyTheme(); applyLook(S); renderTop(); levelDefault(S);
   let main = "", side = "";
   const ctx = { chatCard, teamsList };
   if (S.step === "lobby") ({ main, side } = lobby(S));
@@ -371,4 +360,4 @@ window.__st = st;
 // ---------- boot ----------
 if (st.watch && st.room) { intent = { t: "watch", room: st.room }; connect(); }
 else if (st.room && store("name")) { intent = { t: "join", room: st.room, name: store("name") }; connect(); }
-else landing();
+else { menuReset(); landing(); }

@@ -16,7 +16,7 @@
   },
   {
    "id": "grandpa",
-   "name": "Turtle FC",
+   "name": "SSC Turtle Grandpa",
    "codes": [
     "grandpa"
    ],
@@ -28,7 +28,7 @@
   },
   {
    "id": "sisterfei",
-   "name": "Holy Freak FC",
+   "name": "FC Holy Freak",
    "codes": [
     "sister fei"
    ],
@@ -101,7 +101,7 @@
   },
   {
    "id": "woods",
-   "name": "Forest FC",
+   "name": "Into the Woods FC",
    "codes": [
     "into the woods",
     "jack"
@@ -255,33 +255,33 @@
  "clubs": [
   {
    "slug": "lightning-fc",
-   "name": "Lightning McQueen FC",
+   "name": "Lightning McQueen",
    "short": "LMQ",
-   "c1": "#d62a1f",
-   "c2": "#ffcc1a",
+   "c1": "#c8141c",
+   "c2": "#f2f2f2",
    "kind": "code",
    "unlock": "kachow",
    "full": "Lightning McQueen FC"
   },
   {
    "slug": "turtle-fc",
-   "name": "Turtle FC",
-   "short": "TUR",
-   "c1": "#3a8f3f",
-   "c2": "#c9a66b",
+   "name": "Turtle Grandpa",
+   "short": "SSC",
+   "c1": "#4ca64c",
+   "c2": "#12452a",
    "kind": "code",
    "unlock": "grandpa",
-   "full": "Turtle FC"
+   "full": "SSC Turtle Grandpa"
   },
   {
    "slug": "holy-freak-fc",
-   "name": "Holy Freak FC",
-   "short": "HFF",
-   "c1": "#5b2a86",
-   "c2": "#f3ecff",
+   "name": "Holy Freak",
+   "short": "FHF",
+   "c1": "#5a1f45",
+   "c2": "#f4bdd0",
    "kind": "code",
    "unlock": "sisterfei",
-   "full": "Holy Freak FC"
+   "full": "FC Holy Freak"
   },
   {
    "slug": "france-national",
@@ -335,13 +335,13 @@
   },
   {
    "slug": "forest-fc",
-   "name": "Forest FC",
-   "short": "FOR",
-   "c1": "#1b4d2e",
-   "c2": "#8fd16a",
+   "name": "Into the Woods",
+   "short": "ITW",
+   "c1": "#14502f",
+   "c2": "#eeeae0",
    "kind": "code",
    "unlock": "woods",
-   "full": "Forest FC"
+   "full": "Into the Woods FC"
   },
   {
    "slug": "jonny-football-fc",
