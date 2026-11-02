@@ -1,5 +1,5 @@
 // Season statistics and awards: the league-wide player stats table, and the awards shown when a season ends.
-import { st, esc, team, crest, pl, posGroup, tierOf } from "./core.js";
+import { st, esc, team, crest, pl, posGroup, tierOf, trophyIcon } from "./core.js";
 import { ratingClass } from "./rating.js";
 
 // A player's season line as the server sends it (pd[id].x): games, goals, assists, chances created, tackles,
@@ -66,9 +66,9 @@ export function awardsCard(S) {
   const A = S.reveal && S.reveal.awards; if (!A) return "";
   const rt = (r) => `<span class="rt ${ratingClass(r.rt)}">${r.rt.toFixed(1)}</span>`;
   return `<div class="card awards"><h3>Season awards</h3><div class="awgrid">
-    ${award(3, "🏆", "Ballon d'Or", "Best player of the season: rating, goals + assists, Player of the Match awards, wins and star power", A.ballon, (r, big) => `<b>${r.score.toFixed(1)}</b>${big ? `<small>score · ${rt(r)} avg · ${r.g}G ${r.a}A · ⭐${r.mo}</small>` : `<small>${rt(r)} · ${r.g}G ${r.a}A · ⭐${r.mo}</small>`}`, true)}
-    ${award(0, "⚽", "Golden Boot", "Most goals", A.boot, (r, big) => `<b>${r.g}</b><small>${big ? `goals in ${r.gp} games · ${r.a} assists` : `goals`}</small>`)}
-    ${award(1, "🎯", "Playmaker Award", "Most assists", A.playmaker, (r, big) => `<b>${r.a}</b><small>${big ? `assists · ${r.kp} chances created` : `assists`}</small>`)}
-    ${award(2, "🧤", "Golden Glove", "Most clean sheets by a keeper", A.glove, (r, big) => `<b>${r.cs}</b><small>${big ? `clean sheets · ${Math.round(r.sp * 100)}% saved · ${r.ga} conceded` : `clean sheets`}</small>`)}
+    ${award(3, trophyIcon("ballon", 64), "Ballon d'Or", "Best player of the season: rating, goals + assists, Player of the Match awards, wins and star power", A.ballon, (r, big) => `<b>${r.score.toFixed(1)}</b>${big ? `<small>score · ${rt(r)} avg · ${r.g}G ${r.a}A · ⭐${r.mo}</small>` : `<small>${rt(r)} · ${r.g}G ${r.a}A · ⭐${r.mo}</small>`}`, true)}
+    ${award(0, trophyIcon("boot", 44), "Golden Boot", "Most goals", A.boot, (r, big) => `<b>${r.g}</b><small>${big ? `goals in ${r.gp} games · ${r.a} assists` : `goals`}</small>`)}
+    ${award(1, trophyIcon("playmaker", 44), "Playmaker Award", "Most assists", A.playmaker, (r, big) => `<b>${r.a}</b><small>${big ? `assists · ${r.kp} chances created` : `assists`}</small>`)}
+    ${award(2, trophyIcon("glove", 44), "Golden Glove", "Most clean sheets by a keeper", A.glove, (r, big) => `<b>${r.cs}</b><small>${big ? `clean sheets · ${Math.round(r.sp * 100)}% saved · ${r.ga} conceded` : `clean sheets`}</small>`)}
   </div></div>`;
 }

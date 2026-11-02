@@ -1,5 +1,5 @@
 // Cosmetic unlocks: the Enter Code box and the trophy cabinet of plates, plus keeping the browser's collection in sync.
-import { st, esc, send, store, toast, crestOfClub, club, longName } from "./core.js";
+import { st, esc, send, store, toast, crestOfClub, club, longName, trophyIcon } from "./core.js";
 
 export const unlockHandlers = {
   redeem() { const el = document.getElementById("codein"); const v = el ? el.value.trim() : ""; if (!v) return; send({ t: "redeem", code: v }); if (el) el.value = ""; },
@@ -94,8 +94,8 @@ function trophyShelf() {
   if (!all.length) return `<div class="cabhead mt"><b>Trophies</b><span class="small mute">0 won</span></div><p class="small mute mt">Win a league title, the Golden Boot, the Ballon d'Or and more. They are kept on this browser and shown here.</p>`;
   const rows = KINDS.map(([k, icon, name]) => {
     const l = all.filter((x) => x.kind === k).sort((a, b) => b.at - a.at); if (!l.length) return "";
-    const tile = (x) => { const c = st.clubBy[x.club]; return `<div class="trophy ${k}"><span class="tr-i">${icon}</span><div class="grow"><b>${esc(k === "title" ? x.full || x.team : x.who)}</b><span class="tiny mute">${k === "title" ? `Season ${x.season}${x.pts ? ` · ${x.pts} pts` : ""}` : `Season ${x.season} · ${esc(x.stat || "")}`}</span>${k === "title" ? "" : `<span class="tiny mute">${esc(x.team)}</span>`}</div>${c ? crestOfClub(c, 22) : ""}</div>`; };
-    return `<div class="trow"><div class="small"><b>${icon} ${name}</b> <span class="mute">×${l.length}</span></div><div class="trophies mt">${l.map(tile).join("")}</div></div>`;
+    const tile = (x) => { const c = st.clubBy[x.club]; return `<div class="trophy ${k}"><span class="tr-i">${trophyIcon(k, 34)}</span><div class="grow"><b>${esc(k === "title" ? x.full || x.team : x.who)}</b><span class="tiny mute">${k === "title" ? `Season ${x.season}${x.pts ? ` · ${x.pts} pts` : ""}` : `Season ${x.season} · ${esc(x.stat || "")}`}</span>${k === "title" ? "" : `<span class="tiny mute">${esc(x.team)}</span>`}</div>${c ? crestOfClub(c, 22) : ""}</div>`; };
+    return `<div class="trow"><div class="small"><b>${trophyIcon(k, 22)} ${name}</b> <span class="mute">×${l.length}</span></div><div class="trophies mt">${l.map(tile).join("")}</div></div>`;
   }).join("");
   return `<div class="cabhead mt"><b>Trophies</b><span class="small mute">${all.length} won</span></div>${rows}`;
 }

@@ -103,7 +103,7 @@ const TROPHY_ICON = { title: "🏆", ballon: "🌟", boot: "⚽", playmaker: "�
 function cabinet(lf) {
   const t = lf.trophies || []; if (!t.length) return "";
   const by = {}; for (const x of t) by[x.kind] = (by[x.kind] || 0) + 1;
-  return `<div class="small mt cab">${Object.entries(by).map(([k, n]) => { const u = st.cat.art && st.cat.art.trophies && st.cat.art.trophies[k]; return `<span class="trophy" title="${TROPHY_NAME[k]}">${u ? `<img src="${esc(u)}" alt="" width="40" height="40">` : `<span class="tem">${TROPHY_ICON[k]}</span>`}<span><b>${TROPHY_NAME[k]}</b>${n > 1 ? ` <em>×${n}</em>` : ""}</span></span>`; }).join(" ")}</div>`;
+  return `<div class="small mt cab">${Object.entries(by).map(([k, n]) => { const u = st.cat.art && st.cat.art.trophies && st.cat.art.trophies[k]; return `<span class="tcab" title="${TROPHY_NAME[k]}">${u ? `<img src="${esc(u)}" alt="" width="40" height="40">` : `<span class="tem">${TROPHY_ICON[k]}</span>`}<span><b>${TROPHY_NAME[k]}</b>${n > 1 ? ` <em>×${n}</em>` : ""}</span></span>`; }).join(" ")}</div>`;
 }
 
 // The life shop (cars, houses, yachts, a plane, nightlife): one tab of the merged footballer Shop (see store.js).

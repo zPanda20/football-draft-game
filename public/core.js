@@ -232,3 +232,10 @@ function lift(a, b) {
   for (let k = 0.42; k <= 0.7 && lum(x) < 0.14; k += 0.07) x = lighten(a, k);
   return x;
 }
+
+// A trophy picture (title, ballon, boot, playmaker, glove) from public/assets/trophies, or the emoji when there is no file.
+const TROPHY_EMOJI = { title: "🏆", ballon: "🌟", boot: "⚽", playmaker: "🎯", glove: "🧤" };
+export function trophyIcon(kind, size = 40) {
+  const u = st.cat && st.cat.art && st.cat.art.trophies && st.cat.art.trophies[kind];
+  return u ? `<img class="tro" src="${esc(u)}" alt="" width="${size}" height="${size}">` : TROPHY_EMOJI[kind] || "";
+}
