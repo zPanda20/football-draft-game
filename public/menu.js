@@ -5,6 +5,8 @@ import { lookHandlers } from "./look.js";
 
 export const level = () => { const v = store("level"); return v === "beginner" || v === "expert" ? v : null; };
 let step = "name";
+// Someone who opened an invite link and had no name yet: after they pick a level they join that room by themselves.
+let invite = (new URLSearchParams(location.search).get("room") || "").length >= 4;
 
 // The projector page (/screen) has no name to type: it goes straight to the menu.
 export function menuReset() { step = st.watch ? "menu" : "name"; }
@@ -28,12 +30,12 @@ function nameWindow() {
     </div></div>`;
 }
 
-const tJoin = (sz) => `<div class="mt join ${sz}"><h2>Join a game</h2><p>Type the 4-letter code from your host.</p>
-  <div class="mrow"><input class="big" id="jc" maxlength="4" placeholder="CODE" autocomplete="off" value="${esc(st.room || "")}"><button class="btn pri big" data-act="join">Join</button></div></div>`;
-const tHost = (sz) => `<button class="mt host ${sz}" data-act="create"><h2>Host a game</h2><p>Start a room and share the code.</p><span class="go">Create game</span></button>`;
-const tHow = (sz) => `<button class="mt how ${sz}" data-act="helpOpen"><h2>How to play</h2><p>A two-minute tour of the game.</p><span class="go">Show me</span></button>`;
-const tScreen = (sz) => `<div class="mt scr ${sz}"><h2>Big-screen view</h2><p>For the projector. No controls.</p>
-  <div class="mrow"><input id="wc" maxlength="4" placeholder="CODE" autocomplete="off"><button class="btn" data-act="watch">Watch</button></div></div>`;
+const tJoin = (sz) => `<div class="mtile join ${sz}"><h2>Join a game</h2><p>Type the 4-letter code from your host.</p>
+  <div class="mtrow"><input class="big" id="jc" maxlength="4" placeholder="CODE" autocomplete="off" value="${esc(st.room || "")}"><button class="btn pri big" data-act="join">Join</button></div></div>`;
+const tHost = (sz) => `<button class="mtile host ${sz}" data-act="create"><h2>Host a game</h2><p>Start a room and share the code.</p><span class="mtgo">Create game</span></button>`;
+const tHow = (sz) => `<button class="mtile how ${sz}" data-act="helpOpen"><h2>How to play</h2><p>A two-minute tour of the game.</p><span class="mtgo">Show me</span></button>`;
+const tScreen = (sz) => `<div class="mtile scr ${sz}"><h2>Big-screen view</h2><p>For the projector. No controls.</p>
+  <div class="mtrow"><input id="wc" maxlength="4" placeholder="CODE" autocomplete="off"><button class="btn" data-act="watch">Watch</button></div></div>`;
 
 function menuWindow() {
   const lv = level() || "expert", name = store("name") || "";
@@ -69,7 +71,9 @@ export const menuHandlers = {
     store("name", nm.slice(0, 24)); store("level", a.v);
     lookHandlers.look({ v: a.v === "beginner" ? "glass" : "synth" });
     step = "menu"; st.landing && st.landing();
-    const j = $("#jc"); if (j && st.room) j.focus();
+    const j = $("#jc");
+    if (invite && !st.watch && j && j.value.length >= 4) { invite = false; const b = document.querySelector("[data-act=join]"); if (b) b.click(); }
+    else if (j && st.room) j.focus();
   },
   menuName() { step = "name"; st.landing && st.landing(); const i = $("#nm"); if (i) { i.focus(); i.select(); } },
 };

@@ -50,63 +50,63 @@ body[data-look="synth"] .menu .logo{text-shadow:0 0 6px var(--acc),0 0 18px var(
 .who b{color:#fff}
 .lnk{background:none;border:0;padding:0;color:var(--c2);cursor:pointer;font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px}
 .mrejoin{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);font-size:15px}
-.mt{display:flex;flex-direction:column;gap:6px;text-align:left;color:#fff;font:inherit;padding:18px 22px;position:relative;box-sizing:border-box;width:100%}
-.mt h2{margin:0;line-height:1.02;font-weight:900}
-.mt p{margin:0;font-size:14px;color:#dfe3f7}
-.mt .go{margin-top:auto;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--c2)}
-.mt .go:after{content:"  \2192"}
-.mt.xl{min-height:210px;justify-content:center;padding:26px 26px}
-.mt.xl h2{font-size:clamp(32px,4.4vw,44px)}
-.mt.xl p{font-size:16px}
-.mt.l{min-height:128px;justify-content:center}
-.mt.l h2{font-size:clamp(22px,3vw,28px)}
-.mt.s{min-height:78px;padding:12px 14px;gap:4px}
-.mt.s h2{font-size:15px}
-.mt.s p{display:none}
-.mt.s .go{margin-top:2px;font-size:11px}
-button.mt{cursor:pointer;transition:transform .15s,box-shadow .2s,border-color .2s}
-button.mt:hover{transform:translateX(4px)}
-.mt:focus-within,button.mt:focus-visible{outline:2px solid var(--c2);outline-offset:3px}
+.mtile{display:flex;flex-direction:column;gap:6px;text-align:left;color:#fff;font:inherit;padding:18px 22px;position:relative;box-sizing:border-box;width:100%}
+.mtile h2{margin:0;line-height:1.02;font-weight:900}
+.mtile p{margin:0;font-size:14px;color:#dfe3f7}
+.mtile .mtgo{margin-top:auto;font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--c2)}
+.mtile .mtgo:after{content:"  \2192"}
+.mtile.xl{min-height:210px;justify-content:center;padding:26px 26px}
+.mtile.xl h2{font-size:clamp(32px,4.4vw,44px)}
+.mtile.xl p{font-size:16px}
+.mtile.l{min-height:128px;justify-content:center}
+.mtile.l h2{font-size:clamp(22px,3vw,28px)}
+.mtile.s{min-height:78px;padding:12px 14px;gap:4px}
+.mtile.s h2{font-size:15px}
+.mtile.s p{display:none}
+.mtile.s .mtgo{margin-top:2px;font-size:11px}
+button.mtile{cursor:pointer;transition:transform .15s,box-shadow .2s,border-color .2s}
+button.mtile:hover{transform:translateX(4px)}
+.mtile:focus-within,button.mtile:focus-visible{outline:2px solid var(--c2);outline-offset:3px}
 .mpair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.mt .mrow{display:flex;gap:10px;align-items:stretch;margin-top:8px}
-.mt .mrow input{flex:1;min-width:0;width:100%;font-weight:800;letter-spacing:.3em;text-align:center;text-transform:uppercase;color:#fff;outline:none}
-.mt.s .mrow{margin-top:2px}
-.mt.s .mrow input{font-size:15px;padding:6px 6px;letter-spacing:.2em}
-.mt.s .mrow .btn{padding:6px 10px}
-.mt.xl .mrow input{font-size:30px;padding:12px 10px}
+.mtile .mtrow{display:flex;gap:10px;align-items:stretch;margin-top:8px}
+.mtile .mtrow input{flex:1;min-width:0;width:100%;font-weight:800;letter-spacing:.3em;text-align:center;text-transform:uppercase;color:#fff;outline:none}
+.mtile.s .mtrow{margin-top:2px}
+.mtile.s .mtrow input{font-size:15px;padding:6px 6px;letter-spacing:.2em}
+.mtile.s .mtrow .btn{padding:6px 10px}
+.mtile.xl .mtrow input{font-size:30px;padding:12px 10px}
 
 /* Glass tiles (Beginner) */
-.menu[data-lv="beginner"] .mt{border-radius:26px;background:linear-gradient(155deg,rgba(255,255,255,.3),rgba(255,255,255,.1));backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border:1px solid rgba(255,255,255,.4);box-shadow:0 18px 50px rgba(30,30,80,.38),inset 0 1px 0 rgba(255,255,255,.5);text-shadow:0 1px 10px rgba(20,20,60,.45)}
-.menu[data-lv="beginner"] .mt.s{border-radius:20px}
-.menu[data-lv="beginner"] .mt h2{font-weight:800;letter-spacing:.01em}
-.menu[data-lv="beginner"] .mt.join{background:linear-gradient(150deg,rgba(255,255,255,.42),rgba(190,175,255,.24));border-color:rgba(255,255,255,.65);animation:lvFloat 7s ease-in-out infinite}
-.menu[data-lv="beginner"] .mt.how{animation:lvFloat 7s -2.5s ease-in-out infinite}
+.menu[data-lv="beginner"] .mtile{border-radius:26px;background:linear-gradient(155deg,rgba(255,255,255,.3),rgba(255,255,255,.1));backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);border:1px solid rgba(255,255,255,.4);box-shadow:0 18px 50px rgba(30,30,80,.38),inset 0 1px 0 rgba(255,255,255,.5);text-shadow:0 1px 10px rgba(20,20,60,.45)}
+.menu[data-lv="beginner"] .mtile.s{border-radius:20px}
+.menu[data-lv="beginner"] .mtile h2{font-weight:800;letter-spacing:.01em}
+.menu[data-lv="beginner"] .mtile.join{background:linear-gradient(150deg,rgba(255,255,255,.42),rgba(190,175,255,.24));border-color:rgba(255,255,255,.65);animation:lvFloat 7s ease-in-out infinite}
+.menu[data-lv="beginner"] .mtile.how{animation:lvFloat 7s -2.5s ease-in-out infinite}
 @keyframes lvFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-.menu[data-lv="beginner"] .mt.how:hover{transform:translateY(-4px) translateX(4px)}
-.menu[data-lv="beginner"] .mt input{border-radius:16px;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.55);text-shadow:none}
-.menu[data-lv="beginner"] .mt ::placeholder{color:#e7eaff;opacity:.9}
-.menu[data-lv="beginner"] .mt .go{color:#fff}
-.menu[data-lv="beginner"] .mt .btn{border-radius:16px}
+.menu[data-lv="beginner"] .mtile.how:hover{transform:translateY(-4px) translateX(4px)}
+.menu[data-lv="beginner"] .mtile input{border-radius:16px;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.55);text-shadow:none}
+.menu[data-lv="beginner"] .mtile ::placeholder{color:#e7eaff;opacity:.9}
+.menu[data-lv="beginner"] .mtile .mtgo{color:#fff}
+.menu[data-lv="beginner"] .mtile .btn{border-radius:16px}
 .menu[data-lv="beginner"] .mrejoin{border-radius:18px;backdrop-filter:blur(16px)}
 .menu[data-lv="beginner"] .btn.pri{background:linear-gradient(135deg,#fff,#c9bbff);color:#161a45;border-color:#fff;box-shadow:0 8px 26px rgba(190,170,255,.7)}
 
 /* Synth tiles (Expert) */
 .menu[data-lv="expert"]{font-family:Rajdhani,Inter,sans-serif}
-.menu[data-lv="expert"] .mt{border-radius:4px;background:rgba(8,4,24,.8);border:2px solid #ff3fd0;box-shadow:0 0 22px rgba(255,63,208,.5),inset 0 0 24px rgba(255,63,208,.14);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
-.menu[data-lv="expert"] .mt.s{border-color:#35e0ff;box-shadow:0 0 16px rgba(53,224,255,.45),inset 0 0 16px rgba(53,224,255,.12)}
-.menu[data-lv="expert"] .mt h2{font-family:Orbitron,sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:.05em;text-shadow:0 0 10px rgba(255,63,208,.8)}
-.menu[data-lv="expert"] .mt.s h2{letter-spacing:.08em;text-shadow:0 0 8px rgba(53,224,255,.8)}
-.menu[data-lv="expert"] .mt.xl{border-width:3px;box-shadow:0 0 34px rgba(255,63,208,.75),inset 0 0 34px rgba(255,63,208,.2)}
-.menu[data-lv="expert"] .mt p{font-size:16px;font-weight:500;color:#e3e6ff}
-.menu[data-lv="expert"] .mt .go{font-family:Orbitron,sans-serif;font-size:12px}
-.menu[data-lv="expert"] button.mt:hover{box-shadow:0 0 34px #ff3fd0,inset 0 0 30px rgba(255,63,208,.3);border-color:#35e0ff}
-.menu[data-lv="expert"] .mt.s:hover,.menu[data-lv="expert"] button.mt.s:hover{box-shadow:0 0 26px #35e0ff,inset 0 0 22px rgba(53,224,255,.3);border-color:#fff}
-.menu[data-lv="expert"] .mt input{border-radius:4px;background:rgba(255,255,255,.08);border:1px solid #ff3fd0}
-.menu[data-lv="expert"] .mt.s input{border-color:#35e0ff}
-.menu[data-lv="expert"] .mt .btn{border-radius:4px}
+.menu[data-lv="expert"] .mtile{border-radius:4px;background:rgba(8,4,24,.8);border:2px solid #ff3fd0;box-shadow:0 0 22px rgba(255,63,208,.5),inset 0 0 24px rgba(255,63,208,.14);clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px))}
+.menu[data-lv="expert"] .mtile.s{border-color:#35e0ff;box-shadow:0 0 16px rgba(53,224,255,.45),inset 0 0 16px rgba(53,224,255,.12)}
+.menu[data-lv="expert"] .mtile h2{font-family:Orbitron,sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:.05em;text-shadow:0 0 10px rgba(255,63,208,.8)}
+.menu[data-lv="expert"] .mtile.s h2{letter-spacing:.08em;text-shadow:0 0 8px rgba(53,224,255,.8)}
+.menu[data-lv="expert"] .mtile.xl{border-width:3px;box-shadow:0 0 34px rgba(255,63,208,.75),inset 0 0 34px rgba(255,63,208,.2)}
+.menu[data-lv="expert"] .mtile p{font-size:16px;font-weight:500;color:#e3e6ff}
+.menu[data-lv="expert"] .mtile .mtgo{font-family:Orbitron,sans-serif;font-size:12px}
+.menu[data-lv="expert"] button.mtile:hover{box-shadow:0 0 34px #ff3fd0,inset 0 0 30px rgba(255,63,208,.3);border-color:#35e0ff}
+.menu[data-lv="expert"] .mtile.s:hover,.menu[data-lv="expert"] button.mtile.s:hover{box-shadow:0 0 26px #35e0ff,inset 0 0 22px rgba(53,224,255,.3);border-color:#fff}
+.menu[data-lv="expert"] .mtile input{border-radius:4px;background:rgba(255,255,255,.08);border:1px solid #ff3fd0}
+.menu[data-lv="expert"] .mtile.s input{border-color:#35e0ff}
+.menu[data-lv="expert"] .mtile .btn{border-radius:4px}
 .menu[data-lv="expert"] .mrejoin{border-radius:4px;border:2px solid #35e0ff;background:rgba(8,4,24,.8)}
 .menu[data-lv="expert"] .btn.pri{background:#ff3fd0;border-color:#ff3fd0;color:#fff;box-shadow:0 0 24px #ff3fd0}
-.menu .mt .btn:not(.pri){background:rgba(255,255,255,.14)}
+.menu .mtile .btn:not(.pri){background:rgba(255,255,255,.14)}
 
 @media (max-width:760px){
   .menu .mw{background-position:70% center}
@@ -117,8 +117,8 @@ button.mt:hover{transform:translateX(4px)}
   .menu[data-step="name"]{overflow:auto}
   .lvls{grid-template-columns:1fr}
   .lvl{min-height:84px}
-  .mt.xl{min-height:176px}
+  .mtile.xl{min-height:176px}
 }
-@media (max-height:640px) and (min-width:761px){.mt.xl{min-height:170px}.mt.l{min-height:100px}.mcol{gap:10px}}
+@media (max-height:640px) and (min-width:761px){.mtile.xl{min-height:170px}.mtile.l{min-height:100px}.mcol{gap:10px}}
 @media (prefers-reduced-motion:reduce){.menu *,.menu .mw{animation:none!important;transition:none!important}}
-@media (max-width:760px){.mt.s .mrow input{font-size:13px;letter-spacing:.08em;padding:6px 2px}.mt.s .mrow .btn{padding:6px 8px;font-size:11px}}
+@media (max-width:760px){.mtile.s .mtrow input{font-size:13px;letter-spacing:.08em;padding:6px 2px}.mtile.s .mtrow .btn{padding:6px 8px;font-size:11px}}
