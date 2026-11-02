@@ -14,6 +14,7 @@ import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
 import { pcardHandlers, pcardSync } from "./pcard.js";
 import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
+import { applyLook, lookPicker, lookHandlers } from "./look.js";
 
 const app = $("#app");
 app.innerHTML = `<div id="top"></div><div id="body"></div><div id="hostbar"></div>`;
@@ -57,6 +58,7 @@ function landing() {
   const saved = store("room");
   el.body.innerHTML = `<div class="landing"><span class="logo"><b></b> Football Draft</span>
     <div class="hero">Draft the squad.<br>Win the <em>league</em>.</div>
+    <div>${lookPicker()}</div>
     <div><button class="btn" data-act="helpOpen">How to play</button></div>
     <p class="lead">Open packs, pick your six, bid for the rest, then watch your team play a season. A game for a room full of laptops.</p>
     <div class="stack">
@@ -68,6 +70,7 @@ function landing() {
       <div class="card row wrap"><div class="grow"><h3>Big-screen view</h3><div class="small mute">For the projector. Shows the matches and tables, no controls.</div></div><input id="wc" maxlength="4" placeholder="CODE" style="width:90px;text-transform:uppercase;text-align:center"><button class="btn" data-act="watch">Watch</button></div>
       ${saved && !st.watch ? `<div class="card row"><div class="grow">Rejoin room <span class="code">${esc(saved)}</span></div><button class="btn pri" data-act="rejoin">Rejoin</button></div>` : ""}
     </div></div>`;
+  applyLook(null);
 }
 
 // ---------- actions ----------
@@ -91,7 +94,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -213,7 +216,7 @@ function renderTop() {
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;
   const hud = nl ? `<div class="hud ${nl.kind}" id="hud"><span class="hmsg">${esc(nl.text)}</span>${clock ? `<span class="hclock" id="hclock"></span><i class="hbar" id="hbar"></i>` : ""}</div>` : "";
   const sp = S.speed, lv = ["Relaxed", "Normal", "Fast", "Turbo"][sp.levels.indexOf(sp.pace)];
-  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span>${helpButton()}
+  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span><button class="btn sm" data-act="lookNext" title="Change the look: Auto, Synth or Glass">Look</button>${helpButton()}
     ${S.step !== "lobby" && S.me ? `<span class="coin" title="Your coins">${Math.round(S.me.coins)}<i></i></span>` : ""}
     ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}`;
   tick();
@@ -279,7 +282,7 @@ function lobby(S) {
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    ${modeCard(S)}${liteChooser(S)}${you && you.mode === "player" ? creator(S) : ""}
+    ${modeCard(S)}${liteChooser(S)}<div class="card"><h3>Look</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
     <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}${filterBar}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     ${enterCode(you)}`;
   const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
@@ -314,7 +317,7 @@ function hostBar(S) {
 let lastMain = "", lastSide = "";
 function render() {
   const S = st.S; if (!S) return;
-  applyTheme(); renderTop();
+  applyTheme(); applyLook(S); renderTop();
   let main = "", side = "";
   const ctx = { chatCard, teamsList };
   if (S.step === "lobby") ({ main, side } = lobby(S));

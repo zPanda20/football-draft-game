@@ -1,0 +1,119 @@
+/* Two looks, loaded after skin.css. body[data-look="synth"] = Full default, body[data-look="glass"] = Lite default (see look.js).
+   Colours always come from the club (--acc, --c1, --c2). Glitch (Synth) and dreamcore (Glass) are motion only: text stays clean. */
+@font-face{font-family:"Orbitron";font-weight:700;font-display:swap;src:url("/assets/fonts/orbitron-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Orbitron";font-weight:900;font-display:swap;src:url("/assets/fonts/orbitron-latin-900-normal.woff2") format("woff2")}
+@font-face{font-family:"Rajdhani";font-weight:500;font-display:swap;src:url("/assets/fonts/rajdhani-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Rajdhani";font-weight:600;font-display:swap;src:url("/assets/fonts/rajdhani-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Rajdhani";font-weight:700;font-display:swap;src:url("/assets/fonts/rajdhani-latin-700-normal.woff2") format("woff2")}
+
+/* shared: the decoration layer inside #bg is hidden unless a look uses it */
+.lk-decor{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.lk-decor i{position:absolute;display:none}
+.lookpick{padding:2px 0}
+
+/* =====================================================  SYNTH  ===================================================== */
+body[data-look="synth"]{
+  --display:"Orbitron","Arial Narrow",sans-serif; --r:8px;
+  --bg:#05060f; --panel:rgba(10,8,24,.82); --panel2:rgba(255,255,255,.07); --line:color-mix(in srgb,var(--acc) 38%,transparent); --mute:#b9bfd6;
+  font-family:Rajdhani,Inter,system-ui,sans-serif; font-size:17px; font-weight:500;
+}
+body[data-look="synth"] #bg.wall{background:linear-gradient(180deg,rgba(5,6,15,.6) 0%,color-mix(in srgb,var(--c1) 22%,rgba(5,6,15,.4)) 50%,rgba(10,6,18,.82) 100%),var(--wall) center/cover no-repeat,#05060f}
+body[data-look="synth"][data-view="hub"] #bg.wall,body[data-look="synth"][data-view="match"] #bg.wall{background:linear-gradient(180deg,rgba(5,6,15,.35) 0%,rgba(5,6,15,.5) 55%,rgba(10,6,18,.88) 100%),var(--wall) center/cover no-repeat,#05060f}
+body[data-look="synth"] .lk-scan{display:block;left:0;right:0;top:-40px;height:36px;background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--acc2,var(--c2)) 18%,transparent),transparent);animation:lkScan 9s linear infinite}
+@keyframes lkScan{to{transform:translateY(120vh)}}
+body[data-look="synth"] .top{background:rgba(5,6,15,.82);border-bottom:2px solid var(--acc);box-shadow:0 0 22px color-mix(in srgb,var(--acc) 50%,transparent)}
+body[data-look="synth"] .logo{font-weight:900;font-size:16px;letter-spacing:.14em;text-shadow:0 0 6px var(--acc),0 0 18px var(--acc);position:relative}
+body[data-look="synth"] .logo:before,body[data-look="synth"] .logo:after{content:attr(data-t);position:absolute;left:25px;top:0;opacity:0;pointer-events:none;white-space:nowrap;text-shadow:none;text-transform:uppercase}
+body[data-look="synth"] .logo:before{color:var(--c2);animation:lkGlA 6s steps(1) infinite}
+body[data-look="synth"] .logo:after{color:var(--acc);animation:lkGlB 6s steps(1) infinite}
+@keyframes lkGlA{0%,90%{opacity:0}91%{opacity:1;transform:translate(-4px,0);clip-path:inset(10% 0 60% 0)}93%{opacity:1;transform:translate(5px,0);clip-path:inset(55% 0 15% 0)}95%{opacity:1;transform:translate(-3px,0);clip-path:inset(30% 0 40% 0)}97%,100%{opacity:0}}
+@keyframes lkGlB{0%,90%{opacity:0}92%{opacity:1;transform:translate(4px,0);clip-path:inset(65% 0 5% 0)}94%{opacity:1;transform:translate(-5px,0);clip-path:inset(5% 0 75% 0)}96%{opacity:1;transform:translate(3px,0);clip-path:inset(40% 0 30% 0)}98%,100%{opacity:0}}
+body[data-look="synth"] .card{background:rgba(8,6,20,.8);border:2px solid var(--acc);border-radius:8px;box-shadow:0 0 22px color-mix(in srgb,var(--acc) 40%,transparent),inset 0 0 22px color-mix(in srgb,var(--acc) 12%,transparent)}
+body[data-look="synth"] .card:not(.hubbar):not(.hubhead):not(.lifep)::before{left:16px;width:40px;height:3px;background:var(--c2);box-shadow:0 0 10px var(--c2)}
+body[data-look="synth"] .card h3{font-size:12px;letter-spacing:.22em;color:var(--c2);text-shadow:0 0 8px var(--c2)}
+body[data-look="synth"] .btn{font-family:Orbitron,sans-serif;font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;border:2px solid #fff;background:transparent;border-radius:4px;box-shadow:0 0 12px rgba(255,255,255,.28)}
+body[data-look="synth"] .btn.sm{font-size:11px;padding:6px 10px}
+body[data-look="synth"] .btn.big{font-size:14px;padding:15px 24px}
+body[data-look="synth"] .btn:hover{border-color:var(--c2);box-shadow:0 0 18px color-mix(in srgb,var(--c2) 60%,transparent)}
+body[data-look="synth"] .btn.pri{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);box-shadow:0 0 24px var(--acc)}
+body[data-look="synth"] .btn.pri:hover{box-shadow:0 0 34px var(--acc);filter:none}
+body[data-look="synth"] .btn.on{background:color-mix(in srgb,var(--c2) 22%,transparent);border-color:var(--c2);box-shadow:0 0 14px color-mix(in srgb,var(--c2) 60%,transparent)}
+body[data-look="synth"] input,body[data-look="synth"] select{background:rgba(255,255,255,.07);border:1px solid var(--acc);border-radius:6px}
+body[data-look="synth"] .pill{border-radius:4px;border-color:var(--c2);color:var(--c2);background:transparent;text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:700}
+body[data-look="synth"] .pill.acc{background:var(--c2);color:#0a0612}
+body[data-look="synth"] .code{border-radius:4px;border-color:var(--c2);color:var(--c2);box-shadow:0 0 10px color-mix(in srgb,var(--c2) 40%,transparent)}
+body[data-look="synth"] .club,body[data-look="synth"] .hubtile{border:1px solid color-mix(in srgb,var(--acc) 55%,transparent);border-radius:6px;background:rgba(8,6,20,.7)}
+body[data-look="synth"] .club.sel,body[data-look="synth"] .club:hover{border-color:var(--c2);box-shadow:0 0 16px var(--c2),inset 0 0 14px color-mix(in srgb,var(--c2) 25%,transparent)}
+body[data-look="synth"] .hubtile:hover{border-color:var(--c2);box-shadow:0 0 18px color-mix(in srgb,var(--c2) 70%,transparent)}
+body[data-look="synth"] .hubtile.ready{background:var(--acc);box-shadow:0 0 24px var(--acc)}
+body[data-look="synth"] .hud{background:rgba(8,6,20,.85);border-bottom:1px solid var(--acc)}
+body[data-look="synth"] .hud.low .hclock{animation:lkFlick 1.6s steps(1) infinite}
+@keyframes lkFlick{0%,60%,64%,100%{opacity:1}62%{opacity:.25}66%{opacity:.6}}
+body[data-look="synth"] .pcard{border-radius:8px;box-shadow:0 0 22px color-mix(in srgb,var(--acc) 70%,transparent)}
+body[data-look="synth"] .pcard.chosen{outline-color:var(--c2);box-shadow:0 0 34px var(--c2)}
+body[data-look="synth"] .flip{animation:deal .55s both cubic-bezier(.2,.9,.3,1.2),lkJolt .9s steps(1) both}
+@keyframes lkJolt{0%{filter:hue-rotate(90deg) brightness(1.7)}12%{filter:hue-rotate(-60deg) brightness(1.2)}24%{filter:hue-rotate(40deg)}36%,100%{filter:none}}
+body[data-look="synth"] table th{font-family:Orbitron,sans-serif;font-size:10px;letter-spacing:.14em}
+body[data-look="synth"] tr.me td,body[data-look="synth"] tr.mine td{background:color-mix(in srgb,var(--acc) 55%,transparent)}
+body[data-look="synth"] .pitch{border:2px solid var(--c2);box-shadow:0 0 22px color-mix(in srgb,var(--c2) 40%,transparent)}
+body[data-look="synth"] .phasebanner b{font-family:Orbitron,sans-serif;font-weight:900;text-shadow:0 0 14px var(--acc),0 0 36px var(--acc);animation:lkJoltT 2.5s steps(1) both}
+body[data-look="synth"] .goalcall b{font-family:Orbitron,sans-serif;font-weight:900;animation:lkJoltT 2.1s steps(1) both}
+@keyframes lkJoltT{0%{transform:translateX(-10px);filter:hue-rotate(90deg) brightness(1.7);opacity:.5}6%{transform:translateX(8px);filter:none;opacity:1}12%{transform:translateX(-4px);filter:hue-rotate(-60deg)}18%,100%{transform:none;filter:none;opacity:1}}
+body[data-look="synth"] .landing .hero{text-shadow:0 0 14px var(--acc),0 0 40px var(--acc)}
+
+/* =====================================================  GLASS  ===================================================== */
+body[data-look="glass"]{
+  --r:20px; --bg:#0a100e; --panel:rgba(255,255,255,.07); --panel2:rgba(255,255,255,.1); --line:rgba(255,255,255,.17); --mute:#b7c6be;
+}
+body[data-look="glass"] #bg{overflow:hidden}
+body[data-look="glass"] #bg.wall{background:linear-gradient(160deg,color-mix(in srgb,var(--c1) 55%,rgba(8,12,10,.7)) 0%,rgba(8,12,10,.78) 55%,color-mix(in srgb,var(--acc) 18%,rgba(8,12,10,.85)) 100%),var(--wall) center/cover no-repeat,#0a100e;animation:lkZoom 40s ease-in-out infinite alternate}
+body[data-look="glass"][data-view="hub"] #bg.wall,body[data-look="glass"][data-view="match"] #bg.wall{background:linear-gradient(160deg,color-mix(in srgb,var(--c1) 40%,rgba(8,12,10,.45)) 0%,rgba(8,12,10,.6) 60%,rgba(8,12,10,.85) 100%),var(--wall) center/cover no-repeat,#0a100e}
+@keyframes lkZoom{from{transform:scale(1)}to{transform:scale(1.07) translate(-1%,-1%)}}
+body[data-look="glass"] .lk-b1,body[data-look="glass"] .lk-b2{display:block;border-radius:50%;filter:blur(110px)}
+body[data-look="glass"] .lk-b1{left:-120px;top:-150px;width:520px;height:520px;background:var(--acc);opacity:.35;animation:lkDrift 26s ease-in-out infinite alternate}
+body[data-look="glass"] .lk-b2{right:-100px;bottom:-170px;width:560px;height:560px;background:var(--c2);opacity:.2;animation:lkDrift 32s ease-in-out infinite alternate-reverse}
+@keyframes lkDrift{from{transform:translate(0,0) scale(1)}to{transform:translate(90px,60px) scale(1.18)}}
+body[data-look="glass"] .lk-haze{display:block;inset:0;background:radial-gradient(ellipse 60% 30% at 20% 30%,rgba(255,255,255,.08),transparent 70%),radial-gradient(ellipse 50% 28% at 80% 70%,rgba(255,255,255,.06),transparent 70%);animation:lkHaze 30s ease-in-out infinite alternate}
+@keyframes lkHaze{from{transform:translateX(-4%)}to{transform:translateX(4%)}}
+body[data-look="glass"] .lk-mote{display:block;bottom:-20px;width:7px;height:7px;border-radius:50%;background:#fff;opacity:0;box-shadow:0 0 14px 3px color-mix(in srgb,var(--c2) 70%,#fff);animation:lkMote 18s linear infinite}
+@keyframes lkMote{0%{transform:translate(0,0);opacity:0}10%{opacity:.7}60%{opacity:.5}100%{transform:translate(40px,-110vh);opacity:0}}
+body[data-look="glass"] .top{background:rgba(255,255,255,.08);backdrop-filter:blur(22px) saturate(150%);border-bottom:1px solid rgba(255,255,255,.18);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+body[data-look="glass"] .card{background:linear-gradient(155deg,rgba(255,255,255,.13),rgba(255,255,255,.04));backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);border:1px solid rgba(255,255,255,.18);border-radius:22px;box-shadow:0 18px 50px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+body[data-look="glass"] .card:not(.hubbar):not(.hubhead):not(.lifep)::before{display:none}
+body[data-look="glass"] .card h3{color:#c9d6cf}
+body[data-look="glass"] .btn{border-radius:14px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);backdrop-filter:blur(10px)}
+body[data-look="glass"] .btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5)}
+body[data-look="glass"] .btn.pri{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#fff));border-color:rgba(255,255,255,.4);color:var(--acc-ink);box-shadow:0 8px 24px color-mix(in srgb,var(--acc) 55%,transparent);animation:lkBloom 4.5s ease-in-out infinite}
+body[data-look="glass"] .btn.pri:hover{filter:brightness(1.12)}
+@keyframes lkBloom{0%,100%{box-shadow:0 8px 24px color-mix(in srgb,var(--acc) 55%,transparent)}50%{box-shadow:0 8px 44px color-mix(in srgb,var(--acc) 90%,transparent),0 0 0 6px color-mix(in srgb,var(--acc) 22%,transparent)}}
+body[data-look="glass"] .btn.on{background:color-mix(in srgb,var(--acc) 40%,rgba(255,255,255,.1));border-color:rgba(255,255,255,.5)}
+body[data-look="glass"] input,body[data-look="glass"] select{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:12px}
+body[data-look="glass"] .code{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.35);color:#fff;border-radius:10px}
+body[data-look="glass"] input,body[data-look="glass"] select{color:#fff}
+body[data-look="glass"] ::placeholder,body[data-look="synth"] ::placeholder{color:#c3cfc8;opacity:1}
+body[data-look="glass"] .pill{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16)}
+body[data-look="glass"] .pill.acc{background:color-mix(in srgb,var(--acc) 50%,transparent);color:#fff;border-color:transparent}
+body[data-look="glass"] .club,body[data-look="glass"] .hubtile{border-radius:18px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07)}
+body[data-look="glass"] .club.sel{background:color-mix(in srgb,var(--acc) 40%,transparent);border-color:rgba(255,255,255,.5);box-shadow:0 0 28px color-mix(in srgb,var(--acc) 60%,transparent)}
+body[data-look="glass"] .hubtile{animation:lkFloat 7s ease-in-out infinite}
+body[data-look="glass"] .hubtile:nth-child(2n){animation-delay:-2s}body[data-look="glass"] .hubtile:nth-child(3n){animation-delay:-4s}
+body[data-look="glass"] .hubtile.ready{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 55%,#fff));animation:lkBloom 4.5s ease-in-out infinite}
+body[data-look="glass"] .hand .pcard{animation:deal .55s both cubic-bezier(.2,.9,.3,1.2)}
+body[data-look="glass"] .pcard{border-radius:18px}
+@keyframes lkFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+body[data-look="glass"] .hud{background:rgba(255,255,255,.08);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.16)}
+body[data-look="glass"] .pitch{border-radius:22px}
+body[data-look="glass"] .phasebanner b,body[data-look="glass"] .goalcall b{letter-spacing:.3em;animation:lkDream 2.5s ease-in-out both}
+body[data-look="glass"] .goalcall b{animation-duration:2.1s}
+@keyframes lkDream{0%{opacity:0;letter-spacing:.7em;filter:blur(8px)}35%,70%{opacity:1;letter-spacing:.3em;filter:blur(0)}100%{opacity:0;letter-spacing:.42em;filter:blur(3px)}}
+body[data-look="glass"] .landing .hero{text-shadow:0 8px 40px color-mix(in srgb,var(--acc) 60%,transparent)}
+
+@media (prefers-reduced-motion:reduce){
+  body[data-look] *,body[data-look] *:before,body[data-look] *:after,body[data-look] .lk-decor i{animation:none!important}
+  .lk-mote,.lk-scan{display:none!important}
+}
+
+/* Orbitron is wide: give the scoreboard names room */
+body[data-look="synth"] .sbar .tn{font-size:clamp(15px,2.2vw,24px);letter-spacing:.02em}
+body[data-look="synth"] .hubtile b{font-size:24px}
+body[data-look="synth"] .pcard .cname{font-size:12px;letter-spacing:.02em}
