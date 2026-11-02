@@ -117,3 +117,10 @@ body[data-look="glass"] .landing .hero{text-shadow:0 8px 40px color-mix(in srgb,
 body[data-look="synth"] .sbar .tn{font-size:clamp(15px,2.2vw,24px);letter-spacing:.02em}
 body[data-look="synth"] .hubtile b{font-size:24px}
 body[data-look="synth"] .pcard .cname{font-size:12px;letter-spacing:.02em}
+
+/* Drop-down lists: the list the browser draws needs its own solid background, or white text lands on a pale list */
+select{color-scheme:dark}
+select option,select optgroup{background-color:#17142b;color:#f4f4fa}
+body[data-look="glass"] select option,body[data-look="glass"] select optgroup{background-color:#222a48}
+select option:checked,select option:hover{background:#2f6bff linear-gradient(#2f6bff,#2f6bff);color:#fff}
+select:disabled{opacity:.6}
