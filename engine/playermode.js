@@ -134,13 +134,13 @@ export function buyForUser(game, p, itemId, { store = false } = {}) {
   p.coins -= it.price; p.items[it.id] = (p.items[it.id] || 0) + it.uses; return true;
 }
 export function setEquip(game, p, ids) {
-  const ok = (Array.isArray(ids) ? ids : []).filter((id, i, a) => a.indexOf(id) === i && (p.items[id] || 0) > 0 && game.items.find((x) => x.id === id && x.scope === "player"));
+  const ok = (Array.isArray(ids) ? ids : []).filter((id, i, a) => a.indexOf(id) === i && (p.items[id] || 0) > 0 && game.items.find((x) => x.id === id && x.scope === "player" && !x.life));
   p.equip = ok.slice(0, game.P.player.itemCap);
 }
 // A manager hands one use of a player item to the created player on his roster.
 export function giftItem(game, ti, pid, itemId) {
   const t = game.teams[ti], p = game.players[pid], it = game.items.find((i) => i.id === itemId);
-  if (!t || !p || !p.user || p.team !== ti || !it || it.scope !== "player" || !((t.items[itemId] || 0) > 0)) return false;
+  if (!t || !p || !p.user || p.team !== ti || !it || it.scope !== "player" || it.life || !((t.items[itemId] || 0) > 0)) return false;
   t.items[itemId]--; if (t.items[itemId] <= 0) delete t.items[itemId];
   p.items[itemId] = (p.items[itemId] || 0) + 1; return true;
 }
@@ -193,19 +193,39 @@ export function cpuTakes(game, p) {
 }
 
 // ---------- item packs (opened during the pack draft) ----------
-// Each pack holds one thing: a low or mid pair of boots, an ice bath, or a small purse of coins. Same seed, same packs.
+// Opening a pack deals P.player.packCards cards (items, and at most one purse of coins); the footballer keeps ONE of them.
+// Same seed, same packs. Life items (Flowers, Ziplock baggie, Pre-workout) sit in the "rest" group with the ice bath.
 export function packOdds(game) {
   const own = game.items.filter((i) => i.scope === "player" && i.supply == null && !i.storeOnly);
   const lows = own.filter((i) => i.tier === "low"), mids = own.filter((i) => i.tier === "mid"), rest = own.filter((i) => !i.tier);
   return [...lows.map((i) => ({ w: 30 / Math.max(1, lows.length), id: i.id })), ...mids.map((i) => ({ w: 22 / Math.max(1, mids.length), id: i.id })), ...rest.map((i) => ({ w: 18 / Math.max(1, rest.length), id: i.id })), { w: 12, coins: true }];
 }
+// Open the next pack: it waits in p.pack until a card is chosen.
 export function openItemPack(game, p) {
-  if (!p || !p.user || !(p.packs > 0)) return null;
-  const n = (p.packLog || []).length, r = makeRng(game.seed, "ipack", p.id, n), odds = packOdds(game), tot = odds.reduce((a, o) => a + o.w, 0);
-  let x = r() * tot, pick = odds[odds.length - 1]; for (const o of odds) { if ((x -= o.w) < 0) { pick = o; break; } }
-  let res;
-  if (pick.coins) { const [lo, hi] = game.P.player.packCoins, amt = lo + Math.floor(r() * (hi - lo + 1)); p.coins += amt; res = { kind: "coins", amt }; }
-  else { const it = game.items.find((i) => i.id === pick.id); p.items[it.id] = (p.items[it.id] || 0) + it.uses; res = { kind: "item", id: it.id, uses: it.uses }; }
-  p.packs--; p.packLog = [...(p.packLog || []), res];
-  return res;
+  if (!p || !p.user || !(p.packs > 0) || p.pack) return null;
+  const n = p.packN || 0, r = makeRng(game.seed, "ipack", p.id, n), pool = packOdds(game), cards = [], want = game.P.player.packCards || 3;
+  while (cards.length < want && pool.length) {
+    const tot = pool.reduce((a, o) => a + o.w, 0); let x = r() * tot, k = pool.length - 1;
+    for (let q = 0; q < pool.length; q++) { if ((x -= pool[q].w) < 0) { k = q; break; } }
+    const o = pool.splice(k, 1)[0];
+    if (o.coins) { const [lo, hi] = game.P.player.packCoins; cards.push({ kind: "coins", amt: lo + Math.floor(r() * (hi - lo + 1)) }); }
+    else { const it = game.items.find((i) => i.id === o.id); cards.push({ kind: "item", id: it.id, uses: it.uses }); }
+  }
+  p.packN = n + 1; p.packs--; p.pack = { n, cards };
+  return p.pack;
+}
+const cardValue = (game, c) => (c.kind === "coins" ? c.amt : (game.items.find((i) => i.id === c.id) || { price: 0 }).price);
+// Keep one card from the open pack; the rest are gone.
+export function pickPackCard(game, p, idx) {
+  if (!p || !p.pack) return null;
+  const c = p.pack.cards[idx]; if (!c) return null;
+  if (c.kind === "coins") p.coins += c.amt; else p.items[c.id] = (p.items[c.id] || 0) + c.uses;
+  p.packLog = [...(p.packLog || []), c]; p.pack = null;
+  return c;
+}
+// Nobody chose in time (the draft ended): take the most valuable card.
+export function autoPickPack(game, p) {
+  if (!p || !p.pack) return null;
+  let best = 0; p.pack.cards.forEach((c, i) => { if (cardValue(game, c) > cardValue(game, p.pack.cards[best])) best = i; });
+  return pickPackCard(game, p, best);
 }

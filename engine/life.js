@@ -312,7 +312,9 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
   const P = game.P.life, L = ensureLife(game, p);
   game.weekDay = day;
   if (blocked(game, p, act, { marry, partner })) { act = "balance"; marry = false; partner = null; }
-  const a = P.acts[act], r = makeRng(game.seed, "life", p.id, game.season, day);
+  const a = { ...P.acts[act] }, r = makeRng(game.seed, "life", p.id, game.season, day);
+  const boost = lifeBoost(game, p, act);                                    // Flowers, Ziplock baggie or Pre-workout: one is used up this week
+  if (boost) { p.items[boost.id]--; if (p.items[boost.id] <= 0) delete p.items[boost.id]; if (boost.fx.stam) a.stam += boost.fx.stam; if (boost.fx.love) a.love += boost.fx.love; if (boost.fx.fol) a.fol = Math.round(a.fol * boost.fx.fol); }
   const cost = actCost(game, p, act) + (marry ? WEDDING_COST(game) : 0);
   p.coins = Math.max(0, (p.coins || 0) - cost);
   L.cnt[act]++;
@@ -336,14 +338,20 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
   L.love = clamp(L.love + love, L.married ? 10 : 0, 100);
   if (L.partner && !L.married && L.love <= 0) L.partner = null;             // the relationship fizzles out
   L.fol = Math.max(0, Math.round(L.fol + a.fol * (1 + Math.max(0, p.ovr - 80) / 40)));
-  if (act === "train") {                                                    // small, steady skill gains
-    p.ovrf = (p.ovrf ?? p.ovr) + P.trainGain;
-    const foc = FOCUS_STATS(p.pos), k = foc[Math.floor(r() * foc.length)];
-    p[k] = clamp(p[k] + (r() < P.trainStat ? 1 : 0), 30, 99);
-    p.ovr = clamp(Math.round(p.ovrf), 40, 99); p.tier = p.ovr >= 90 ? "ruby" : p.ovr >= 85 ? "gold" : "silver"; rate(p, game.P);
+  let trained = null;
+  if (act === "train") {                                                    // steady skill gains: a few skill points a session, at most +trainCap overall a season
+    const T = trainRec(game, L), room = Math.max(0, P.trainCap - T.gain), gain = Math.min(room, P.trainGain * (boost && boost.fx.gain ? boost.fx.gain : 1));
+    if (gain > 0) {
+      T.gain += gain; T.sessions++;
+      p.ovrf = (p.ovrf ?? p.ovr) + gain;
+      const foc = FOCUS_STATS(p.pos), k = foc[Math.floor(r() * foc.length)], up = boost && boost.fx.gain ? 1 : r() < P.trainStat ? 1 : 0;
+      p[k] = clamp(p[k] + up, 30, 99);
+      const before = p.ovr; p.ovr = clamp(Math.round(p.ovrf), 40, 99); p.tier = p.ovr >= 90 ? "ruby" : p.ovr >= 85 ? "gold" : "silver"; rate(p, game.P);
+      trained = { stat: up ? k : null, ovr: p.ovr - before, gain, capped: T.gain >= P.trainCap - 1e-9 };
+    } else trained = { stat: null, ovr: 0, gain: 0, capped: true };
   }
   let wada = false;
-  if (act === "party" && r() < P.wada) { wada = true; p.susp = Math.max(p.susp || 0, P.wadaBan); }
+  if (act === "party" && r() < (boost && boost.fx.wada ? boost.fx.wada : P.wada)) { wada = true; p.susp = Math.max(p.susp || 0, P.wadaBan); }
   const c = { game, p, act, L, P, r, married: L.married, wedding: !!marry, wada, wrong, day, leakLeft: L.hit.wedLeft || 0 };
   if (marry) { L.married = true; L.hit.wedLeft = P.leakWeeks + 1; L.opts = null; }
   const out = [];
@@ -366,10 +374,21 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
     const n = mk(game, p, { kind: s.kind, src: s.src, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
     if (n) { out.push(n); printed = true; }
   }
-  L.last = { act, cost, day, wed: !!marry };
+  L.last = { act, cost, day, wed: !!marry, boost: boost ? boost.id : null, trained };
   L.act = null;
   boots(game, p, day, r);
-  return { act, cost, stories: out, wada };
+  return { act, cost, stories: out, wada, boost: boost ? boost.id : null, trained };
+}
+// The life item that goes with this week's activity (the first one the footballer holds), or null.
+const BOOST_KEY = { flowers: "flowers", "ziplock-baggie": "ziplock", "pre-workout": "pre" };
+export function lifeBoost(game, p, act) {
+  const it = game.items.find((i) => i.life === act && ((p.items || {})[i.id] || 0) > 0); if (!it) return null;
+  return { id: it.id, fx: game.P.life.boost[BOOST_KEY[it.id]] || {} };
+}
+// This season's training so far (resets when a new season starts).
+export function trainRec(game, L) {
+  if (!L.tr || L.tr.season !== game.season) L.tr = { season: game.season, gain: 0, sessions: 0 };
+  return L.tr;
 }
 // Stats a position cares about most (top three), used for where training goes.
 const FOC = { ST: ["sho", "pac", "dri"], CAM: ["pas", "dri", "sho"], CM: ["pas", "dri", "def"], CDM: ["def", "pas", "phy"], CB: ["def", "phy", "pac"], RB: ["def", "pac", "pas"], LB: ["def", "pac", "pas"], RM: ["pac", "dri", "pas"], LM: ["pac", "dri", "pas"], LW: ["pac", "dri", "sho"], RW: ["pac", "dri", "sho"], GK: ["pac", "sho", "dri"] };

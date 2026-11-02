@@ -122,7 +122,7 @@ export const DEFAULT_PARAMS = {
     maxOpenOffers: 3,                               // per manager
     startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
     itemCap: 2,                                     // items a created player can wear in one match
-    packs: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
+    packs: 3, packCards: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },
 
@@ -139,7 +139,8 @@ export const DEFAULT_PARAMS = {
       rest: { stam: 18, love: -6, fol: -150, cost: 0 },
       balance: { stam: 2, love: 0, fol: 0, cost: 0 },
     },
-    trainGain: 0.15, trainStat: 0.7,                // overall points per Train hard (about 7 sessions per point); chance a stat moves too
+    trainGain: 0.25, trainStat: 0.85, trainCap: 2,  // overall points per Train hard (4 sessions a point), the most training adds in one season, and the chance a skill moves up in a session
+    boost: { flowers: { love: 8 }, ziplock: { fol: 1.6, stam: -10, wada: 0.10 }, pre: { gain: 1.75, stam: -4 } },   // what the life items do (Flowers on a Date, Ziplock baggie on a Party, Pre-workout on Train hard)
     partnerParty: 0.3, partyLoveWithPartier: 3,     // a new partner is a party-er this often; partying with one costs no love life
     wada: 0.04, wadaBan: 2,                         // Party: chance of a flagged test, and the ban in matches
     sponsor: { per: 2000, cap: 40 },                // coins a matchday = followers / per, up to cap

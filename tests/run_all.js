@@ -356,6 +356,46 @@ t("player pool: women-only and men-only leagues draft, play and bring in rookies
   const r = new Room({ code: "TEST", D, hostToken: "h", onChange() {}, onSave() {} }), info = r.poolInfo();
   assert.ok(info.female.maxClubs <= 12 && info.male.maxClubs <= 12 && info.all.maxClubs === 30, JSON.stringify(info));
 });
+t("training: frequent Train hard raises skills and overall, capped at +2 overall a season, and the cap resets", async () => {
+  const L = await import("../engine/life.js");
+  const g = createGame({ D, N: 10, seed: 21 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Gym Rat", pos: "ST", nums: r.nums, ovr: 80, assign: defaultAssign("ST") });
+  p.gender = "M"; L.ensureLife(g, p); p.coins = 99999;
+  const o0 = p.ovr, sum = () => ["pac", "sho", "pas", "dri", "def", "phy"].reduce((a, k) => a + (p[k] || 0), 0), s0 = sum();
+  for (let d = 0; d < 12; d++) { p.stam = 100; L.runActivity(g, p, "train", { day: d }); }
+  assert.equal(p.ovr, o0 + 2, "twelve sessions reach the +2 season cap exactly");
+  assert.ok(sum() - s0 >= 4, "skills moved up too");
+  const s1 = sum(); for (let d = 12; d < 20; d++) { p.stam = 100; L.runActivity(g, p, "train", { day: d }); }
+  assert.equal(p.ovr, o0 + 2, "no more overall this season"); assert.equal(sum(), s1, "and no more skill points once capped");
+  g.season++; for (let d = 0; d < 12; d++) { p.stam = 100; L.runActivity(g, p, "train", { day: d }); }
+  assert.equal(p.ovr, o0 + 4, "a new season, a new +2");
+});
+t("life items: Pre-workout speeds training, Flowers improve a date, a Ziplock baggie makes a party bigger; each is used up; none can be worn in a match", async () => {
+  const L = await import("../engine/life.js");
+  const mk = (seed) => { const g = createGame({ D, N: 10, seed }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0; const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t" + seed, name: "Item Ian", pos: "CM", nums: r.nums, ovr: 80, assign: defaultAssign("CM") }); p.gender = "M"; L.ensureLife(g, p); p.coins = 9999; p.stam = 100; return [g, p]; };
+  let [g, p] = mk(31); L.runActivity(g, p, "train", { day: 0 }); const plain = p.ovrf - 80;
+  [g, p] = mk(31); p.items["pre-workout"] = 3; const res = L.runActivity(g, p, "train", { day: 0 });
+  assert.ok(Math.abs((p.ovrf - 80) - plain * g.P.life.boost.pre.gain) < 1e-9 && res.boost === "pre-workout" && p.items["pre-workout"] === 2, "pre-workout: +75% progress, one use gone");
+  [g, p] = mk(32); L.runActivity(g, p, "date", { day: 0 }); const love0 = p.life.love;
+  [g, p] = mk(32); p.items.flowers = 1; L.runActivity(g, p, "date", { day: 0 });
+  assert.equal(p.life.love - love0, g.P.life.boost.flowers.love, "flowers: more love"); assert.equal(p.items.flowers, undefined, "flowers used up");
+  [g, p] = mk(33); L.runActivity(g, p, "party", { day: 0 }); const fol0 = p.life.fol, stam0 = p.stam;
+  [g, p] = mk(33); p.items["ziplock-baggie"] = 1; L.runActivity(g, p, "party", { day: 0 });
+  assert.ok(p.life.fol > fol0 && p.stam < stam0 && !p.items["ziplock-baggie"], "ziplock: more followers, more tired, used up");
+  [g, p] = mk(34); p.items.flowers = 1; L.runActivity(g, p, "train", { day: 0 }); assert.equal(p.items.flowers, 1, "flowers are only used on a date");
+  p.items["pre-workout"] = 3; setEquip(g, p, ["pre-workout", "flowers"]); assert.deepEqual(p.equip, [], "life items cannot be equipped for a match");
+});
+t("footballer packs: a pack deals three cards, one is kept, the rest vanish; unopened packs pick the most valuable", async () => {
+  const g = createGame({ D, N: 10, seed: 41 }), r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Pack Pat", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") });
+  const P = await import("../engine/playermode.js"), n0 = p.packs, c0 = p.coins;
+  const pack = P.openItemPack(g, p); assert.equal(pack.cards.length, g.P.player.packCards); assert.equal(p.packs, n0 - 1); assert.equal(P.openItemPack(g, p), null, "one pack at a time");
+  assert.equal(new Set(pack.cards.map((c) => c.id || "coins")).size, pack.cards.length, "no repeats in a pack");
+  const c = P.pickPackCard(g, p, 1); assert.deepEqual(c, pack.cards[1]); assert.equal(p.pack, null);
+  assert.ok(c.kind === "coins" ? p.coins === c0 + c.amt : p.items[c.id] === c.uses); assert.equal(p.packLog.length, 1);
+  P.openItemPack(g, p); const open = p.pack.cards, v = (x) => (x.kind === "coins" ? x.amt : g.items.find((i) => i.id === x.id).price);
+  const got = P.autoPickPack(g, p); assert.equal(v(got), Math.max(...open.map(v)), "auto-pick takes the best card");
+  p.pack = null; p.packN = 0; p.packs++; assert.deepEqual(P.openItemPack(g, p), pack, "same seed and player, same pack");
+});
 t("player life: activities move energy, love, money and followers; stories follow the choices; shop and wedding work", async () => {
   const L = await import("../engine/life.js");
   const g = createGame({ D, N: 10, seed: 9 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
@@ -367,7 +407,7 @@ t("player life: activities move energy, love, money and followers; stories follo
   p.coins = 5000; for (let d = 0; d < 10; d++) L.runActivity(g, p, "date", { day: 10 + d });
   assert.ok(L.canMarry(g, p) && lf.partner.dates >= 10); const w = L.runActivity(g, p, "date", { marry: true, day: 30 });
   assert.ok(lf.married && w.stories.some((n) => n.kind === "wedding" && n.status === "live"), "wedding story goes to the lobby");
-  for (let d = 0; d < 20; d++) L.runActivity(g, p, "train", { day: 40 + d }); assert.ok(p.ovr > o0 && p.ovr <= o0 + 4, "training helps a little");
+  for (let d = 0; d < 20; d++) L.runActivity(g, p, "train", { day: 40 + d }); assert.ok(p.ovr > o0 && p.ovr <= o0 + g.P.life.trainCap, "training helps, but never more than the season cap");
   // boring: 15 balance weeks in one season, guaranteed
   const g2 = createGame({ D, N: 10, seed: 10 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
   const q = createUserPlayer(g2, { token: "u", name: "Dull Dan", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "M"; L.ensureLife(g2, q);

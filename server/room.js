@@ -567,7 +567,7 @@ export class Room {
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
     this.dealCareerCards(); this.rollStore();
     this.step = "md.result"; if (!this.windowInfo().open) this.expireOffers();
-    this.after(this.p(18000), () => this.nextMatchday());
+    this.after(this.p(8000), () => this.nextMatchday());
     this.changed();
   }
   endSeason() {

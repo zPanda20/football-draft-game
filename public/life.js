@@ -14,8 +14,7 @@ export const lifeHandlers = {
   dealNo() { send({ t: "dealRespond", yes: false }); },
   actClear() { send({ t: "act", act: null }); },
   lifeBuy(a) { send({ t: "lifeBuy", id: a.id }); },
-  shopToggle() { ui().shopOpen = !ui().shopOpen; st.render(); },
-  shopCat(a) { ui().shopCat = a.cat; st.render(); },
+  shopTab(a) { ui().shopTab = a.tab; st.render(); },
   newsYes(a) { send({ t: "newsDecide", id: +a.id, yes: true }); },
   newsNo(a) { send({ t: "newsDecide", id: +a.id, yes: false }); },
   newsClose() { closeBanner(); },
@@ -36,6 +35,8 @@ function chips(k) {
   return out.map(([n, v, a]) => `<span class="ch ${tone(v)}">${n} ${a}</span>`).join("");
 }
 
+const ico = (it, n = 22) => { const u = it && it.icon && st.cat.art && st.cat.art.items && st.cat.art.items[it.icon]; return u ? `<img src="${esc(u)}" alt="" width="${n}" height="${n}" style="vertical-align:middle">` : ""; };
+const SKILL = { pac: "pace", sho: "shooting", pas: "passing", dri: "dribbling", def: "defending", phy: "physical", div: "diving", han: "handling", kic: "kicking", ref: "reflexes", spe: "speed", pos: "positioning" };
 export function lifePanel(S) {
   const pm = S.pm, lf = pm && pm.life; if (!lf) return "";
   const p = pl(pm.pid), info = st.cat.life.acts, coinsNow = pm.coins;
@@ -50,13 +51,16 @@ export function lifePanel(S) {
   let week = "";
   const acts = ["train", "date", "party", "rest", "balance"].map((k) => {
     const cost = lf.costs[k], dis = !lf.open || cost > coinsNow || (k === "party" && pm.susp > 0);
-    return `<button class="act ${cur === k && !lf.act.marry ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}</span></button>`;
+    const bo = lf.boosts && lf.boosts[k], bit = bo && st.items[bo.id], capped = k === "train" && lf.tr && lf.tr.gain >= lf.tr.cap - 1e-9;
+    return `<button class="act ${cur === k && !lf.act.marry ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${capped ? `<span class="ch flat">Skills maxed this season</span>` : chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}${bit ? `<span class="ch up boost">${ico(bit, 16)} ${esc(bit.name)} ×${bo.left}</span>` : ""}</span></button>`;
   }).join("");
   const marry = "";
-  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
+  const tr = lf.tr, trainLine = tr ? `<div class="trainline"><span>Training this season</span><span class="tbar"><i style="width:${Math.min(100, (tr.gain / tr.cap) * 100)}%"></i></span><b>+${tr.gain.toFixed(1)} / +${tr.cap} OVR</b>${tr.gain >= tr.cap - 1e-9 ? `<span class="tiny mute">Maxed out. A new season opens it again.</span>` : `<span class="tiny mute">about ${Math.max(1, Math.ceil((tr.cap - tr.gain) / tr.per))} Train hard weeks to go</span>`}</div>` : "";
+  const ll = pm.lastLife, tdone = ll && ll.trained && ll.trained.gain > 0 ? ` · <span style="color:var(--good)">${ll.trained.ovr ? `+${ll.trained.ovr} OVR` : "progress"}${ll.trained.stat ? `, ${SKILL[ll.trained.stat] || ll.trained.stat} +1` : ""}</span>` : "";
+  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
   const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.marry ? " + proposal" : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
-  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
-  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${dealOfferCard(lf)}${week}${shopView(S)}</div>`;
+  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
+  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${dealOfferCard(lf)}${week}</div>`;
 }
 
 // ---------- dating: three people to choose from each week ----------
@@ -99,12 +103,12 @@ const TROPHY_ICON = { title: "🏆", ballon: "🌟", boot: "⚽", playmaker: "�
 function cabinet(lf) {
   const t = lf.trophies || []; if (!t.length) return "";
   const by = {}; for (const x of t) by[x.kind] = (by[x.kind] || 0) + 1;
-  return `<div class="small mt cab">${Object.entries(by).map(([k, n]) => { const u = st.cat.art && st.cat.art.trophies && st.cat.art.trophies[k]; return `<span class="pill" title="${TROPHY_NAME[k]}">${u ? `<img src="${esc(u)}" alt="" height="16">` : TROPHY_ICON[k]} ${TROPHY_NAME[k]}${n > 1 ? " ×" + n : ""}</span>`; }).join(" ")}</div>`;
+  return `<div class="small mt cab">${Object.entries(by).map(([k, n]) => { const u = st.cat.art && st.cat.art.trophies && st.cat.art.trophies[k]; return `<span class="trophy" title="${TROPHY_NAME[k]}">${u ? `<img src="${esc(u)}" alt="" width="40" height="40">` : `<span class="tem">${TROPHY_ICON[k]}</span>`}<span><b>${TROPHY_NAME[k]}</b>${n > 1 ? ` <em>×${n}</em>` : ""}</span></span>`; }).join(" ")}</div>`;
 }
 
-function shopView(S) {
-  const pm = S.pm, lf = pm.life, cats = st.cat.life.cats, items = st.cat.life.shop, cat = ui().shopCat || "car";
-  const tabs = cats.map(([k, n]) => `<button class="btn sm ${cat === k ? "pri" : ""}" data-act="shopCat" data-cat="${k}">${esc(n)}</button>`).join("");
+// The life shop (cars, houses, yachts, a plane, nightlife): one tab of the merged footballer Shop (see store.js).
+export function lifeShopTab(S, cat) {
+  const pm = S.pm, lf = pm.life, items = st.cat.life.shop;
   const owned = [...lf.own.cars, lf.own.house, lf.own.yacht, lf.own.plane ? "plane" : null, lf.own.club].filter(Boolean).map((id) => items.find((i) => i.id === id)).filter(Boolean);
   const rows = items.filter((i) => i.cat === cat).map((it) => {
     const s = lf.shop[it.id], can = lf.store && !s.own && !s.better && pm.coins >= s.price;
@@ -112,9 +116,8 @@ function shopView(S) {
     const act = s.own ? `<span class="pill good">Owned</span>` : s.better ? `<span class="pill">Have better</span>` : `<button class="btn sm pri" data-act="lifeBuy" data-id="${it.id}" ${can ? "" : "disabled"}>Buy · ${s.price}</button>`;
     return `<div class="shoprow"><div class="grow"><b>${esc(it.name)}</b><div class="tiny mute">${esc(text)}</div></div>${act}</div>`;
   }).join("");
-  const mine = owned.length ? `<div class="own mt">${owned.map((i) => `<span class="pill">${esc(i.name)}</span>`).join("")}</div>` : "";
-  const open = !!ui().shopOpen;
-  return `<div class="shop mt"><button class="shophead" data-act="shopToggle"><b>Shop</b> <span class="mute small">cars, houses, yachts, a plane and nightlife</span> <span class="pill">${coins(pm.coins)}</span><span class="grow"></span><span class="mute">${open ? "▲" : "▼"}</span></button>${open ? `<div class="row wrap mt" style="gap:6px">${tabs}</div>${mine}<div class="shoplist mt">${rows}</div>` : ""}</div>`;
+  const mine = owned.length ? `<div class="own mt">Yours: ${owned.map((i) => `<span class="pill">${esc(i.name)}</span>`).join("")}</div>` : "";
+  return `${mine}<div class="shoplist mt">${rows}</div>`;
 }
 
 // A manager is asked before a story about the footballer on his team goes to the whole lobby.

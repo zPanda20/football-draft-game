@@ -510,6 +510,15 @@ function resultsView(S) {
     <div class="card"><h3>Ratings</h3><div data-pb="lineups" data-k="${k}"></div></div>`;
 }
 
+// ---------- the scores ticker: last matchday's results scroll across the top between matches ----------
+export function scoreTicker(S) {
+  const L = S.lastDay; if (!L || !L.matches || !L.matches.length || !["md.lineup", "season.intro"].includes(S.step)) return "";
+  const myTi = S.me ? S.me.teamId : S.pm && S.pm.team != null ? S.pm.team : -1;
+  const one = (m) => `<span class="tk ${m.a === myTi || m.b === myTi ? "mine" : ""}">${crest(team(m.a), 16)}<span class="tn">${esc(team(m.a).name)}</span><b>${m.score[0]}–${m.score[1]}</b><span class="tn">${esc(team(m.b).name)}</span>${crest(team(m.b), 16)}</span>`;
+  const run = L.matches.map(one).join("");
+  return `<div class="ticker" aria-label="Last matchday's scores"><span class="tklab">MD ${L.day + 1}</span><div class="tkwin"><div class="tktrack" style="animation-duration:${Math.max(24, L.matches.length * 4.5)}s">${run}${run}</div></div></div>`;
+}
+
 // ---------- the menu between matches ----------
 const coinsTxt = (n) => `${Math.round(n).toLocaleString()} 🪙`;
 function hubBar(S, title, back = "hubback", backText = "← Menu") {
@@ -536,6 +545,13 @@ function biggestDecision(S, me, t) {
     if (winOpen(S)) return { ic: "🔁", text: `The transfer window is open: ${winCountdown(S)}.`, to: "transfers" };
     return { ic: "✅", text: t && t.ready ? "You are locked in. Waiting for the rest of the room." : "Nothing urgent. Check your line-up and press Ready.", to: t && t.ready ? null : "team", ok: true };
   }
+  const pm = S.pm;
+  if (pm && pm.life) {
+    if (pm.pending.length) return { ic: "🎲", text: `${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting for your decision.`, to: null };
+    if (pm.life.open && !pm.life.act) return { ic: "🗓️", text: "Pick your week above: train, date, party, rest or balance. If you do nothing it is a Balance week.", to: null };
+    if (pm.life.offer) return { ic: "👟", text: "A boot maker wants to sign you. See the offer above.", to: null };
+    return { ic: "✅", text: pm.life.open ? "Your week is locked in. Kick-off when everyone is ready." : "Waiting for the managers.", to: null, ok: true };
+  }
   return { ic: "👀", text: "Waiting for the managers.", to: null, ok: true };
 }
 function hubHome(S) {
@@ -557,7 +573,7 @@ function hubHome(S) {
     tile("standings", "🏆", "Standings", row ? `${ordinal(rank + 1)} · ${row.pts} pts` : "Table &amp; results"),
     me && me.fin && L.finance ? tile("finance", "💰", "Finance", me.fin.expiring.length ? `${me.fin.expiring.length} expiring` : "All set") : "",
     L.stats ? tile("stats", "📊", "Stats", "Goals, ratings, awards") : "",
-    tile("store", "🛒", "Store", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item</span>" : ""}`),
+    tile("store", "🛒", me ? "Store" : "Shop", `${Math.round(have)} coins${rare ? " · <span class=\"rarepip\">rare item</span>" : ""}`),
     L.stats ? tile("news", "📰", "News", ((S.news && S.news.list) || []).length ? `${S.news.list.length} stor${S.news.list.length === 1 ? "y" : "ies"}` : "The Daily Whistle") : "",
     me && lite ? tile("more", "⋯", "More", "Hidden screens &amp; switches") : "",
     me ? `<button class="hubtile ready ${ready ? "on" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span><b>${me.auto ? "Auto on" : "Ready"}</b><span class="sub">${ready ? "Locked in. Tap to undo." : "Lock in for the next match"}</span></button>` : "",
@@ -572,7 +588,7 @@ function hubDock(S) {
   const me = S.me, ready = me && S.teams[me.teamId].ready, hub = st.ui.hub || "home";
   const b = (to, ic, name, extra = "") => `<button class="${hub === to ? "on" : ""}" data-act="${to === "home" ? "hubback" : "hubgo"}" data-to="${to}"><span class="ic">${ic}</span>${name}${extra}</button>`;
   const L = lt(S), lite = isLite(S);
-  const slot4 = winOpen(S) && L.trades ? b("transfers", "🔁", "Window", incomingOffers(S) ? `<i class="dotb"></i>` : "") : me && me.fin && L.finance ? b("finance", "💰", "Money") : L.stats ? b("stats", "📊", "Stats") : b("store", "🛒", "Store");
+  const slot4 = winOpen(S) && L.trades ? b("transfers", "🔁", "Window", incomingOffers(S) ? `<i class="dotb"></i>` : "") : me && me.fin && L.finance ? b("finance", "💰", "Money") : L.stats ? b("stats", "📊", "Stats") : b("store", "🛒", me ? "Store" : "Shop");
   const slot5 = L.stats ? b("news", "📰", "News") : me && lite ? b("more", "⋯", "More") : b("news", "📰", "News");
   return `<nav class="hubdock">${b("home", "🏠", "Home")}${me ? b("team", "📋", "Team") : ""}${b("standings", "🏆", "Table")}${slot4}${slot5}${me ? `<button class="rd ${ready ? "done" : ""}" data-act="mready"><span class="ic">${ready ? "✔" : "▶"}</span>${ready ? "Ready" : "Go"}</button>` : ""}</nav>`;
 }
@@ -637,7 +653,7 @@ function hubView(S) {
   else if (hub === "transfers") body = hubBar(S, "Transfers") + transfersView(S);
   else if (hub === "stats") body = hubBar(S, "Player stats") + playerStats(S);
   else if (hub === "news") body = hubBar(S, "The Daily Whistle") + frontPage(S, { cols: 9 });
-  else if (hub === "store") body = hubBar(S, "Store") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
+  else if (hub === "store") body = hubBar(S, S.me ? "Store" : "Shop") + (storeCard(S) || `<div class="card"><p class="mute">The store is closed right now.</p></div>`);
   else body = standingsView(S);
   return body + hubDock(S);
 }

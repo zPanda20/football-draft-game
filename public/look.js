@@ -30,7 +30,7 @@ export function applyLook(S) {
 
 export function lookPicker() {
   const p = pref();
-  return `<div class="lookpick row wrap"><span class="small mute">Look</span>${LOOKS.map(([k, n]) => `<button class="btn sm ${p === k ? "on" : ""}" data-act="look" data-v="${k}">${n}</button>`).join("")}
+  return `<div class="lookpick row wrap"><span class="small mute">Theme</span>${LOOKS.map(([k, n]) => `<button class="btn sm ${p === k ? "on" : ""}" data-act="look" data-v="${k}">${n}</button>`).join("")}
     <span class="tiny mute">Auto uses Synth for Full and Glass for Lite. Only changes this browser.</span></div>`;
 }
 

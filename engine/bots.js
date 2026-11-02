@@ -77,7 +77,7 @@ export function botMarketBid(game, ti, P, round) {
 export function botItemBuys(game, ti, P) {
   const team = game.teams[ti], a = ARCHETYPES[team.bot], buys = [];
   let coins = team.coins;
-  const menu = game.items.filter((i) => i.supply == null && !i.storeOnly).sort((x, y) => y.price - x.price);
+  const menu = game.items.filter((i) => i.supply == null && !i.storeOnly && !i.life).sort((x, y) => y.price - x.price);
   const r = makeRng(game.seed, "botitems", game.season, ti);
   for (let n = 0; n < a.buyItems; n++) {
     const afford = menu.filter((i) => i.price <= coins && !(team.items[i.id]) && !buys.includes(i.id));

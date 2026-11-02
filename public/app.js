@@ -7,10 +7,10 @@ import { storeCard, storeHandlers } from "./store.js";
 import { histHandlers } from "./history.js";
 import { helpHandlers, helpButton, maybeFirstGuide, drawHelp } from "./help.js";
 import { liteHandlers, liteChooser, isLite, liteIntro, stepHint } from "./lite.js";
-import { pmHandlers, pmPanel, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
+import { pmHandlers, pmPanel, pmKit, packOverlay, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
 import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
-import { matchView, matchHandlers, tablePanel, playbackTick } from "./match.js";
+import { matchView, matchHandlers, tablePanel, playbackTick, scoreTicker } from "./match.js";
 import { pcardHandlers, pcardSync } from "./pcard.js";
 import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
@@ -208,9 +208,9 @@ function renderTop() {
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;
   const hud = nl ? `<div class="hud ${nl.kind}" id="hud"><span class="hmsg">${esc(nl.text)}</span>${clock ? `<span class="hclock" id="hclock"></span><i class="hbar" id="hbar"></i>` : ""}</div>` : "";
   const sp = S.speed, lv = ["Relaxed", "Normal", "Fast", "Turbo"][sp.levels.indexOf(sp.pace)];
-  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span><button class="btn sm" data-act="lookNext" title="Change the look: Auto, Synth or Glass">Look</button>${helpButton()}
+  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span><button class="btn sm" data-act="lookNext" title="Change the theme: Auto, Synth or Glass">Theme</button>${helpButton()}
     ${S.step !== "lobby" && S.me ? `<span class="coin" title="Your coins">${Math.round(S.me.coins)}<i></i></span>` : ""}
-    ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}`;
+    ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}${scoreTicker(S)}`;
   tick();
 }
 function tick() {
@@ -292,7 +292,7 @@ function lobby(S) {
   const startBtn = S.host ? `<button class="btn pri big" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute">Waiting for the host to start.</p>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    ${modeCard(S)}${liteChooser(S)}<div class="card"><h3>Look</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
+    ${modeCard(S)}${liteChooser(S)}<div class="card"><h3>Theme</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
     <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div>${clubPreview(you)}${clubBar}<div class="clubgrid mt">${clubs}</div>${clubMore}${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     <div class="card"><div class="row"><div class="grow"><b>More options</b><div class="small mute">Game settings, trophy cabinet and codes</div></div><button class="btn sm" data-act="lobbyMore">${moreOpen ? "Hide" : "Show"}</button></div></div>
     ${moreOpen ? enterCode(you) : ""}`;
@@ -337,7 +337,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);

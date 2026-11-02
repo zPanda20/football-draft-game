@@ -34,6 +34,7 @@ export const pmHandlers = {
     send({ t: "equipSelf", ids });
   },
   openPack() { send({ t: "itemPack" }); },
+  packPick(a) { send({ t: "packPick", idx: +a.idx }); },
   effort(a) { send({ t: "effort", mode: a.mode === (st.S.pm && st.S.pm.effort) ? null : a.mode }); },
 };
 
@@ -57,7 +58,7 @@ export function creator(S) {
     <div class="row wrap" style="gap:10px"><input id="charname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="charName" style="flex:1;min-width:160px"><select data-change="charPos">${POS.map((p) => `<option ${p === c.pos ? "selected" : ""}>${p}</option>`).join("")}</select>
       <select data-change="charNat" title="Nation"><option value="">Nation…</option>${ISO_NATIONS.map((n) => `<option value="${esc(n)}" ${n === c.nat ? "selected" : ""}>${flag(n)} ${esc(n)}</option>`).join("")}</select>
       <span class="seg"><button class="btn sm ${g === "M" ? "pri" : ""}" data-act="charGender" data-g="M" ${gLock && pool !== "male" ? "disabled" : ""}>Man</button><button class="btn sm ${g === "F" ? "pri" : ""}" data-act="charGender" data-g="F" ${gLock && pool !== "female" ? "disabled" : ""}>Woman</button></span></div>${looks}
-    <div class="row mt" style="gap:12px;align-items:center"><div class="ovrb big ${tierOf(c.ovr)}">${c.ovr}</div><div class="small mute grow">Starting overall. The six numbers below are rolled for you; tap two stats to swap their numbers and shape your player.</div><button class="btn sm" data-act="roll" ${c.rolls >= rolls ? "disabled" : ""}>Re-roll (${Math.max(0, rolls - c.rolls)} left)</button></div>
+    <div class="row mt" style="gap:12px;align-items:center"><div class="rollovr ${tierOf(c.ovr)}"><b>${c.ovr}</b><small>Overall</small></div><div class="small mute grow">Starting overall. The six numbers below are rolled for you; tap two stats to swap their numbers and shape your player.</div><button class="btn sm" data-act="roll" ${c.rolls >= rolls ? "disabled" : ""}>Re-roll (${Math.max(0, rolls - c.rolls)} left)</button></div>
     <div class="col mt" style="gap:6px">${rows}</div>
     <p class="small mute mt">${S.phase === "draft" || (S.step || "").startsWith("draft.") ? "The others are still drafting, so you can keep re-rolling and shuffling your numbers. This closes when the market opens." : "After the draft you will wait in the free-agent pool until a manager signs you. If nobody does by the end of the first off-season, a computer team takes you."}</p></div>`;
 }
@@ -72,28 +73,54 @@ function cardBox(c) {
   return `<div class="card" style="padding:10px;border-color:var(--acc)"><div class="tiny mute" style="text-transform:uppercase;letter-spacing:.08em">${esc(c.kind)}</div><b>${esc(c.title)}</b><p class="small mute" style="margin:4px 0 8px">${esc(c.text)}</p>
     <div class="col" style="gap:6px">${c.opts.map((o, i) => `<button class="btn" data-act="cardPick" data-n="${c.n}" data-opt="${i}" style="justify-content:space-between;text-align:left">${esc(o.label)} <span class="small">${o.p >= 1 ? "safe" : `<span style="color:var(--good)">${pc(o.p)}% +${o.win}</span> · <span style="color:var(--bad)">${pc(1 - o.p)}% ${o.lose < 0 ? "" : "+"}${o.lose}</span>`}</span></button>`).join("")}</div></div>`;
 }
+// The footballer's header: who he is, where he plays, and the one-line news of the week.
 export function pmPanel(S) {
   const pm = S.pm; if (!pm) return "";
   const p = pl(pm.pid); if (!p) return "";
   const t = pm.team != null ? team(pm.team) : null;
-  const status = t ? `<span class="playsfor">Plays for ${crest(t, 26)} <b>${esc(t.name)}</b></span> · ${pm.contract} season${pm.contract === 1 ? "" : "s"} left` : `<b>No team yet.</b> ${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}`;
-  const last = pm.last ? `<div class="pill ${pm.last.ok ? "good" : "bad"}" style="margin-top:8px">${pm.last.ok ? "✓" : "✗"} ${esc(pm.last.title)}: ${esc(pm.last.choice)}${pm.last.ovr ? ` (${pm.last.ovr > 0 ? "+" : ""}${pm.last.ovr} OVR)` : ""}</div>` : "";
+  const status = t ? `<span class="playsfor">Plays for ${crest(t, 26)} <b>${esc(t.name)}</b></span> <span class="mute">· ${pm.contract} season${pm.contract === 1 ? "" : "s"} left</span>` : `<b>No team yet.</b> <span class="mute">${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}</span>`;
+  const last = pm.last ? `<div class="pill ${pm.last.ok ? "good" : "bad"}" style="margin-top:6px">${pm.last.ok ? "✓" : "✗"} ${esc(pm.last.title)}: ${esc(pm.last.choice)}${pm.last.ovr ? ` (${pm.last.ovr > 0 ? "+" : ""}${pm.last.ovr} OVR)` : ""}</div>` : "";
   const open = pm.offers.filter((o) => o.status === "open" || o.status === "accepted");
-  const inv = Object.keys(pm.items || {}).filter((id) => pm.items[id] > 0 && st.items[id]);
-  const wallet = `<div class="mt"><div class="row wrap" style="gap:10px"><b>Your kit</b><span class="pill">${coins(pm.coins)}</span><span class="small mute">Wear up to ${st.cat.rules.playerItemCap ?? 2} items in the next match.</span></div>${inv.length ? `<div class="col mt" style="gap:6px">${inv.map((id) => { const it = st.items[id]; return `<label class="row small" style="cursor:pointer;gap:8px"><input type="checkbox" ${pm.equip.includes(id) ? "checked" : ""} data-change="pmEquip" data-id="${id}"> <b>${esc(it.name)}</b>${it.banned ? ` <span class="pill bad tiny"><img class="wadamark" src="/assets/wada-mark.png" alt="" width="12" height="12"> banned</span>` : ""} <span class="mute">${pm.items[id]} left · ${esc(it.text)}</span></label>`; }).join("")}</div>` : `<p class="small mute mt">Nothing yet. Buy gear in the item store between matches, or ask your manager.</p>`}</div>`;
-  const ban = pm.susp ? `<div class="pill bad" style="margin-top:8px">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</div>` : "";
+  const ban = pm.susp ? `<span class="pill bad">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</span>` : "";
   const eff = pm.onPitch ? `<div class="mt"><b>Half-time</b><div class="row mt" style="gap:8px"><button class="btn ${pm.effort === "push" ? "pri" : ""}" data-act="effort" data-mode="push">Push</button><button class="btn ${pm.effort === "conserve" ? "pri" : ""}" data-act="effort" data-mode="conserve">Conserve</button></div><p class="small mute mt">Push: a little sharper, tires you faster. Conserve: save your legs for later.</p></div>` : "";
-  return `<div class="card pmp"><div class="row wrap" style="gap:16px;align-items:flex-start">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div>${ban}${last}</div></div>${wallet}
-    ${packStrip(S)}${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
+  return `<div class="card pmp"><div class="pmhead">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:5px;min-width:0"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div><div class="row wrap" style="gap:8px"><span class="pill">${coins(pm.coins)}</span>${ban}</div>${last}</div></div>
+    ${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
     ${open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "")}${eff}</div>`;
 }
 
-// Item packs: shown during the draft; each holds boots, an ice bath or a purse of coins. What is left is opened when the draft ends.
+// Your kit: match items you can wear (up to the cap), life items waiting for the right week, and item packs.
+export function pmKit(S) {
+  const pm = S.pm; if (!pm) return "";
+  const own = Object.keys(pm.items || {}).filter((id) => pm.items[id] > 0 && st.items[id]), gear = own.filter((id) => !st.items[id].life), lifeIn = own.filter((id) => st.items[id].life);
+  const ico = (it) => { const u = it.icon && st.cat.art && st.cat.art.items && st.cat.art.items[it.icon]; return u ? `<img class="kicon" src="${esc(u)}" alt="" width="34" height="34">` : ""; };
+  const cap = st.cat.rules.playerItemCap ?? 2;
+  const gearRows = gear.map((id) => { const it = st.items[id]; return `<label class="krow"><input type="checkbox" ${pm.equip.includes(id) ? "checked" : ""} data-change="pmEquip" data-id="${id}">${ico(it)}<span class="grow"><b>${esc(it.name)}</b>${it.banned ? ` <span class="pill bad tiny"><img class="wadamark" src="/assets/wada-mark.png" alt="" width="12" height="12"> banned</span>` : ""}<span class="tiny mute"> ${pm.items[id]} left · ${esc(it.text)}</span></span></label>`; }).join("");
+  const lifeRows = lifeIn.map((id) => { const it = st.items[id]; return `<div class="krow">${ico(it)}<span class="grow"><b>${esc(it.name)}</b> <span class="pill tiny">${pm.items[id]} left</span><span class="tiny mute"> ${esc(it.text)}</span></span></div>`; }).join("");
+  const body = gear.length || lifeIn.length ? `${gear.length ? `<div class="tiny mute kh">Match gear · wear up to ${cap} in the next match</div>${gearRows}` : ""}${lifeIn.length ? `<div class="tiny mute kh">For your week · used automatically on the matching activity</div>${lifeRows}` : ""}` : `<p class="small mute" style="margin:6px 0 0">Nothing yet. Open your packs in the draft, or buy gear in the Shop.</p>`;
+  return `<div class="card pmkit"><div class="row wrap" style="gap:10px;align-items:center"><h3 style="margin:0">Your kit</h3><span class="pill">${coins(pm.coins)}</span></div>${body}${packStrip(S)}</div>`;
+}
+
+// Item packs: opened during the draft. Each pack deals three cards and you keep one; what is left is opened for you when the draft ends.
 function packStrip(S) {
   const pm = S.pm, draft = S.step.startsWith("draft.");
   const log = (pm.packLog || []).map((r) => r.kind === "coins" ? `<span class="pill good">${coins(r.amt)}</span>` : st.items[r.id] ? `<span class="pill good" title="${esc(st.items[r.id].text)}">${esc(st.items[r.id].name)}</span>` : "").join(" ");
-  if (!pm.packs && !log) return "";
-  return `<div class="mt"><div class="row wrap" style="gap:10px;align-items:center"><b>Item packs</b>${pm.packs ? `<button class="btn pri ${draft ? "nudgeme" : ""}" data-act="openPack" ${draft ? "" : "disabled"}>Open a pack (${pm.packs} left)</button>` : ""}<span class="small mute">${pm.packs ? (draft ? "One item or a purse of coins each. Unopened packs open themselves when the draft ends." : "Packs can be opened during the draft.") : "All opened."}</span></div>${log ? `<div class="row wrap mt" style="gap:6px">Pulled: ${log}</div>` : ""}</div>`;
+  if (!pm.packs && !log && !pm.pack) return "";
+  return `<div class="mt packstrip"><div class="row wrap" style="gap:10px;align-items:center"><b>Item packs</b>${pm.packs ? `<button class="btn pri ${draft ? "nudgeme" : ""}" data-act="openPack" ${draft && !pm.pack ? "" : "disabled"}>Open a pack (${pm.packs} left)</button>` : ""}<span class="small mute">${pm.packs ? (draft ? "Three cards a pack: keep one. Unopened packs open themselves when the draft ends." : "Packs can be opened during the draft.") : "All opened."}</span></div>${log ? `<div class="row wrap mt" style="gap:6px">You took: ${log}</div>` : ""}</div>`;
+}
+
+// The pack opening: three cards flip over, you keep one.
+export function packOverlay(S) {
+  const pm = S.pm; if (!pm || !pm.pack) return "";
+  const tierOfItem = (it) => (it.tier === "top" ? "ruby" : it.tier === "mid" ? "gold" : it.life ? "gold" : "silver");
+  const cards = pm.pack.map((c, i) => {
+    const it = c.kind === "item" ? st.items[c.id] : null, t = it ? tierOfItem(it) : "gold";
+    const inner = it ? itemCard(it, {}) : `<div class="icard mid purse"><div class="iicon purseic">🪙</div><div class="iname">Purse of coins</div><div class="itext">Straight into your wallet. Spend it in the Shop.</div><div class="imeta">+${c.amt} coins</div></div>`;
+    return `<div class="pickable flip3d t-${t}" data-act="packPick" data-idx="${i}" style="animation-delay:${0.25 + i * 0.3}s" role="button" tabindex="0"><div class="fback">?</div>${inner}</div>`;
+  }).join("");
+  return `<div class="gamble packov" role="dialog" aria-label="Item pack"><div class="gamble-in">
+    <div class="tiny mute" style="text-transform:uppercase;letter-spacing:.12em">Item pack${pm.packs ? ` · ${pm.packs} more after this` : " · your last one"}</div>
+    <h2>Keep one</h2><p class="lead">Three cards. Tap the one you want; the others go back in the box.</p>
+    <div class="hand packhand">${cards}</div></div></div>`;
 }
 
 // ---------- manager's view of players looking for a club ----------

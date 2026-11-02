@@ -198,7 +198,8 @@ export function clubInk(c) {
 const bootMark = (i) => { const m = /^boots-([a-z]+)-/.exec(i.id || ""); return m ? `<div class="ibrand">${brandMark(m[1], 26, { tex: BOOT_TEX[i.tier] || "silver" })}</div>` : ""; };
 export function itemCard(it, opts = {}) {
   const i = typeof it === "string" ? st.items[it] : it; if (!i) return "";
-  return `<div class="icard ${i.tier || ""} ${opts.cls || ""}" data-iid="${esc(i.id)}">${bootMark(i)}<div class="iname">${esc(i.name)}</div><div class="itext">${esc(i.text)}</div><div class="imeta">${i.scope === "player" ? "player" : "team"} · ${i.uses}× use${i.uses > 1 ? "s" : ""}${i.supply != null ? " · only " + i.supply : ""}</div>${opts.tag ? `<div class="ctag">${opts.tag}</div>` : ""}</div>`;
+  const ic = i.icon && st.cat.art && st.cat.art.items && st.cat.art.items[i.icon];
+  return `<div class="icard ${i.tier || ""} ${i.life ? "life" : ""} ${opts.cls || ""}" data-iid="${esc(i.id)}">${bootMark(i)}${ic ? `<div class="iicon"><img src="${esc(ic)}" alt="" width="84" height="84" loading="lazy"></div>` : ""}<div class="iname">${esc(i.name)}</div><div class="itext">${esc(i.text)}</div><div class="imeta">${i.life ? "life item" : i.scope === "player" ? "player" : "team"} · ${i.uses}× use${i.uses > 1 ? "s" : ""}${i.supply != null ? " · only " + i.supply : ""}</div>${opts.tag ? `<div class="ctag">${opts.tag}</div>` : ""}</div>`;
 }
 
 export function remaining() { const S = st.S; if (!S || S.paused || !S.deadline) return null; return Math.max(0, S.deadline - now()); }
@@ -207,6 +208,7 @@ export const coins = (n) => `<span class="coin">${Math.round(n)}<i></i></span>`;
 // The club whose colours, wallpaper and kits the page wears: your team, or the one you are choosing in the lobby.
 export function myClub() {
   const S = st.S, t = myTeam(); if (t) return club(t);
+  if (S && S.pm && S.pm.team != null && S.teams && S.teams[S.pm.team]) { const c = club(S.teams[S.pm.team]); if (c) return c; }   // a footballer wears the colours of the club he is signed to
   const you = S && S.players && S.players.find((p) => p.you);
   return you && you.club ? st.clubBy[you.club] || null : null;
 }
