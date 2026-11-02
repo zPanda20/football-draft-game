@@ -173,6 +173,7 @@ function handle(ws, m) {
     case "bidUnlock": room.unlockBid(t); break;
     case "pass": room.marketPass(t); break;
     case "buy": room.buy(t, m.id); break;
+    case "scout": room.buyScout(t); break;
     case "lineup": room.setLineup(t, m.lineup); break;
     case "lineupAuto": room.lineupAuto(t, m.formation); break;
     case "plan": room.setPlan(t, m.plan); break;
@@ -192,6 +193,7 @@ function handle(ws, m) {
     case "equipSelf": room.equipSelf(t, m.ids); break;
     case "ready": room.setReady(t, m.on !== false); break;
     case "auto": room.setAuto(t, !!m.on); break;
+    case "rival": room.setRival(t, String(m.pub || ""), !!m.on); break;
     case "lite": room.setLite(t, m); break;
     case "chat": room.addChat(t, m.text); break;
     case "continue": room.continueGame(t); break;

@@ -1,4 +1,5 @@
 // One game room: lobby, pack draft, pre-season market, season. The server is the referee; browsers only send choices.
+import { createHash } from "node:crypto";
 import { makeRng, shuffle } from "../engine/rng.js";
 import { maxLen } from "../engine/market.js";
 import { windowMethods } from "./window.js";
@@ -12,7 +13,7 @@ import { clubAllowed } from "../engine/unlocks.js";
 import { bestLineup, chooseForFormation, FORMATION_NAMES, FORMATIONS, genderOk } from "../engine/roster.js";
 import { sanitizeLineup } from "../engine/match.js";
 import { cleanPlan, applyPlan } from "../engine/subplan.js";
-import { expiring, availableRookies } from "../engine/offseason.js";
+import { expiring, availableRookies, scoutBuy } from "../engine/offseason.js";
 import { offseasonMethods } from "./offseason.js";
 import { usermodeMethods } from "./usermode.js";
 import { liteMethods, liteOf, isLite } from "./lite.js";
@@ -67,7 +68,7 @@ export class Room {
     if (this.pending) { this.deadline = Date.now() + this.remaining; this.timer = setTimeout(() => this.fire(), this.remaining); }
     this.changed();
   }
-  changed() { this.settle(); this.onChange(this); }
+  changed() { this.syncStages(); this.settle(); this.onChange(this); }
   p(ms) { return ms * this.settings.pace; }
   // The kick-off / half-time / full-time banners need a second on screen before the clock runs: whenever somebody is actively playing (and the room is not on Turbo).
   lead() { return this.settings.pace <= 0.5 || ![...this.players.values()].some((q) => q.connected && !q.idle) ? 0 : 1000; }
@@ -193,6 +194,18 @@ export class Room {
     const p = this.players.get(token); text = String(text || "").trim().slice(0, 160); if (!p || !text) return;
     this.chat.push({ t: Date.now(), name: p.name, team: p.teamId, text });
     if (this.chat.length > 60) this.chat.shift();
+  }
+  // Rivals are cosmetic: either manager can mark another one, and their matches get extra hype and louder animations.
+  pubOf(p) { return createHash("sha1").update(String(p.token)).digest("hex").slice(0, 8); }
+  setRival(token, pub, on) {
+    const me = this.players.get(token); if (!me || me.mode === "player") return;
+    const other = [...this.players.values()].find((q) => q !== me && q.mode !== "player" && this.pubOf(q) === pub); if (!other) return;
+    const set = new Set(me.rivals || []); if (on) set.add(pub); else set.delete(pub); me.rivals = [...set]; this.changed();
+  }
+  rivalPairs() {
+    const out = [], seen = new Set();
+    for (const p of this.players.values()) for (const pub of p.rivals || []) { const a = this.pubOf(p), k = [a, pub].sort().join("|"); if (!seen.has(k) && [...this.players.values()].some((q) => this.pubOf(q) === pub)) { seen.add(k); out.push([a, pub]); } }
+    return out;
   }
   setAuto(token, on) { const p = this.players.get(token); if (!p) return; p.auto = !!on; this.changed(); if (p.auto && p.teamId != null) this.markReady(p.teamId, true); }
 
@@ -338,6 +351,10 @@ export class Room {
     if (ok && it.storeOnly) this.store[it.id]--;
     if (ok) this.changed();
   }
+  buyScout(token) {
+    const p = this.players.get(token); if (!p || !this.game || p.mode === "player" || p.teamId == null || !STORE_STEPS.includes(this.step)) return;
+    if (scoutBuy(this.game, p.teamId) !== false) this.changed();
+  }
   rollStore() {
     const g = this.game, r = makeRng(g.seed, "store", g.season, this.mdIdx);
     const force = +process.env.TEST_STEROIDS || 0;   // tests: always stock this many
@@ -449,7 +466,7 @@ export class Room {
     const g = this.game;
     for (const m of this.live || []) [0, 1].forEach((i) => {
       const t = m.sides[i], p = this.playerOfTeam(t.id);
-      if (!t.human || (p && p.auto) || (p && !liteOf(p).subs) || !t.plan || t.plan.on === false) return;
+      if (!t.human || (p && p.auto) || (p && !liteOf(p).subs) || (p && liteOf(p).plan === false) || !t.plan || t.plan.on === false) return;
       const score = i === 0 ? m.ht.score : [m.ht.score[1], m.ht.score[0]];
       const res = applyPlan(t.plan, m.lineups[i], halftimeRecs(m, i), score, g.P);
       if (res.changes.length) { t.htLineup = { formation: res.lineup.formation, gk: res.lineup.gk, out: res.lineup.out, bench: res.lineup.bench }; t.htPlan = { changes: res.changes, over: false }; }
@@ -584,7 +601,7 @@ export class Room {
     const snap = {
       code: this.code, hostToken: this.hostToken, seed: this.seed, settings: this.settings, kind, created: this.created,
       game: serializeGame(this.game),
-      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, mode: p.mode, char: p.char, pid: p.pid })),
+      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid })),
       results: this.results, days: this.days,
     };
     this.onSave(this, snap);
@@ -627,13 +644,14 @@ export class Room {
     const v = {
       room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
-      players: [...this.players.values()].map((p) => ({ you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
       news: this.game ? this.newsView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chat.slice(-30), reveal: this.reveal, feed: this.feed,
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],
     };
+    v.rivalPairs = this.rivalPairs();
     { const humans = [...this.players.values()].filter((q) => q.teamId != null && q.connected), votes = { up: 0, down: 0 };
       for (const [tk, d] of this.speedVotes || []) { const q = this.players.get(tk); if (q && q.connected) votes[d]++; }
       v.speed = { pace: this.settings.pace, levels: PACES, votes, need: Math.floor(humans.length / 2) + 1, mine: (this.speedVotes && this.speedVotes.get(token)) || null, note: this.paceNote || null }; }
@@ -674,7 +692,7 @@ export class Room {
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {
       const t = g.teams[me.teamId];
-      const mv = { gain: this.gain && this.gain.byTeam.get(t.id) ? { seq: this.gain.seq, ...this.gain.byTeam.get(t.id) } : null, teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, lite: { ...liteOf(me), on: isLite(me) }, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
+      const mv = { gain: this.gain && this.gain.byTeam.get(t.id) ? { seq: this.gain.seq, ...this.gain.byTeam.get(t.id) } : null, teamId: t.id, coins: t.coins, items: t.items, auto: me.auto, lite: { ...liteOf(me), on: isLite(me), path: !!me.path, stage: me.stage || 1 }, scout: { level: t.scout || 0, cost: g.P.scout.cost }, idle: !!me.idle, active: t.active ?? null, equip: t.equip || {}, income: t.income };
       if (this.step === "draft.pick") { mv.hand = this.hands[t.id]; const h = this.picks.get(t.id); mv.pick = h ? { idx: h.idx, locked: h.locked } : null; }
       if (this.step.startsWith("market.")) {
         const b = this.bids.get(t.id); mv.bid = b || null; mv.done = !!t.marketDone;

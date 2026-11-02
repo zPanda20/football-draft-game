@@ -1,7 +1,7 @@
 // The look of the game: "Synth" (neon panels, glitch used only as motion) and "Glass" (frosted panels, soft dreamcore motion).
 // Each person picks Auto, Synth or Glass. Auto follows the mode: Full plays in Synth, Lite plays in Glass. Saved in this browser only.
 import { st } from "./core.js";
-import { isLite, ltOf, SWITCHES } from "./lite.js";
+import { isLite } from "./lite.js";
 
 const KEY = "fd_look";
 export const LOOKS = [["auto", "Auto"], ["synth", "Synth"], ["glass", "Glass"]];
@@ -11,7 +11,7 @@ export function pref() {
 }
 function liteNow(S) {
   if (!S) return false;
-  if (S.step === "lobby") { const y = S.players && S.players.find((p) => p.you); if (!y || y.mode === "player") return false; const l = ltOf(y); return SWITCHES.some((s) => !l[s.k]); }
+  if (S.step === "lobby") { const y = S.players && S.players.find((p) => p.you); if (!y || y.mode === "player") return false; return !!y.lite; }
   return isLite(S);
 }
 export const lookOf = (S) => { const p = pref(); return p !== "auto" ? p : liteNow(S) ? "glass" : "synth"; };

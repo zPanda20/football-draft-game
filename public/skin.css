@@ -215,3 +215,31 @@ body.nudge-strong [data-act="mready"]:not(.on){animation-duration:.7s}
 #readycta{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;font-size:19px;padding:16px 30px;animation:readyPulse .7s ease-in-out infinite;max-width:92vw;white-space:normal;text-align:center}
 @media (max-width:700px){#readycta{bottom:74px;font-size:16px;padding:13px 18px}}
 @media (prefers-reduced-motion:reduce){body.nudge [data-act="mready"]:not(.on),#readycta{animation:none;outline:3px solid var(--acc)}}
+
+/* ---------- banners stay out of the league table ----------
+   On a wide screen they cover the main column only (the table sits in the side column); on a phone they are a slim strip under the top bar. */
+.phasebanner{top:104px}
+.phasebanner .pb-in{padding:10px 20px 9px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.phasebanner b{font-size:clamp(24px,4.4vw,46px)}
+.phasebanner span{font-size:clamp(11px,1.6vw,14px)}
+.goalcall .gc-in{padding:8px 30px}
+.goalcall b{font-size:clamp(36px,7vw,72px)}
+.goalcall span{font-size:clamp(14px,2.4vw,22px)}
+@media (min-width:981px){
+  .phasebanner,.goalcall{left:max(0px,calc((100vw - 1500px)/2));right:calc(max(0px,(100vw - 1500px)/2) + 372px)}
+}
+
+/* ---------- stakes line, commentary, rivalry ---------- */
+.stakes{margin:-6px 0 0;padding:8px 14px;border-radius:10px;font-weight:600;font-size:14px;background:color-mix(in srgb,var(--c1) 22%,var(--panel2));border-left:3px solid var(--acc)}
+.stakes.rival{border-left-color:#ff5a3d;background:linear-gradient(90deg,rgba(255,90,61,.28),var(--panel2))}
+.ticker .ev.com{background:none;border-left:2px dotted var(--line);font-style:italic;color:var(--mute);font-size:13px;padding:3px 10px}
+.ticker .ev.com.hot{border-left-color:#ff5a3d;color:#ffb199}
+.sbar.rival{box-shadow:0 0 0 2px #ff5a3d,0 0 30px rgba(255,90,61,.5);animation:rivalPulse 2.4s ease-in-out infinite}
+.sbar.rival .sc{text-shadow:0 0 16px #ff5a3d}
+.sbar.rival.burst{animation:rivalShake .5s,rivalPulse 2.4s ease-in-out infinite}
+.goalcall .gc-in.rival{background:linear-gradient(90deg,transparent,rgba(255,90,61,.96) 20%,rgba(255,90,61,.96) 80%,transparent);color:#fff;animation:rivalShake .5s}
+@keyframes rivalPulse{50%{box-shadow:0 0 0 2px #ff5a3d,0 0 48px rgba(255,90,61,.8)}}
+@keyframes rivalShake{0%,100%{transform:none}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.guide{border-color:color-mix(in srgb,var(--acc) 55%,var(--line))}
+.recap p{line-height:1.35}
+@media (prefers-reduced-motion:reduce){.sbar.rival,.sbar.rival.burst,.goalcall .gc-in.rival{animation:none}}

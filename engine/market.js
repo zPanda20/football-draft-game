@@ -19,7 +19,9 @@ export const incomeScale = (game) => {
   return Math.max(0.8, Math.min(1.6, (M.refMatches || per) / per)) * ((M.seasonBoost || {})[game.season] || 1);
 };
 // own = re-signing a player who is already yours (loyalty discount).
-export const feeFor = (p, len, P, own = false) => Math.round(marketValue(p, P) * P.money.lenMult[len] * (own ? P.money.resignMult ?? 1 : 1));
+// Loyalty: every season a player has stayed with you (after the first) takes `loyalty` off the re-sign discount, up to `loyaltyMax` steps.
+export const loyalSteps = (p, P) => Math.min(Math.max((p.stay || 1) - 1, 0), P.money.loyaltyMax ?? 3);
+export const feeFor = (p, len, P, own = false) => Math.round(marketValue(p, P) * P.money.lenMult[len] * (own ? (P.money.resignMult ?? 1) * (1 - (P.money.loyalty ?? 0) * loyalSteps(p, P)) : 1));
 
 // Lottery weight before any extra coins: weaker rosters (lower total market value) get better odds.
 export function catchUpWeights(game, P) {

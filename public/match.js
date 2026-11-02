@@ -7,7 +7,8 @@ import { statsHandlers, playerStats, awardsCard } from "./stats.js";
 import { frontPage } from "./life.js";
 import { goalCall } from "./skin.js";
 import { historyCard } from "./history.js";
-import { lt, isLite, lcCard, lcMark, liteTeam, liteHalf, moreView } from "./lite.js";
+import { isRival, stakesStrip, commentary, recapCard, storyHandlers } from "./story.js";
+import { lt, isLite, lcCard, lcMark, liteTeam, liteHalf, moreView, liteGuide } from "./lite.js";
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // A team with its kit right next to the crest (side 0 = home kit, 1 = away kit).
@@ -117,7 +118,7 @@ function activeNow(S) {
   return S.me.active ?? owned.map((id) => st.items[id]).filter((i) => !i.banned).sort((x, y) => y.price - x.price).slice(0, st.cat.rules.activeCap).map((i) => i.id);
 }
 export const matchHandlers = {
-  ...statsHandlers,
+  ...statsHandlers, ...storyHandlers,
   cont() { send({ t: "continue" }); },
   mslot(a) {
     if (st.ui.itemSel) { const l = lineupOf(st.S), pid = +a.i < 0 ? l.gk : l.out[+a.i]; if (pid != null) return attachItem(st.ui.itemSel, pid); }
@@ -129,6 +130,7 @@ export const matchHandlers = {
     st.ui.itemSel = st.ui.itemSel === a.id ? null : a.id; st.ui.mSel = null; st.render();
   },
   itemoff(a) { detachItem(a.id); },
+  liteSwap(a) { const S = st.S, l = lineupOf(S), out = swapLineup(l, ent(l, "p", +a.out), ent(l, "p", +a.in)); if (out) { st.ui.mSel = null; sendLineup(out); st.render(); } },
   mcancel() { st.ui.mSel = null; st.render(); },
   lead(a) { st.ui.lead = a.k; st.render(); },
   hubgo(a) { st.ui.hub = a.to; st.ui.mSel = null; st.render(); window.scrollTo(0, 0); },
@@ -302,7 +304,7 @@ function lineupEditor(S, half) {
       <button class="btn sm" data-act="mbest">Best XI</button><button class="btn sm ${me.auto ? "on" : ""}" data-act="auto">Auto ${me.auto ? "on" : "off"}</button>
       ${half ? `<button class="btn ${isReady ? "" : "pri"}" data-act="mready">${isReady ? "Not ready" : "Ready"}</button>` : ""}</div>
     ${head}<div class="forms mt">${forms}</div>${FORM_INFO[l.formation] ? `<div class="formnote"><b>${FORM_INFO[l.formation][0]}.</b> ${FORM_INFO[l.formation][1]}</div>` : ""}
-    ${half ? (lt(S).subs ? planBanner(S) : "") : (lt(S).subs ? subPlanCard(S, l) : "")}
+    ${liteGuide(S, l, stamOf, half)}${half ? (lt(S).subs && lt(S).plan ? planBanner(S) : "") : (lt(S).subs && lt(S).plan ? subPlanCard(S, l) : "")}
     ${half ? "" : `<div class="mt">${itemsTray(S, l)}</div>`}
     <div class="pitchfirst mt">${swapHint(sel)}${pitch(S, l, stamOf)}<div class="tray"><div class="th"><b>Bench</b><span>${roster.length} player${roster.length === 1 ? "" : "s"} · drag a card onto the pitch to swap, or tap two players</span></div><div class="tl" data-keep="bench">${roster.map(tile).join("") || `<div class="tiny mute" style="padding:8px">Nobody on the bench.</div>`}</div></div></div></div>`;
 }
@@ -436,12 +438,14 @@ export function playbackTick() {
         if (n.textContent) {
           n.classList.remove("goalflash"); void n.offsetWidth; n.classList.add("goalflash");
           const bar = n.closest(".sbar");
-          if (bar) { bar.classList.remove("burst"); void bar.offsetWidth; bar.classList.add("burst"); const g = s.events.filter((e) => e.type === "goal").pop(); if (g) goalCall(nm(g.player), team(g.team ? m.b : m.a).name, g.minute); }
+          if (bar) { bar.classList.remove("burst"); void bar.offsetWidth; bar.classList.add("burst"); const g = s.events.filter((e) => e.type === "goal").pop(); if (g) goalCall(nm(g.player), team(g.team ? m.b : m.a).name, g.minute, bar.classList.contains("rival")); }
         }
         n.textContent = txt;
       }
     } else if (n.dataset.pb === "ticker") {
-      const html = s.events.slice().reverse().map((e) => evLine(m, e)).join("") || `<span class="mute small">${half ? "Second half under way." : "Kick-off."}</span>`;
+      const nowT = clamp(half * 45 + t * 45, 0, 90), rv = isRival(S, m.a, m.b);
+      const items = s.events.map((e) => ({ minute: e.minute, ord: 0, html: evLine(m, e) })).filter((x) => x.html).concat(commentary(S, m, nowT, rv).map((c) => ({ minute: c.minute, ord: 1, html: `<div class="ev com ${rv ? "hot" : ""}"><span class="min">${c.minute}'</span>${esc(c.text)}</div>` })));
+      const html = items.sort((x, y) => y.minute - x.minute || x.ord - y.ord).map((x) => x.html).join("") || `<span class="mute small">${half ? "Second half under way." : "Kick-off."}</span>`;
       if (n.dataset.last !== html) { n.innerHTML = html; n.dataset.last = html; }
     }
   }
@@ -462,13 +466,13 @@ function scoreboard(S, m, k) {
   const [HC, AC] = matchColors(club(team(m.a)), club(team(m.b))), ink = (c) => (lum(c) > 0.4 ? "#10151b" : "#ffffff");
   const half = S.step === "md.half1" ? "First half" : S.step === "md.half" ? "Half-time" : S.step === "md.half2" ? "Second half" : "Full time";
   const one = (ti, opp, side, cls) => `<div class="sbs ${cls}">${crest(team(ti), 52)}${shirt(club(team(ti)), kitOf(ti, opp, side), 46)}<span class="tn">${esc(team(ti).name)}${team(ti).human && team(ti).owner ? ` <small class="ownr">(${esc(team(ti).owner)})</small>` : ""}</span></div>`;
-  return `<div class="sbar" id="sbar" data-k="${k}" style="--hc:${HC};--ac:${AC};--hn:${ink(HC)};--an:${ink(AC)}">${one(m.a, m.b, 0, "h")}<div class="mid"><div class="sc" data-pb="score" data-k="${k}"></div><div class="clk" data-pb="clock" data-k="${k}"></div><div class="half">${half}</div></div>${one(m.b, m.a, 1, "a")}</div>`;
+  return `<div class="sbar ${isRival(S, m.a, m.b) ? "rival" : ""}" id="sbar" data-k="${k}" style="--hc:${HC};--ac:${AC};--hn:${ink(HC)};--an:${ink(AC)}">${one(m.a, m.b, 0, "h")}<div class="mid"><div class="sc" data-pb="score" data-k="${k}"></div><div class="clk" data-pb="clock" data-k="${k}"></div><div class="half">${half}</div></div>${one(m.b, m.a, 1, "a")}</div>`;
 }
 function playbackView(S) {
   const R = S.reveal, me = S.me;
   const mine = focusK(S);
   const m = R.matches[mine] || null;
-  const big = m ? `${scoreboard(S, m, mine)}<div class="card"><div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
+  const big = m ? `${scoreboard(S, m, mine)}${stakesStrip(S, m)}<div class="card"><div class="ticker" data-pb="ticker" data-k="${mine}"></div><div data-pb="mstats" data-k="${mine}"></div></div>
     <div class="card"><h3>Line-ups and ratings</h3><div data-pb="lineups" data-k="${mine}"></div></div>` : `<div class="card"><div class="row"><h3 style="margin:0">Matchday ${R.day + 1}</h3><div class="grow"></div><span class="clock" data-pb="clock" data-k="0"></span></div></div>`;
   return `${big}<div class="card"><h3>${m ? "Around the league" : "All matches"}</h3>${fixtureRows(S, R.matches)}<p class="tiny mute mt">Click a match to follow it.</p></div>`;
 }
@@ -656,7 +660,7 @@ export function matchView(S, ctx) {
     case "md.result": main = resultsView(S); break;
     case "season.end": {
       const R = S.reveal, champ = team(R.champion);
-      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(longName(champ).title)}</div>${longName(champ).club ? `<div class="small mute">${esc(longName(champ).club)}</div>` : ""}<div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${awardsCard(S)}${historyCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${lt(S).stats ? playerStats(S) : `<div class="card"><p class="small mute">The stats table is switched off in Lite. <a href="#" data-act="liteSw" data-k="stats">Turn it on</a></p></div>`}${R.final ? finalCard(S) : ""}`;
+      main = `<div class="card champ"><h3>Champions</h3><div class="t">${esc(longName(champ).title)}</div>${longName(champ).club ? `<div class="small mute">${esc(longName(champ).club)}</div>` : ""}<div class="mt">${crest(champ, 64)}</div><p class="mute mt">${champ.owner ? "Managed by " + esc(champ.owner) : "CPU manager"} · ${R.table[0].pts} points</p>${S.host && !R.final ? `<button class="btn pri big mt2" data-act="cont">Continue to the off-season</button>` : ""}</div>${recapCard(S)}${awardsCard(S)}${historyCard(S)}${bootPanel(S, 10, "Golden Boot, final table")}${lt(S).stats ? playerStats(S) : `<div class="card"><p class="small mute">The stats table is switched off in Lite. <a href="#" data-act="liteSw" data-k="stats">Turn it on</a></p></div>`}${R.final ? finalCard(S) : ""}`;
       break;
     }
     default: main = `<div class="card">…</div>`;

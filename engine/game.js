@@ -8,7 +8,7 @@ import { ratings as matchRatings } from "../public/rating.js";   // shared with 
 import { matchSteps } from "./match.js";
 import { schedule, standingsOf } from "./fixtures.js";
 import { makePool, dealRound, applyPicks } from "./packs.js";
-import { resolveMarketRound, buyItem, marketValue, feeFor, incomeScale } from "./market.js";
+import { resolveMarketRound, buyItem, marketValue, feeFor, incomeScale, loyalSteps } from "./market.js";
 import { pickArchetype, botDraftPick, botMarketBid, botItemBuys } from "./bots.js";
 import { runRetirements, ageAll, botResign, resign, releaseExpired, introduceRookies, runRookieDraft, rookieDraftEnd, meanDrift, driftFor, retireChance } from "./offseason.js";
 
@@ -275,7 +275,7 @@ export function runWholeSeason(game) {
 }
 
 // ---- save / restore (checkpoints). Player records carry everything that can change; the rest comes from the data files. ----
-const PLAYER_KEYS = ["ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot", "susp"];
+const PLAYER_KEYS = ["stay", "lastTeam", "ovr", "pac", "sho", "pas", "dri", "def", "phy", "sta", "age", "stam", "team", "contract", "pos", "retired", "drafted", "pot", "susp"];
 export function serializeGame(game) {
   return {
     seed: game.seed, N: game.teams.length, params: game.params || {}, season: game.season, seasons: game.seasons || null, marketAhead: !!game.marketAhead, supply: game.supply, pool: game.pool, rookies: game.rookies || [], carry: game.carry || [], history: game.history || [],
@@ -388,7 +388,7 @@ export function financeOutlook(game, ti, { table = [], left = 0 } = {}) {
   const project = (p, k) => { const q = { ...p }; for (let i = 0; i < k; i++) { q.age += 1; q.ovr = Math.round(q.ovr + driftFor(q, P)); } return q; };
   const mkList = (k) => t.players.map((id) => game.players[id]).filter((p) => !p.user && (k === 1 ? p.contract <= 1 : p.contract === k)).sort((a, b) => b.ovr - a.ovr).map((p) => {
     const q = project(p, k);
-    return { id: p.id, ovrNext: q.ovr, fees: [1, 2, 3].map((l) => r5(feeFor(q, l, P, true))), retire: +retireChance({ ...p, age: p.age + k - 1 }, P, game.season + k - 1).toFixed(2) };
+    return { id: p.id, loyal: loyalSteps(p, P), ovrNext: q.ovr, fees: [1, 2, 3].map((l) => r5(feeFor(q, l, P, true))), retire: +retireChance({ ...p, age: p.age + k - 1 }, P, game.season + k - 1).toFixed(2) };
   });
   const ahead = [1, 2, 3].map((k) => ({ k, maxLen: Math.max(0, Math.min(3, (game.seasons || 99) - game.season - k + 1)), list: mkList(k) }));
   const expiring = ahead[0].list;

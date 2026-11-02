@@ -162,7 +162,8 @@ export function* matchSteps({ seed, matchKey, home, away, P }) {
       const guard = fast ? tn[B].gk : tn[B].gk * (1 - S.goalDef) + defOf(B) * S.goalDef + duel;
       const pGoal = (g) => sig(M.goalBase + M.goalK * (atkOf(A) - g));
       const scores = d.goal < pGoal(guard);
-      const xg = +pGoal(fast ? P.stretch.base : P.stretch.base * (1 - S.goalDef) + defOf(B) * S.goalDef + duel).toFixed(3);   // chance for an average keeper
+      const gkRef = P.stretch.base + ((P.stretch.gkRef ?? P.stretch.centre) - P.stretch.centre) * P.stretch.k;   // an average keeper
+      const xg = +pGoal(fast ? gkRef : gkRef * (1 - S.goalDef) + defOf(B) * S.goalDef + duel).toFixed(3);   // chance for an average keeper
       // the pass that made the chance (a solo effort now and then; breaks are rarely a clean pass)
       let kp = null;
       if (sx.has < (fast ? P.stats.creatorBreak : P.stats.creator)) {

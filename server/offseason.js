@@ -74,7 +74,7 @@ export const offseasonMethods = {
     const g = this.game, mv = botRookieMove(g, ti);
     if (mv.act === "pass") return void this.rookieDone(ti, null, "pass");
     if (mv.act === "pick") { rookieTake(g, ti, mv.id); this.rLast = { team: ti, ids: [], took: mv.id }; return void this.rookieDone(ti, mv.id, "left"); }
-    const pk = rookiePack(g), id = botRookiePick(g, pk); rookieTake(g, ti, id);
+    const pk = rookiePack(g, ti), id = botRookiePick(g, pk); rookieTake(g, ti, id);
     this.rPacks.push({ team: ti, ids: pk }); this.rLast = { team: ti, ids: pk, took: id }; this.rookieDone(ti, id, "pack", { pack: pk });
   },
   rookieTurn() {
@@ -122,7 +122,7 @@ export const offseasonMethods = {
   openRookiePack(token) {
     const p = this.onClock(token); if (!p || this.rStage !== "choose") return;
     const g = this.game; if (!g.rdraft.unopened.length || !this.rookieCan(p.teamId)) return;
-    this.rPack = rookiePack(g); this.rStage = "pack"; this.openWindow();
+    this.rPack = rookiePack(g, p.teamId); this.rStage = "pack"; this.openWindow();
     this.after(this.settings.rookieSec * 1000, () => this.rookieTimeout());
     this.changed();
   },

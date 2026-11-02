@@ -1,5 +1,6 @@
 // Visual layer, JS side: the phase banner between stages, the "GOAL" call during a match, tilt and glare on player cards.
 import { st, $, esc, remaining } from "./core.js";
+import { isRival } from "./story.js";
 
 const reduced = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } };
 
@@ -12,7 +13,7 @@ function phaseText(S) {
     case "market.bid": return S.market && S.market.round === 0 ? [S.phase === "offseason" ? "Free agency" : "The market", "Bid for the players nobody kept"] : null;
     case "season.intro": return [`Season ${S.seasonNo}`, `${S.season.total} matchdays`];
     case "md.lineup": return [`Matchday ${S.season.day + 1}`, `Set your line-up${win}`];
-    case "md.half1": return ["Kick-off", `Matchday ${S.season.day + 1}`];
+    case "md.half1": return ["Kick-off", `Matchday ${S.season.day + 1}${S.me && S.me.match && isRival(S, S.me.teamId, S.me.match.opponent) ? " · rivalry match" : ""}`];
     case "md.half": return ["Half-time", "Changes, then the second half"];
     case "md.result": return ["Full time", `Matchday ${S.season.day + 1} of ${S.season.total}`];
     case "season.end": return [S.final ? "The final table" : `Season ${S.seasonNo} complete`, "Champions crowned"];
@@ -48,9 +49,9 @@ export function phaseBanner(S) {
 }
 
 // ---------- the GOAL call ----------
-export function goalCall(who, team, minute) {
+export function goalCall(who, team, minute, rival) {
   if (reduced()) return;
-  enqueue({ id: "goalcall", base: "goalcall", ms: 2100, html: `<div class="gc-in"><b>GOAL</b><span>${esc(who)} · ${esc(team)} · ${minute}'</span></div>` });
+  enqueue({ id: "goalcall", base: "goalcall", ms: 2100, html: `<div class="gc-in ${rival ? "rival" : ""}"><b>${rival ? "GOAL!!" : "GOAL"}</b><span>${esc(who)} · ${esc(team)} · ${minute}'</span></div>` });
 }
 
 // ---------- tilt and glare on cards ----------

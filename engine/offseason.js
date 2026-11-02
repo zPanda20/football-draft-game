@@ -64,6 +64,8 @@ export function ageAll(game) {
     p.ovr = clamp(Math.round(p.ovr + d), 40, 99);
     p.sta = clamp(Math.round(p.sta + (decl ? d * 0.5 : d * 0.3) - (p.age > P.age.staAfter ? P.age.staPerYear : 0)), 30, 99);
     p.stam = 100; if (p.team != null && p.contract > 0) p.contract -= 1;
+    // seasons in a row with the same club: the loyalty discount on re-signing (see market.js)
+    if (p.team != null) { p.stay = p.lastTeam === p.team ? (p.stay || 0) + 1 : 1; p.lastTeam = p.team; } else { p.stay = 0; p.lastTeam = null; }
     if (p.user) p.ovrf = p.ovr;
     rate(p, P);
     if (p.ovr !== old) moves.push({ id: p.id, from: old, to: p.ovr });
@@ -129,9 +131,11 @@ export function rookieDraftStart(game) {
   game.rdraft = { unopened: availableRookies(game).slice(), left: [], seen: [], seq: 0 };
   return game.rdraft;
 }
-export function rookiePack(game) {
+// A scouting network (bought in the item store, kept for the whole game) adds a player to every pack you open in the rookie draft.
+export function rookiePack(game, ti) {
   const d = game.rdraft; if (!d || !d.unopened.length) return null;
-  const r = makeRng(game.seed, "rpack", game.season, d.seq++), n = Math.min(game.P.rookies.pack ?? 3, d.unopened.length), out = [];
+  const extra = ti != null && game.teams[ti] ? Math.min(game.teams[ti].scout || 0, (game.P.scout?.cost || []).length) : 0;
+  const r = makeRng(game.seed, "rpack", game.season, d.seq++), n = Math.min((game.P.rookies.pack ?? 3) + extra, d.unopened.length), out = [];
   for (let i = 0; i < n; i++) out.push(d.unopened.splice(Math.floor(r() * d.unopened.length), 1)[0]);
   d.left.push(...out); d.seen.push(...out);
   return out;
@@ -168,7 +172,7 @@ export function runRookieDraft(game, worstFirst) {
     const mv = botRookieMove(game, ti);
     if (mv.act === "pass") { res.push({ team: ti, id: null }); continue; }
     if (mv.act === "pick") { rookieTake(game, ti, mv.id); res.push({ team: ti, id: mv.id, how: "left" }); continue; }
-    const pk = rookiePack(game), id = botRookiePick(game, pk); rookieTake(game, ti, id); res.push({ team: ti, id, how: "pack", pack: pk });
+    const pk = rookiePack(game, ti), id = botRookiePick(game, pk); rookieTake(game, ti, id); res.push({ team: ti, id, how: "pack", pack: pk });
   }
   return res;
 }
@@ -193,3 +197,10 @@ export function botRookiePick(game, avail) {
   return avail.map((x) => game.players[x]).sort((a, b) => b.ovr + (potBonus[b.pot] || 0) - (a.ovr + (potBonus[a.pot] || 0)) || a.id - b.id)[0].id;
 }
 export const availableRookies = (game) => (game.rookies || []).filter((id) => game.players[id].team == null && !game.players[id].drafted);
+
+// Scouting network: level 1 and 2 cost coins once and add a player to each of your rookie-draft packs for the rest of the game.
+export function scoutBuy(game, ti) {
+  const t = game.teams[ti], costs = game.P.scout.cost, lvl = t.scout || 0;
+  if (!t || lvl >= costs.length || t.coins < costs[lvl]) return false;
+  t.coins -= costs[lvl]; t.scout = lvl + 1; return costs[lvl];
+}

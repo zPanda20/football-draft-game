@@ -1,7 +1,7 @@
 // Every tunable number in one place. Balance tests change these, never the code.
 export const DEFAULT_PARAMS = {
   // ---- rating -> strength ----
-  stretch: { centre: 80, k: 2.2, base: 50 },       // effective = base + (rating - centre) * k  (widens the 81-95 range)
+  stretch: { centre: 80, k: 4.2, base: 50, gkRef: 84 },       // effective = base + (rating - centre) * k. 4.2 (was 2.2) widens the quality gap: strongest squad wins ~34% of titles, top third ~80% (10 teams)
   blendOvr: 0.5,                                    // a player's role score is this share OVR, the rest the role's stat mix
 
   // ---- position fit (see roster.js) ----
@@ -65,7 +65,7 @@ export const DEFAULT_PARAMS = {
     size: 5, rounds: 8, playerRounds: 6, mixedPlayers: 3,
     headlinerMin: 20,                               // headliners come from the top max(this, teams) players
     r1Boost: 0.8,                                   // round-1 packs lean to the best players
-    dialStrength: 1.0, dialClamp: 1.0,              // how hard weaker rosters are favoured in later packs
+    dialStrength: 0.6, dialClamp: 1.0,              // how hard weaker rosters are favoured in later packs
     needBoost: 1.6,                                 // weight for a striker / defender the team has none of yet
     gkOwnedWeight: 0.10, stOwnedWeight: 0.70, defOwnedWeight: 0.60, defOwnedAfter: 2,
     gkReserve: 3,                                   // keepers kept back for teams that still have none
@@ -80,11 +80,12 @@ export const DEFAULT_PARAMS = {
     startCoins: 800,
     draftContract: 2,                               // fallback length of a contract won in the pack draft (no fee)
     draftContracts: [3, 3, 2, 2, 2, 1, 1, 1],       // by pack round: early picks get longer deals, so contracts end at different times
+    loyalty: 0.06, loyaltyMax: 3,                   // each season a player stays (after the first) takes 6% off the re-sign fee, up to 3 seasons: a core you keep gets cheaper
     resignMult: 0.65,                               // re-signing your own expiring player costs this share of the normal fee
     rookieContract: 3,
     extraCap: 2.0,                                  // extra coins count up to +200% of the minimum offer
-    catchUp: 1.0,                                   // lottery weight 1 / (1 + catchUp * value / mean value)
-    incomePerMatch: 54, incomeCatchUp: 0.35,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
+    catchUp: 0.6,                                   // lottery weight 1 / (1 + catchUp * value / mean value)
+    incomePerMatch: 54, incomeCatchUp: 0.2,        // base income per match; the lowest team earns +35% on top, the highest +0% (linear in table rank)
     seasonBoost: { 3: 1.3, 5: 1.3 },              // income multiplier in these seasons (the re-sign cliff years)
     refMatches: 24,                                 // a season of this many matches earns the plain income; fewer matches earn more per match (clamped), so short leagues are not squeezed
     winBonus: 10, drawBonus: 5,                     // paid on top of the base, win or draw
@@ -102,6 +103,7 @@ export const DEFAULT_PARAMS = {
     potential: { low: 0.55, med: 1.0, high: 1.5 },  // multiplies the growth of a young player
   },
   rookies: { classSize: 34, placeholder: true, pack: 3, alwaysHigh: ["endrick", "gilberto-mora", "cavan-sullivan"] },   // the rookie draft opens packs of `pack` unseen players; these three always have high potential
+  scout: { cost: [150, 300] },                      // scouting network levels (coins, once): +1 player in each of your rookie-draft packs per level
   seasons: 4,                                       // default length of a game (needs one rookie class per off-season)
   trade: { maxAssets: 6, botMargin: 1.10 },
   lineup: { earlyDays: 2, earlySec: 20 },           // the first two matchdays of a season give this many extra seconds to set the line-up

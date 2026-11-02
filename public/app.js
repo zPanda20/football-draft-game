@@ -3,10 +3,10 @@ import { st, $, $$, esc, send, store, now, toast, buildIndex, applyTheme, chip, 
 import { draftView, draftHandlers } from "./draft.js";
 import { marketView, marketHandlers } from "./market.js";
 import { offView, offHandlers } from "./off.js";
-import { storeCard } from "./store.js";
+import { storeCard, storeHandlers } from "./store.js";
 import { histHandlers } from "./history.js";
 import { helpHandlers, helpButton, maybeFirstGuide, drawHelp } from "./help.js";
-import { liteHandlers, liteChooser, isLite } from "./lite.js";
+import { liteHandlers, liteChooser, isLite, liteIntro, stepHint } from "./lite.js";
 import { pmHandlers, pmPanel, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
 import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
 import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
@@ -15,6 +15,7 @@ import { pcardHandlers, pcardSync } from "./pcard.js";
 import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
 import { applyLook, lookPicker, lookHandlers } from "./look.js";
+import { rivalButton } from "./story.js";
 
 const app = $("#app");
 app.innerHTML = `<div id="top"></div><div id="body"></div><div id="hostbar"></div>`;
@@ -85,7 +86,9 @@ const A = {
     if (cur && (cur.base || cur.slug) === a.slug) return;                  // already on this club (maybe its throwback): leave it
     send({ t: "club", slug: a.slug });
   },
-  clubCont(a) { st.ui.clubCont = a.c; render(); },
+  clubCont(a) { st.ui.clubCont = a.c; if (a.c !== "all") st.ui.clubAll = true; render(); },
+  clubAll() { st.ui.clubAll = !st.ui.clubAll; if (!st.ui.clubAll) st.ui.clubCont = "all"; render(); },
+  lobbyMore() { st.ui.lobbyMore = !st.ui.lobbyMore; render(); },
   clubVar(a, el) { send({ t: "club", slug: el.checked ? a.slug : a.main }); },
   start() { send({ t: "start" }); },
   pause() { send({ t: "pause" }); }, resume() { send({ t: "resume" }); }, skip() { send({ t: "skip" }); },
@@ -94,7 +97,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -263,8 +266,24 @@ function lobby(S) {
   const mainsAll = st.cat.clubs.filter((c) => c.kind === "main");
   // Sorted by (hidden) fan base; a pinned club (London City Lionesses) leads, so the women's game is visible straight away.
   const lead = (a, b) => (b.pin || 0) - (a.pin || 0), byFans = (a, b) => (b.fans || 0) - (a.fans || 0);
-  const shownClubs = mainsAll.filter((c) => cont === "all" || c.continent === cont).sort(cont === "all" ? (a, b) => lead(a, b) || byFans(a, b) : (a, b) => String(a.country).localeCompare(String(b.country)) || lead(a, b) || byFans(a, b));
-  const filterBar = `<div class="contbar mt"><button class="btn sm ${cont === "all" ? "pri" : ""}" data-act="clubCont" data-c="all">All (${mainsAll.length})</button>${CONTS.map((k) => `<button class="btn sm ${cont === k ? "pri" : ""}" data-act="clubCont" data-c="${k}">${k} (${mainsAll.filter((c) => c.continent === k).length})</button>`).join("")}</div>`;
+  const listAll = mainsAll.filter((c) => cont === "all" || c.continent === cont).sort(cont === "all" ? (a, b) => lead(a, b) || byFans(a, b) : (a, b) => String(a.country).localeCompare(String(b.country)) || lead(a, b) || byFans(a, b));
+  // First view: London City (pinned) + the 6 biggest + a few random free clubs, so the list is short; "Show all" opens the rest and the continent filter.
+  const mulberry = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  if (st.ui.clubSeed == null) st.ui.clubSeed = Math.floor(Math.random() * 1e9);
+  const myMain = you && you.club ? (st.clubBy[you.club] && st.clubBy[you.club].base) || you.club : null;
+  const showAll = !!st.ui.clubAll || cont !== "all";
+  const shownClubs = (() => {
+    if (showAll) return listAll;
+    const free = mainsAll.filter((c) => !takenFam.get(c.slug) || takenFam.get(c.slug) === you), pin = free.filter((c) => c.pin);
+    const top = free.filter((c) => !c.pin).sort(byFans).slice(0, 6), rest = free.filter((c) => !c.pin && !top.includes(c)), rnd = mulberry(st.ui.clubSeed);
+    for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+    const pick = [...pin, ...top, ...rest.slice(0, Math.max(0, 12 - pin.length - top.length))];
+    const mine = myMain && mainsAll.find((c) => c.slug === myMain); if (mine && !pick.includes(mine)) pick.unshift(mine);
+    return pick;
+  })();
+  const filterBar0 = `<div class="contbar mt"><button class="btn sm ${cont === "all" ? "pri" : ""}" data-act="clubCont" data-c="all">All (${mainsAll.length})</button>${CONTS.map((k) => `<button class="btn sm ${cont === k ? "pri" : ""}" data-act="clubCont" data-c="${k}">${k} (${mainsAll.filter((c) => c.continent === k).length})</button>`).join("")}</div>`;
+  const clubBar = showAll ? `${filterBar0}` : "";
+  const clubMore = showAll ? `<div class="mt"><button class="btn sm" data-act="clubAll">Show fewer clubs</button></div>` : `<div class="mt"><button class="btn sm" data-act="clubAll">Show all ${mainsAll.length} clubs</button></div>`;
   let lastCountry = null;
   const clubs = shownClubs.map((c) => {
     const owner = takenFam.get(c.slug), mine = you && you.club && fam(you.club) === c.slug, others = owner && owner !== you;
@@ -280,15 +299,19 @@ function lobby(S) {
   }).join("");
   const s = S.settings, hostOnly = S.host ? "" : "disabled";
   const sel = (k, opts) => `<select data-set="${k}" ${hostOnly}>${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+  const moreOpen = !!st.ui.lobbyMore;
+  const startBtn = S.host ? `<button class="btn pri big" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute">Waiting for the host to start.</p>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
     ${modeCard(S)}${liteChooser(S)}<div class="card"><h3>Look</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
-    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div><p class="small mute mt">Pick a club for its badge, colours, wallpaper, kits and default name. You can rename it.</p>${clubPreview(you)}${filterBar}<div class="clubgrid mt">${clubs}</div>${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
-    ${enterCode(you)}`;
-  const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div></div>`).join("")}</div>
+    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div>${clubPreview(you)}${clubBar}<div class="clubgrid mt">${clubs}</div>${clubMore}${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
+    <div class="card"><div class="row"><div class="grow"><b>More options</b><div class="small mute">Game settings, trophy cabinet and codes</div></div><button class="btn sm" data-act="lobbyMore">${moreOpen ? "Hide" : "Show"}</button></div></div>
+    ${moreOpen ? enterCode(you) : ""}`;
+  const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div>${rivalButton(S, p)}</div>`).join("")}</div>
       ${s.pool && s.pool !== "all" && S.pools ? `<p class="small mute mt">${s.pool === "female" ? "Women" : "Men"}-only league: ${S.pools[s.pool].players} players, ${S.pools[s.pool].keepers} keepers, so at most ${S.pools[s.pool].maxClubs} clubs.</p>` : ""}
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
-    <div class="card"><h3>Game settings ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="set">
+    <div class="card">${startBtn}</div>
+    ${moreOpen ? `<div class="card"><h3>Game settings ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="set">
       <span class="small">Player pool</span>${sel("pool", [["all", "All players"], ["female", "Women only"], ["male", "Men only"]])}
       <span class="small">Minimum teams</span>${sel("minTeams", [10, 12, 14, 16, 20, 24, 30].map((n) => [n, n]))}
       <span class="small">Pace</span>${sel("pace", [[1.4, "Relaxed"], [1, "Normal"], [0.7, "Fast"], [0.5, "Turbo"]])}
@@ -300,13 +323,13 @@ function lobby(S) {
       <span class="small">Re-sign timer</span>${sel("resignSec", [[20, "20 s"], [40, "40 s"], [60, "60 s"]])}
       <span class="small">Rookie pick timer</span>${sel("rookieSec", [[15, "15 s"], [25, "25 s"], [40, "40 s"]])}
       <span class="small">Trade window</span>${sel("tradeSec", [[60, "1 min"], [120, "2 min"], [180, "3 min"], [300, "5 min"]])}</div>
-      ${S.host ? `<button class="btn pri big mt2" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute mt">Waiting for the host to start.</p>`}</div>
+      </div>` : ""}
     ${chatCard(S)}`;
   return { main, side };
 }
 
 function teamsList(S) {
-  return `<div class="card"><h3>Teams</h3><div class="col" style="gap:6px">${S.teams.map((t) => `<div class="row" style="justify-content:space-between">${chip(t, 20, true)}<span class="tiny mute">${t.human ? (t.connected ? (t.idle ? "idle" : "") : "offline") : "CPU"} · ${t.players.length} player${t.players.length === 1 ? "" : "s"}</span></div>`).join("")}</div></div>`;
+  return `<div class="card"><h3>Teams</h3><div class="col" style="gap:6px">${S.teams.map((t) => `<div class="row" style="justify-content:space-between">${chip(t, 20, true)}${t.human ? rivalButton(S, S.players.find((p) => p.teamId === t.id) || { you: true }) : ""}<span class="tiny mute">${t.human ? (t.connected ? (t.idle ? "idle" : "") : "offline") : "CPU"} · ${t.players.length} player${t.players.length === 1 ? "" : "s"}</span></div>`).join("")}</div></div>`;
 }
 function hostBar(S) {
   if (!S.host || S.step === "lobby") return "";
@@ -325,7 +348,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);
