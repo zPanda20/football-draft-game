@@ -229,6 +229,16 @@ export function buyLife(game, p, id) {
   if (it.cat === "car") o.cars.push(id); else if (it.cat === "house") o.house = id; else if (it.cat === "yacht") o.yacht = id; else if (it.cat === "plane") o.plane = true; else if (it.cat === "club") { o.club = id; if (!L.clubName) L.clubName = CLUBNAMES[Math.floor(makeRng(game.seed, "clubname", p.id)() * CLUBNAMES.length)]; }
   return { price, item: it };
 }
+// Selling a car or a house gives back a share of its price (params.player.sellBack). The followers it brought stay.
+export const sellPrice = (game, it) => Math.round(it.price * game.P.player.sellBack);
+export function sellLife(game, p, id) {
+  const it = shopItem(id), L = ensureLife(game, p); if (!it || (it.cat !== "car" && it.cat !== "house")) return false;
+  const o = L.own;
+  if (it.cat === "car") { const i = o.cars.indexOf(id); if (i < 0) return false; o.cars.splice(i, 1); }
+  else { if (o.house !== id) return false; o.house = null; }
+  const price = sellPrice(game, it); p.coins = (p.coins || 0) + price;
+  return { price, item: it };
+}
 export const priceFor = (game, p, it) => {
   const L = ensureLife(game, p), o = L.own, cur = it.cat === "house" ? o.house && shopItem(o.house) : it.cat === "yacht" ? o.yacht && shopItem(o.yacht) : it.cat === "club" ? nightclub(L) : null;
   return cur && cur.price < it.price ? it.price - Math.round(cur.price * 0.5) : it.price;

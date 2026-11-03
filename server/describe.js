@@ -85,7 +85,7 @@ export function buildCatalog(D, P) {
   return {
     players: [...D.players, ...(D.rookies || []).flatMap((c) => c.players)].map((p) => ({ id: p.id, slug: p.slug, name: p.name, nat: p.nat, club: p.club, pos: p.pos, tier: p.tier, age: p.age, ovr: p.ovr, st: [p.pac, p.sho, p.pas, p.dri, p.def, p.phy, p.sta], rookie: !!p.pot })),
     items: D.items,
-    life: { acts: ACT_INFO, shop: SHOP, cats: SHOP_CATS, costs: Object.fromEntries(Object.entries(P.life.acts).map(([k, v]) => [k, v])), wedding: P.life.wedding, boringAt: P.life.boringAt, partners: PARTNER_LIST, brands: BOOT_BRANDS, deals: P.life.deals },
+    life: { sellBack: P.player.sellBack, acts: ACT_INFO, shop: SHOP, cats: SHOP_CATS, costs: Object.fromEntries(Object.entries(P.life.acts).map(([k, v]) => [k, v])), wedding: P.life.wedding, boringAt: P.life.boringAt, partners: PARTNER_LIST, brands: BOOT_BRANDS, deals: P.life.deals },
     clubs: D.clubs,
     plates: (D.plates || []).map(({ codes, ...p }) => p),           // the codes themselves never leave the server
     positions: POSITIONS,

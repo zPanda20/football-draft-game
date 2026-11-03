@@ -123,6 +123,7 @@ export const DEFAULT_PARAMS = {
     startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
     itemCap: 4,                                     // items a created player can wear in one match
     packs: 3, packCards: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
+    sellBack: 0.65,                                 // selling a car or a house gives back this share of its price
     signShare: 1,                                   // share of the signing fee a manager pays that goes to the footballer's own wallet (1 = all of it)
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },

@@ -4,7 +4,7 @@ import { withParams } from "../engine/params.js";
 import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, reviseUserPlayer, dealCard, answerCard, unsigned, signUser, signUserCpu, cpuOffers, cpuTakes, openItemPack, pickPackCard, autoPickPack, ALL_POS } from "../engine/playermode.js";
 import { findPlate } from "../engine/unlocks.js";
 import { feeFor, rosterRoom, maxLen } from "../engine/market.js";
-import { ensureLife, ensureRom, npcState, npcBlock, otherSuitors, isHuman, personOf, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub, thrMembers, leaveThr } from "../engine/life.js";
+import { sellLife, sellPrice, ensureLife, ensureRom, npcState, npcBlock, otherSuitors, isHuman, personOf, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub, thrMembers, leaveThr } from "../engine/life.js";
 import { bondOf, bondWord, likeText, likeOf, affairView, endAffair, leaveForAffair, divorce, committed, leakDM } from "../engine/affair.js";
 import { sendRequest, replyRequest, cancelJoint, askExclusive, breakUp, revealLoyalty, loyaltyWord, exclusiveState, avgQ, goodDates, planWedding, cancelWedding, answerPlan, withdrawPlan, propose, proposalState, proposalChance, oddsWord, holdWeddings, replyBeef, newWeek, tierOf } from "../engine/romance.js";
 
@@ -305,6 +305,13 @@ export const usermodeMethods = {
     purchaseStory(g, p, r.item);
     this.changed();
   },
+  lifeSell(token, id) {
+    const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || !this.game) return;
+    if (!["season.intro", "md.lineup", "md.result"].includes(this.step)) return;
+    const g = this.game, p = g.players[u.pid], r = sellLife(g, p, id); if (!r) return;
+    this.privateNote(p.id, `Sold the ${r.item.name} for ${r.price} coins.`);
+    this.changed();
+  },
   newsDecide(token, id, yes) {
     const u = this.players.get(token); if (!u || u.teamId == null || !this.game) return;
     const n = (this.game.news || []).find((x) => x.id === id); if (!n || n.status !== "pending" || n.approver !== u.teamId) return;
@@ -340,7 +347,7 @@ export const usermodeMethods = {
   },
   lifeView(p, u) {
     const g = this.game, L = ensureLife(g, p);
-    const shop = {}; for (const it of SHOP) shop[it.id] = { price: priceFor(g, p, it), own: owns(L, it), better: ownsBetter(L, it) };
+    const shop = {}; for (const it of SHOP) shop[it.id] = { price: priceFor(g, p, it), own: owns(L, it), better: ownsBetter(L, it), sell: owns(L, it) && (it.cat === "car" || it.cat === "house") ? sellPrice(g, it) : 0 };
     const costs = {}; for (const a of Object.keys(g.P.life.acts)) costs[a] = actCost(g, p, a);
     const inc = lifeIncome(g, p);
     const opts = this.step === "md.lineup" || this.step === "md.result" ? ((L.opts ? L.opts.ids : []).map((id) => { const x = partnerById(id); return { id, name: x.name, g: x.g, dates: L.dated[id] || 0, rej: L.rej[id] || 0, last: !!(L.partner && L.partner.id === id), block: npcBlock(g, id, p.id), rivals: otherSuitors(g, id, p.id).map((q) => (g.players[q] || {}).name).filter(Boolean), good: goodDates(L, id), known: !!(L.know && L.know[id]) ? npcState(g, id).loyalty : null }; })) : [];

@@ -850,5 +850,16 @@ t("party news: after a failed drugs test the next story is a TMZ tabloid about t
   assert.ok(g.news.some((n) => n.src === "tmz" && n.kind === "party"), "a TMZ party story follows the test");
 });
 
+t("selling: a car or a house sells back for 65% of its price, nothing else can be sold, the followers stay", async () => {
+  const L = await import("../engine/life.js"), g = createGame({ D, N: 10, seed: 61 }); const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Seller", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") });
+  p.coins = 5000; const lf = L.ensureLife(g, p); assert.equal(g.P.player.sellBack, 0.65);
+  assert.ok(L.buyLife(g, p, "car-m3") && L.buyLife(g, p, "house-town") && L.buyLife(g, p, "yacht")); const fol = lf.fol, c0 = p.coins;
+  const car = L.sellLife(g, p, "car-m3"); assert.equal(car.price, 78); assert.equal(p.coins - c0, 78); assert.ok(!lf.own.cars.includes("car-m3") && lf.fol === fol, "gone, followers stay");
+  assert.equal(L.sellLife(g, p, "car-m3"), false, "cannot sell it twice");
+  const h = L.sellLife(g, p, "house-town"); assert.equal(h.price, 182); assert.equal(lf.own.house, null);
+  assert.equal(L.sellLife(g, p, "yacht"), false, "yachts are not sold"); assert.equal(L.sellLife(g, p, "house-flat"), false, "not owned");
+  assert.ok(L.buyLife(g, p, "house-flat"), "can buy again after selling");
+});
+
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

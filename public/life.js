@@ -16,6 +16,7 @@ export const lifeHandlers = {
   dealNo() { send({ t: "dealRespond", yes: false }); },
   actClear() { send({ t: "act", act: null }); },
   lifeBuy(a) { send({ t: "lifeBuy", id: a.id }); },
+  lifeSell(a) { send({ t: "lifeSell", id: a.id }); },
   shopTab(a) { ui().shopTab = a.tab; st.render(); },
   newsYes(a) { send({ t: "newsDecide", id: +a.id, yes: true }); },
   newsNo(a) { send({ t: "newsDecide", id: +a.id, yes: false }); },
@@ -132,7 +133,7 @@ export function lifeShopTab(S, cat) {
   const rows = items.filter((i) => i.cat === cat).map((it) => {
     const s = lf.shop[it.id], can = lf.store && !s.own && !s.better && pm.coins >= s.price;
     const text = it.text || (it.fol ? `+${fmt(it.fol)} followers` : "");
-    const act = s.own ? `<span class="pill good">Owned</span>` : s.better ? `<span class="pill">Have better</span>` : `<button class="btn sm pri" data-act="lifeBuy" data-id="${it.id}" ${can ? "" : "disabled"}>Buy · ${s.price}</button>`;
+    const act = s.own ? `<span class="pill good">Owned</span>${s.sell ? ` <button class="btn sm" data-act="lifeSell" data-id="${it.id}" ${lf.store ? "" : "disabled"} title="Sell it back for ${Math.round(st.cat.life.sellBack * 100)}% of the price">Sell · ${s.sell}</button>` : ""}` : s.better ? `<span class="pill">Have better</span>` : `<button class="btn sm pri" data-act="lifeBuy" data-id="${it.id}" ${can ? "" : "disabled"}>Buy · ${s.price}</button>`;
     return `<div class="shoprow"><div class="grow"><b>${esc(it.name)}</b><div class="tiny mute">${esc(text)}</div></div>${act}</div>`;
   }).join("");
   const mine = owned.length ? `<div class="own mt">Yours: ${owned.map((i) => `<span class="pill">${esc(i.name)}</span>`).join("")}</div>` : "";

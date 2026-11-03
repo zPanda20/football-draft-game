@@ -189,7 +189,7 @@ export function propose(game, p) {
   const dumped = rng() < clamp(P.propDump + P.propDumpLow * (1 - chance), 0, 0.9), name = q.name;
   if (dumped) {
     leave(game, p, q.id, { cool: true }); L.love = clamp(L.love - 14, 0, 100);
-    const story = mk(game, p, { prio: 3, abs: true, kind: "trouble", icon: "💔", head: `${p.name.toUpperCase()} PROPOSES. ${name.toUpperCase()} LEAVES`, sub: `The ring stayed in its box. ${name} left the restaurant before the main course and the waiter has been asked not to talk about it.`, fx: { fol: 1200 } });
+    const story = mk(game, p, { force: true, prio: 3, abs: true, kind: "trouble", icon: "💔", head: `${p.name.toUpperCase()} PROPOSES. ${name.toUpperCase()} LEAVES`, sub: `The ring stayed in its box. ${name} left the restaurant before the main course and the waiter has been asked not to talk about it.`, fx: { fol: 1200 } });
     return { ok: true, yes: false, dumped: true, name, story };
   }
   (L.propNo = L.propNo || {})[q.id] = R.week + P.propCool; L.love = clamp(L.love - 4, 0, 100);
