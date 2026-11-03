@@ -250,6 +250,51 @@
     "cape-verde"
    ],
    "kind": "club"
+  },
+  {
+   "id": "thunderstruck",
+   "name": "Thunder Plate: Storm Kings",
+   "codes": [
+    "thunderstruck",
+    "thunder struck"
+   ],
+   "hint": "The sky is about to crack.",
+   "clubs": [],
+   "kind": "portrait",
+   "faces": [
+    "storm-king.svg",
+    "night-surge.svg"
+   ]
+  },
+  {
+   "id": "stormchaser",
+   "name": "Thunder Plate: Chasers",
+   "codes": [
+    "storm chaser",
+    "stormchaser"
+   ],
+   "hint": "Run towards it, not away.",
+   "clubs": [],
+   "kind": "portrait",
+   "faces": [
+    "storm-chaser.svg",
+    "gold-flash.svg"
+   ]
+  },
+  {
+   "id": "highvoltage",
+   "name": "Thunder Plate: High Voltage",
+   "codes": [
+    "high voltage",
+    "highvoltage"
+   ],
+   "hint": "Do not touch the rail.",
+   "clubs": [],
+   "kind": "portrait",
+   "faces": [
+    "red-bolt.svg",
+    "high-voltage.svg"
+   ]
   }
  ],
  "clubs": [

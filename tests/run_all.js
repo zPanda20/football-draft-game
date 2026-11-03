@@ -548,7 +548,7 @@ t("relationships: shared partners, asking another footballer out, exclusive, che
   const bf = RM.replyBeef(g, a, "rude"); assert.ok(bf.ok && bf.feud && g.rom.feuds.some((f) => f.pid === a.id && f.team === 4) && !a.life.beef, "rude reply: rivals");
   assert.ok(g.news.some((n) => n.kind === "troll" && n.status === "live" && n.pub && /PERSONAL/.test(n.head)), "the row is announced to the whole lobby");
   a.life.beef = { id: 2, team: 5, text: "y", season: 1 }; const nn = g.news.length; const hi = RM.replyBeef(g, a, "high"); assert.ok(hi.ok && !hi.feud, "the high road starts no feud");
-  assert.ok(g.news.length === nn + 1 && /RISES ABOVE/.test(g.news.at(-1).head) && g.news.at(-1).status === "live", "even a calm reply is broadcast");
+  assert.ok(g.news.length === nn + 1 && /RISES ABOVE|WITH KINDNESS|DROPS THE MIC/.test(g.news.at(-1).head) && g.news.at(-1).status === "live", "even a calm reply is broadcast");
   a.life.beef = { id: 3, team: 5, text: "z", season: 1 }; const nIg = g.news.length; assert.ok(RM.replyBeef(g, a, "ignore").ok && g.news.length === nIg, "ignoring it is not broadcast");
   assert.equal(RM.replyBeef(g, a, "rude").ok, false, "nothing left to answer");
   // a wedding between two footballers needs both exclusive and both to agree; the ceremony shows both
@@ -764,6 +764,90 @@ t("lite: nothing in the engine knows about Lite; defaults are Full", async () =>
   const m = await import("../server/lite.js");
   assert.deepEqual(m.liteOf({}), m.FULL); assert.equal(m.isLite({}), false); assert.equal(m.isLite({ lite: { ...m.FULL, subs: false } }), true);
   for (const f of readdirSync("engine")) if (f.endsWith(".js")) assert.ok(!/\blite\b/i.test(readFileSync("engine/" + f, "utf8")), f);
+});
+
+// ---- affairs, upkeep, divorce, DMs, boots, signing money ----
+const loveSetup = async (seed, { married = false } = {}) => {
+  const L = await import("../engine/life.js"), RM = await import("../engine/romance.js"), AF = await import("../engine/affair.js");
+  const g = createGame({ D, N: 10, seed }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  Object.assign(g.P.life.upkeep, { start: 60, grace: 2, decayExcl: 4, decayMarried: 3, warnAt: 40, leaveAt: 22, leaveExcl: 0.4, leaveMarried: 0.3 });
+  Object.assign(g.P.life.affair, { heatDate: 14, heatRand: 8, heatFame: 10, cool: 7, rumourAt: 45, catchFrom: 20, catchK: 1.0, catchMax: 0.85, leaveExcl: 0.7, leaveMarried: 0.55, bondHit: 35 });
+  Object.assign(g.P.life.rom, { goodAt: 0.55, exclBase: 5 });
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Cheater", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.gender = "M"; p.coins = 99999;
+  const lf = L.ensureLife(g, p); g.P.life.rom.goodAt = 0; for (let d = 0; d < 3; d++) L.runActivity(g, p, "date", { day: d });
+  for (let k = 0; k < 30 && !(lf.partner && lf.partner.excl); k++) { RM.newWeek(g); RM.askExclusive(g, p); }
+  g.P.life.rom.goodAt = 0.55;
+  if (married) { lf.married = true; }
+  return { g, p, lf, L, RM, AF };
+};
+t("upkeep: the bond decays when you ignore a partner, rises with dates and what they enjoy, and they may walk out", async () => {
+  const { g, p, lf, L, AF } = await loveSetup(51);
+  assert.ok(lf.partner && lf.partner.excl, "exclusive");
+  AF.bondOf(g, lf); lf.partner.bond = 60; lf.partner.cold = 0; assert.equal(AF.bondOf(g, lf), 60);
+  const like = AF.likeOf(g, lf.partner.id); assert.ok(["train", "party", "rest"].includes(like));
+  AF.loveWeek(g, p, { act: like }); assert.equal(lf.partner.bond, 66, "their favourite thing counts");
+  for (let w = 0; w < 2; w++) AF.loveWeek(g, p, { act: "work" }); assert.equal(lf.partner.bond, 66, "a couple of quiet weeks are free");
+  AF.loveWeek(g, p, { act: "work" }); assert.equal(lf.partner.bond, 62, "then it decays");
+  const out = AF.loveWeek(g, p, { act: "work" }); assert.equal(lf.partner.bond, 58);
+  lf.partner.bond = 30; const o2 = AF.loveWeek(g, p, { act: "work" }); assert.ok(o2.notes.some((n) => /feels ignored/.test(n.text)), "a warning below warnAt");
+  g.P.life.upkeep.leaveExcl = 1; lf.partner.bond = 15; lf.partner.cold = 5; const name = lf.partner.name;
+  const o3 = AF.loveWeek(g, p, { act: "work" }); assert.ok(!lf.partner && o3.events.some((e) => e.kind === "breakup"), "an ignored partner leaves"); assert.ok(g.news.some((n) => n.src === "tmz" && n.head.includes(name.toUpperCase())), "TMZ prints it");
+  g.P.life.upkeep.leaveExcl = 0.4;
+});
+t("affair: secret dates raise the danger, it cools off, getting caught costs the relationship, a married footballer can be divorced", async () => {
+  let { g, p, lf, L, AF } = await loveSetup(52);
+  const date = { id: "someone-else", name: "Someone Else", g: "F", good: true }, r = () => 0.5;
+  AF.secretDate(g, p, date, r); const h1 = lf.affair.heat; AF.secretDate(g, p, date, r);
+  assert.ok(lf.affair.heat > h1 && lf.affair.dates === 2 && lf.affair.active, "heat climbs with each secret date");
+  assert.ok(AF.catchChance(g, 10) === 0 && AF.catchChance(g, 80) > AF.catchChance(g, 40), "the more heat the likelier you are caught");
+  const cool = lf.affair.heat; AF.loveWeek(g, p, { act: "work" }); assert.ok(lf.affair.heat < cool, "it cools without new dates");
+  // caught while exclusive
+  g.P.life.affair.catchMax = 5; g.P.life.affair.leaveExcl = 0; g.P.life.affair.catchK = 50; lf.affair.heat = 90; lf.partner.bond = 80;
+  const out = AF.loveWeek(g, p, { act: "work", secret: true }); assert.ok(out.events.some((e) => e.kind === "caught"), "caught");
+  assert.ok(!lf.affair && lf.partner && lf.partner.bond <= 80 - g.P.life.affair.bondHit + 1, "partner stays but the bond is hit");
+  assert.ok(g.news.some((n) => n.kind === "camera" && n.src === "tmz"), "a TMZ story");
+  // caught while married with a partner who leaves: divorce, the one at fault pays
+  ({ g, p, lf, L, AF } = await loveSetup(53, { married: true })); const coins = p.coins;
+  Object.assign(g.P.life.affair, { catchK: 50, catchMax: 5, leaveMarried: 1 }); AF.secretDate(g, p, { id: "x", name: "Ex Tra", g: "F", good: true }, r); lf.affair.heat = 95;
+  const o = AF.loveWeek(g, p, { act: "work", secret: true });
+  assert.ok(o.events.some((e) => e.kind === "divorce") && !lf.married && !lf.partner, "divorced"); assert.equal(coins - p.coins, Math.round(coins * g.P.life.divorce.share), "20% of the wallet goes in the settlement");
+  assert.ok(g.news.some((n) => /DIVORCE|WALKS OUT|CAUGHT/.test(n.head) && n.src === "tmz"));
+  // you can file yourself, and nobody pays
+  ({ g, p, lf, L, AF } = await loveSetup(54, { married: true })); const c2 = p.coins; assert.ok(AF.divorce(g, p, { by: "me" }).ok && p.coins === c2 && !lf.married);
+  assert.equal(AF.divorce(g, p, { by: "me" }).ok, false, "not married any more");
+  // go public
+  ({ g, p, lf, L, AF } = await loveSetup(55)); const d = { id: "someone", name: "Someone New", g: "F", good: true }; for (let k = 0; k < 4; k++) AF.secretDate(g, p, d, () => 0.1);
+  assert.ok(AF.affairView(g, p).canPublic, "enough dates and feelings"); const pub = AF.leaveForAffair(g, p); assert.ok(pub.ok && lf.partner.id === "someone" && !lf.affair, "the affair becomes the relationship");
+});
+t("DMs: a leaked message makes a TMZ story, costs the sender and the partner, a manager's leak goes on the leaker", async () => {
+  const { g, p, lf, AF, L } = await loveSetup(56);
+  const r = rollNumbers(g.P, "y", "t2", 0), q = createUserPlayer(g, { token: "t2", name: "Leaker", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") });
+  const fol0 = p.life ? p.life.fol : 0, bond0 = AF.bondOf(g, lf); const lq = L.ensureLife(g, q), lq0 = lq.fol;
+  const res = AF.leakDM(g, q, p, "you looked great at the club last night", null);
+  assert.ok(res.ok && res.story.src === "tmz" && res.story.kind === "dm" && /LEAKED|DMs|MESSAGES|SLIDING/.test(res.story.head));
+  assert.ok(lf.fol > fol0 && lq.fol > lq0, "both gain followers"); assert.equal(lf.partner.bond, bond0 - g.P.life.dm.bondHit, "partner is hurt");
+  const m = AF.leakDM(g, q, null, "I want you in my squad", "Gaffer Gary"); assert.ok(m.ok && /GAFFER GARY/.test(m.story.head));
+});
+t("boots: one pair at a time in a match, whoever bought them; the signing fee is the footballer's money", async () => {
+  const g = createGame({ D, N: 10, seed: 57 }); const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Booted", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") });
+  p.coins = 9999; assert.ok(buyForUser(g, p, "boots-nike-low") && buyForUser(g, p, "boots-adidas-mid"));
+  setEquip(g, p, ["boots-nike-low", "boots-adidas-mid"]); assert.equal(p.equip.filter((x) => /^boots-/.test(x)).length, 1, "only one pair kept");
+  // a manager's pair and the footballer's own pair on the same man: only one counts
+  const gm = createGame({ D, N: 10, seed: 60 }); const rm = rollNumbers(gm.P, "x", "t", 0), w = createUserPlayer(gm, { token: "t", name: "Both", pos: "ST", nums: rm.nums, ovr: rm.ovr, assign: defaultAssign("ST") });
+  w.team = 0; gm.teams[0].players.push(w.id); w.coins = 9999; w.items["boots-nike-mid"] = 3; w.equip = ["boots-nike-mid"];
+  gm.teams[0].items["boots-adidas-mid"] = 3; gm.teams[0].active = ["boots-adidas-mid"]; gm.teams[0].equip = { "boots-adidas-mid": w.id };
+  const lu = bestLineup(rosterOf(gm, gm.teams[0]), gm.P); lu.out[0] = w.id;
+  const fx = activeFx(gm.teams[0], lu, gm); assert.equal(fx.player[w.id].off, 4, "+4 once, not +8");
+  const g2 = createGame({ D, N: 10, seed: 58 }); const r2 = rollNumbers(g2.P, "x", "t", 0), u = createUserPlayer(g2, { token: "t", name: "Signed", pos: "CM", nums: r2.nums, ovr: r2.ovr, assign: defaultAssign("CM") });
+  u.coins = 0; const t0 = g2.teams.find((x) => !x.human && x.players.length < g2.P.money.rosterMax) || g2.teams[1]; t0.coins = 5000;
+  const fee = signUser(g2, u, t0.id, 2); assert.ok(fee > 0 && u.coins === fee, "the fee lands in the footballer's wallet"); assert.equal(u.signing.fee, fee);
+});
+t("party news: after a failed drugs test the next story is a TMZ tabloid about the partying", async () => {
+  const L = await import("../engine/life.js"), g = createGame({ D, N: 10, seed: 59 }); g.md = { day: 0, total: 18 };
+  const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Partier", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.coins = 99999;
+  g.P.life.wada = 1; g.P.life.wadaChance = 1;
+  let hit = null; for (let d = 0; d < 12 && !hit; d++) { const o = L.runActivity(g, p, "party", { day: d }); hit = o && (o.wada || o.caught) ? o : null; if (!hit && g.news.some((n) => n.src === "tmz" && n.kind === "party")) hit = o; }
+  assert.ok(g.news.some((n) => n.src === "tmz" && n.kind === "party"), "a TMZ party story follows the test");
 });
 
 await Promise.all(pending);

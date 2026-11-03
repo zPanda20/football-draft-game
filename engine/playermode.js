@@ -135,7 +135,8 @@ export function buyForUser(game, p, itemId, { store = false, elite = false } = {
 }
 export function setEquip(game, p, ids) {
   const ok = (Array.isArray(ids) ? ids : []).filter((id, i, a) => a.indexOf(id) === i && (p.items[id] || 0) > 0 && game.items.find((x) => x.id === id && x.scope === "player" && !x.life));
-  p.equip = ok.slice(0, game.P.player.itemCap);
+  let shod = false;   // only one pair of boots at a time: the first one ticked is the one that stays
+  p.equip = ok.filter((id) => { if (!/^boots-/.test(id)) return true; if (shod) return false; shod = true; return true; }).slice(0, game.P.player.itemCap);
 }
 // A manager hands one use of a player item to the created player on his roster.
 export function giftItem(game, ti, pid, itemId) {
@@ -156,6 +157,9 @@ export function signUser(game, p, ti, len, free = false, agreed = null) {
   if (t.coins < fee) return false;
   t.coins -= fee; p.team = ti; p.contract = len; t.players.push(p.id);
   game.userPool = (game.userPool || []).filter((x) => x !== p.id);
+  const bonus = Math.round(fee * (P.player.signShare ?? 1));            // the fee the club pays is the footballer's signing money
+  if (bonus > 0) p.coins = (p.coins || 0) + bonus;
+  p.signing = { team: ti, len, fee, bonus, season: game.season };
   return fee;
 }
 // Squeeze one more player into a squad: the weakest outfielder (never the only keeper, never a created player) goes to the free-agent pool.

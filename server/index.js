@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedAgree", "wedWithdraw", "propose", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedAgree", "wedWithdraw", "propose", "affairEnd", "affairPublic", "divorce", "leakDM", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -155,7 +155,7 @@ function handle(ws, m) {
     case "effort": room.setEffort(t, m.mode); break;
     case "redeem": room.redeem(t, String(m.code || "").slice(0, 60)); break;
     case "unlocks": room.setUnlocks(t, Array.isArray(m.ids) ? m.ids.slice(0, 40).map(String) : []); break;
-    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), m.partner); break;
+    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), m.partner, !!m.secret); break;
     case "romAsk": room.romAsk(t, m.to | 0, String(m.kind || "")); break;
     case "romReply": room.romReply(t, m.id | 0, !!m.yes); break;
     case "exclAsk": room.exclAsk(t); break;
@@ -167,6 +167,10 @@ function handle(ws, m) {
     case "wedAgree": room.weddingAgree(t, !!m.yes); break;
     case "wedWithdraw": room.weddingWithdraw(t); break;
     case "propose": room.propose(t); break;
+    case "affairEnd": room.affairEnd(t); break;
+    case "affairPublic": room.affairPublic(t); break;
+    case "divorce": room.fileDivorce(t); break;
+    case "leakDM": room.leakDM(t, m.id | 0); break;
     case "beefReply": room.beefReply(t, String(m.mode || "")); break;
     case "turnDown": room.turnDown(t, String(m.id || "")); break;
     case "pref": room.setPref(t, m.act == null ? null : String(m.act)); break;
@@ -208,7 +212,7 @@ function handle(ws, m) {
     case "auto": room.setAuto(t, !!m.on); break;
     case "rival": room.setRival(t, String(m.pub || ""), !!m.on); break;
     case "lite": room.setLite(t, m); break;
-    case "chat": room.addChat(t, m.text); break;
+    case "chat": room.addChat(t, m.text, m.to ? String(m.to) : null); break;
     case "continue": room.continueGame(t); break;
     case "skip": if (room.isHost(t)) room.skip(); break;
     case "pause": if (room.isHost(t)) room.pause(); break;

@@ -301,11 +301,28 @@ export function offerBeef(game, p, team, text) {
   L.beef = { id: (R.beefSeq = (R.beefSeq || 0) + 1), team, text: String(text || "").slice(0, 160), season: game.season };
   return L.beef;
 }
+// What the papers print when a footballer answers a club's trolling. Each way of answering has a few versions (picked by the seed); the replies are quoted.
 const BEEF_STORY = {
-  high: { icon: "🕊️", head: (p, t) => `${p} RISES ABOVE IT: A CALM REPLY TO ${t}`, sub: (p, t) => `${t}'s social team asked for a reaction. ${p} sent a short, classy message and went back to training. The comments are calling it "painfully mature".` },
-  funny: { icon: "😂", head: (p, t) => `${p} HITS BACK AT ${t} WITH A JOKE`, sub: (p, t) => `${t}'s admin wanted a fight and got a gag. ${p}'s reply has more likes than ${t}'s original post, which has now been quietly deleted.` },
-  petty: { icon: "🙄", head: (p, t) => `${p} GETS PETTY WITH ${t} ONLINE`, sub: (p, t) => `A sarcastic reply, a screenshot of an old result and a very specific emoji. ${t}'s social team has "noted" it. Both dressing rooms have seen it.` },
-  rude: { icon: "🔥", head: (p, t) => `${p} ROASTS ${t}: THE INTERNET IS ON FIRE`, sub: (p, t) => `No emoji, no mercy. ${p}'s reply to ${t} was shared a million times before lunch. Somebody at ${t} has "gone for a walk".` },
+  high: [
+    { icon: "🕊️", head: (p, t) => `${p} RISES ABOVE IT: A CALM REPLY TO ${t}`, sub: (p, t) => `${t}'s social team asked for a reaction. ${p} sent a short, classy message and went back to training. The comments call it "painfully mature". Several ${t} fans are, apparently, in therapy.` },
+    { icon: "🕊️", head: (p, t) => `${p} KILLS ${t} WITH KINDNESS`, sub: (p, t) => `"Wishing everyone at ${t} a lovely week and a better offside trap." Thirty thousand likes, one pair of very tight jaws at ${t}'s head office, and a pointed "thanks for the exposure".` },
+    { icon: "🕊️", head: (p, t) => `${p} DROPS THE MIC, THEN PICKS IT UP AND APOLOGISES TO IT`, sub: (p, t) => `The reply to ${t} was so polite that it is being studied by diplomats. "It is a little concerning how much they care," says one fan. "It is a lot concerning how little we do."` },
+  ],
+  funny: [
+    { icon: "😂", head: (p, t) => `${p} HITS BACK AT ${t} WITH A JOKE ABOUT THEIR BACK LINE`, sub: (p, t) => `"Your defence has more gaps than a teenager's CV and less coverage than a nudist beach. See you next season." ${t}'s original post has been quietly deleted. The deletion has been screenshotted.` },
+    { icon: "😂", head: (p, t) => `"WE ALL SAW WHAT ${p} DID TO ${t}'S BACK LINE": REPLY GOES VIRAL`, sub: (p, t) => `"Funny coming from a club whose attack has been finishing earlier than my last ex. Wasn't bad, though. For the first thirty seconds." The post has more shares than ${t}'s season ticket sales.` },
+    { icon: "😂", head: (p, t) => `${p} SLIDES INTO ${t}'S REPLIES WITH A BANGER`, sub: (p, t) => `The one-liner: "Thanks for the roast. I'd offer you some ointment, but I see you've already got the burn." ${t}'s admin has replied "😐". ${p} has replied "🧯". The internet has declared a winner.` },
+  ],
+  petty: [
+    { icon: "🙄", head: (p, t) => `${p} GETS PETTY WITH ${t} ONLINE`, sub: (p, t) => `A sarcastic reply, a screenshot of an old result and a very specific peach emoji. ${t}'s social team has "noted" it. Both dressing rooms have seen it. One of them is giggling.` },
+    { icon: "🙄", head: (p, t) => `${p} DIGS UP ${t}'S OLDEST TWEETS, AND THEIR WORST SEASON`, sub: (p, t) => `"Remind me when ${t} last scored from open play. I'll wait. I've got all night, which is more than your striker's got." The thread runs to eighty-one posts and a spreadsheet.` },
+    { icon: "🙄", head: (p, t) => `${p} LIKES EVERY POST CALLING ${t} A DISGRACE`, sub: (p, t) => `No reply, no quote, just four hundred likes in a row and a thumbs-up on a meme of ${t}'s goalkeeper. A spokesperson says ${p} "has no idea how his thumb did that". It did.` },
+  ],
+  rude: [
+    { icon: "🔥", head: (p, t) => `${p} ROASTS ${t}: THE INTERNET IS ON FIRE`, sub: (p, t) => `"Your midfield is like a sauna: lots of steam, no cover and everyone leaves sweaty and disappointed." Shared a million times before lunch. Somebody at ${t} has "gone for a walk". Possibly a long one.` },
+    { icon: "🔥", head: (p, t) => `${p} TO ${t}: "THAT WAS ABOUT AS EFFECTIVE AS A ONE-MINUTE MAN AT A NINETY-MINUTE PARTY"`, sub: (p, t) => `The reply, which cannot be printed in full in this newspaper, ran to four paragraphs and a gif of a bin. ${t} have answered with a single "mate". The league has asked everyone to calm down. Nobody has.` },
+    { icon: "🔥", head: (p, t) => `NO MERCY: ${p} FRIES ${t} IN TWO SENTENCES`, sub: (p, t) => `"You've got more people on your payroll than fans in your stadium, and the fans are still the better strikers. Cheers, hope the sausage roll was worth it." ${t} have reportedly "turned off the phone and the lights".` },
+  ],
 };
 // The footballer answers a club that trolled him. Any answer except ignoring it makes the news for the whole lobby.
 export function replyBeef(game, p, mode) {
@@ -318,9 +335,11 @@ export function replyBeef(game, p, mode) {
   L.beefLast = { mode, team: b.team, feud };
   let story = null;
   if (mode !== "ignore" && t) {
-    const P_ = p.name.toUpperCase(), T_ = t.name.toUpperCase(), bs = BEEF_STORY[mode];
+    const P_ = p.name.toUpperCase(), T_ = t.name.toUpperCase(), list = BEEF_STORY[mode], bs = list[Math.floor(makeRng(game.seed, "beefq", p.id, b.id, mode)() * list.length)];
+    const FEUD = [`${p.name} answered ${t.name}'s social team with a ${mode === "rude" ? "very rude" : "very petty"} reply and the replies have not stopped. Both sides say they "don't care". Both sides have checked the fixture list, the group chat and, in one case, a lawyer.`,
+      `It started with a post, continued with a gif and has now reached the stage where ${t.name}'s kit man has been tagged. ${p.name} says "I'm not angry, I'm just thorough". The next meeting between the clubs has been described as "must-see, must-record, must-not-attend".`];
     story = feud
-      ? mk(game, p, { force: true, prio: 3, abs: true, kind: "troll", icon: "🔥", head: `${P_} V ${T_}: IT'S PERSONAL NOW`, sub: `${p.name} answered ${t.name}'s social team with a ${mode === "rude" ? "very rude" : "very petty"} reply and the replies have not stopped. Both sides say they "don't care". Both sides have checked the fixture list.` })
+      ? mk(game, p, { force: true, prio: 3, abs: true, kind: "troll", icon: "🔥", head: `${P_} V ${T_}: IT'S PERSONAL NOW`, sub: FEUD[Math.floor(makeRng(game.seed, "feudq", p.id, b.id)() * FEUD.length)] })
       : mk(game, p, { force: true, prio: 2, abs: true, kind: "troll", icon: bs.icon, head: bs.head(P_, T_), sub: bs.sub(p.name, t.name) });
   }
   return { ok: true, feud, team: b.team, mode, story, notes: [] };

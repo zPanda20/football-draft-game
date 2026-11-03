@@ -9,7 +9,7 @@ import { helpHandlers, helpButton, maybeFirstGuide, drawHelp } from "./help.js";
 import { liteHandlers, liteChooser, isLite, liteIntro, stepHint } from "./lite.js";
 import { pmHandlers, pmPanel, pmKit, packOverlay, seekersCard, modeCard, creator, gambleOverlay } from "./pm.js";
 import { unlockHandlers, unlockSync, trophySync, enterCode, codeClubs, clubOpen } from "./unlocks.js";
-import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick } from "./life.js";
+import { lifeHandlers, lifePanel, newsAsk, newsCard, newsTick, miniButton } from "./life.js";
 import { matchView, matchHandlers, tablePanel, playbackTick, scoreTicker } from "./match.js";
 import { pcardHandlers, pcardSync } from "./pcard.js";
 import { winHandlers, tradePopup } from "./transfers.js";
@@ -84,7 +84,9 @@ const A = {
   start() { send({ t: "start" }); },
   pause() { send({ t: "pause" }); }, resume() { send({ t: "resume" }); }, skip() { send({ t: "skip" }); },
   copy() { navigator.clipboard?.writeText(`${location.origin}/?room=${st.S.room}`); toast("Link copied"); },
-  chatSend() { const i = $("#chatin"); if (i && i.value.trim()) { send({ t: "chat", text: i.value }); i.value = ""; } },
+  chatSend() { const i = $("#chatin"); if (i && i.value.trim()) { send({ t: "chat", text: i.value, to: st.ui.dmTo || undefined }); i.value = ""; } },
+  dmTo(a) { st.ui.dmTo = a.value || null; const i = $("#chatin"); if (i) i.placeholder = a.value ? "Private message" : "Message"; },
+  leakDM(a) { if (!confirm("Leak this DM to the press? It becomes a news story for the whole lobby.")) return; send({ t: "leakDM", id: +a.id }); },
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
@@ -210,7 +212,7 @@ function renderTop() {
   const clock = S.deadline && !S.paused && CLOCK_STEPS.includes(S.step) && S.me;
   const hud = nl ? `<div class="hud ${nl.kind}" id="hud"><span class="hmsg">${esc(nl.text)}</span>${clock ? `<span class="hclock" id="hclock"></span><i class="hbar" id="hbar"></i>` : ""}</div>` : "";
   const sp = S.speed, lv = ["Relaxed", "Normal", "Fast", "Turbo"][sp.levels.indexOf(sp.pace)];
-  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span><button class="btn sm" data-act="lookNext" title="Change the theme: Auto, Synth or Glass">Theme</button>${helpButton()}
+  el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span>${S.me ? miniButton() : ""}<button class="btn sm" data-act="lookNext" title="Change the theme: Auto, Synth or Glass">Theme</button>${helpButton()}
     ${S.step !== "lobby" && S.me ? `<span class="coin" title="Your coins">${Math.round(S.me.coins)}<i></i></span>` : ""}
     ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}${pmLayoutOn(S) ? "" : scoreTicker(S)}`;
   tick();
@@ -240,7 +242,12 @@ setInterval(() => { tick(); playbackTick(); nudge(); }, 250);
 // ---------- lobby ----------
 function chatCard(S) {
   if (st.watch) return "";
-  return `<div class="card chat"><h3>Chat</h3><div class="log" id="chatlog">${S.chat.map((c) => `<div><b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join("") || `<span class="mute small">Say something to the room.</span>`}</div><div class="row"><input id="chatin" class="grow" maxlength="160" placeholder="Message"><button class="btn sm" data-act="chatSend">Send</button></div></div>`;
+  const others = (S.players || []).filter((p) => !p.you), to = others.some((p) => p.pub === st.ui.dmTo) ? st.ui.dmTo : null, canLeak = !!(S.pm && S.pm.life);
+  const line = (c) => c.dm
+    ? `<div class="dmline ${c.mine ? "out" : "in"}"><span class="dmtag">🔒 DM</span> <b>${esc(c.mine ? "You" : c.name)}</b> → <b>${esc(c.mine ? c.toName : "you")}</b> ${esc(c.text)} ${!c.mine && canLeak ? (c.leaked ? `<span class="pill tiny">Leaked</span>` : `<button class="btn sm ghost leakbtn" data-act="leakDM" data-id="${c.id}" title="Show the press this message. It becomes a scandal story for everybody to read.">📸 Leak</button>`) : ""}</div>`
+    : `<div><b>${esc(c.name)}</b> ${esc(c.text)}</div>`;
+  return `<div class="card chat"><h3>Chat</h3><div class="log" id="chatlog">${S.chat.map(line).join("") || `<span class="mute small">Say something to the room.</span>`}</div>
+    <div class="row" style="gap:6px"><select class="dmsel" data-change="dmTo" title="Who gets this message">${`<option value="">Everyone</option>`}${others.map((p) => `<option value="${esc(p.pub)}" ${p.pub === to ? "selected" : ""}>DM: ${esc(p.name)}</option>`).join("")}</select><input id="chatin" class="grow" maxlength="160" placeholder="${to ? "Private message" : "Message"}"><button class="btn sm" data-act="chatSend">Send</button></div></div>`;
 }
 function clubPreview(you) {
   const c = you && you.club ? st.clubBy[you.club] : null; if (!c) return "";

@@ -37,7 +37,7 @@ export class Room {
     this.phase = "lobby"; this.step = "lobby";
     this.game = null; this.paused = false;
     this.deadline = null; this.timer = null; this.remaining = null; this.pending = null; this.dur = null;
-    this.reveal = null; this.revealSeq = 0; this.feed = []; this.chat = []; this.notices = []; this.noticeSeq = 0; this.store = { steroids: 0 };
+    this.reveal = null; this.revealSeq = 0; this.feed = []; this.chat = []; this.chatSeq = 0; this.notices = []; this.noticeSeq = 0; this.store = { steroids: 0 };
     this.picks = new Map(); this.bids = new Map(); this.ready = new Set();
     this.mdIdx = -1; this.results = []; this.shownTable = null; this.live = null;
     this.baseOf = new Map([...D.players, ...(D.rookies || []).flatMap((c) => c.players)].map((p) => [p.id, p]));
@@ -190,10 +190,18 @@ export class Room {
     if (tally.down >= need && i > 0) return this.applyPace(PACES[i - 1], "The room voted");
     this.changed();
   }
-  addChat(token, text) {
+  // Chat: everybody sees a message sent to the room; a DM (to = the other person's pub id) is seen only by the two of them.
+  addChat(token, text, toPub = null) {
     const p = this.players.get(token); text = String(text || "").trim().slice(0, 160); if (!p || !text) return;
-    this.chat.push({ t: Date.now(), name: p.name, team: p.teamId, text });
-    if (this.chat.length > 60) this.chat.shift();
+    const msg = { id: ++this.chatSeq, t: Date.now(), name: p.name, team: p.teamId, text, from: this.pubOf(p) };
+    if (toPub) { const q = [...this.players.values()].find((x) => x !== p && this.pubOf(x) === toPub); if (!q) return; msg.to = toPub; msg.toName = q.name; this.notify(`DM from ${p.name}: ${text.length > 60 ? text.slice(0, 58) + "…" : text}`, q.token); }
+    this.chat.push(msg);
+    if (this.chat.length > 80) this.chat.shift();
+    this.changed();
+  }
+  chatFor(token) {
+    const me = this.players.get(token), pub = me ? this.pubOf(me) : null;
+    return this.chat.filter((c) => !c.to || c.to === pub || c.from === pub).slice(-30).map((c) => ({ id: c.id, name: c.name, text: c.text, ...(c.to ? { dm: true, from: c.from, to: c.to, toName: c.toName, mine: c.from === pub, leaked: !!c.leaked } : {}) }));
   }
   // Rivals are cosmetic: either manager can mark another one, and their matches get extra hype and louder animations.
   pubOf(p) { return createHash("sha1").update(String(p.token)).digest("hex").slice(0, 8); }
@@ -498,7 +506,8 @@ export class Room {
     t.active = (Array.isArray(ids) ? ids : []).filter((id) => t.items[id] > 0).slice(0, this.game.P.items.activeCap);
     if (equip && typeof equip === "object") {
       t.equip = {};
-      for (const [iid, pid] of Object.entries(equip)) if (t.items[iid] > 0 && t.players.includes(pid | 0)) t.equip[iid] = pid | 0;
+      const shod = new Set();   // one pair of boots per footballer
+      for (const [iid, pid] of Object.entries(equip)) if (t.items[iid] > 0 && t.players.includes(pid | 0)) { if (/^boots-/.test(iid)) { if (shod.has(pid | 0)) continue; shod.add(pid | 0); } t.equip[iid] = pid | 0; }
     }
     this.changed();
   }
@@ -659,7 +668,7 @@ export class Room {
       news: this.game ? this.newsView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
-      chat: this.chat.slice(-30), reveal: this.reveal, feed: this.feed,
+      chat: this.chatFor(token), reveal: this.reveal, feed: this.feed,
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],
     };
     v.rivalPairs = this.rivalPairs();

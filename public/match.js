@@ -193,7 +193,9 @@ const wornBy = (S, pid, act) => Object.entries(S.me.equip || {}).filter(([id, p]
 function attachItem(id, pid) {
   const S = st.S, it = st.items[id]; if (!it || it.scope !== "player" || !((S.me.items || {})[id] > 0)) return;
   let act = activeNow(S); if (!act.includes(id)) act = [...act, id].slice(-st.cat.rules.activeCap);
-  send({ t: "items", ids: act, equip: { ...(S.me.equip || {}), [id]: pid } }); st.ui.itemSel = null; st.render();
+  const eq = { ...(S.me.equip || {}), [id]: pid };
+  if (/^boots-/.test(id)) for (const [o, w] of Object.entries(eq)) if (o !== id && w === pid && /^boots-/.test(o)) { delete eq[o]; act = act.filter((x) => x !== o); }   // one pair of boots a footballer: the new pair replaces the old
+  send({ t: "items", ids: act, equip: eq }); st.ui.itemSel = null; st.render();
 }
 function detachItem(id) {
   const S = st.S, eq = { ...(S.me.equip || {}) }; delete eq[id];

@@ -23,7 +23,7 @@ function client(name, host) {
     if (m.t !== "state") return;
     const s = (c.s = m.s);
     for (const n of s.notices || []) { T.notices.push(name + ": " + n.text); if (name !== "Pia" && name !== "Quin" && /used steroids/.test(n.text)) T.mgrNotified = 1; }
-    if (s.news && s.news.list.some((n) => n.kind === "troll" && /HITS BACK|ROASTS|PETTY|RISES ABOVE|PERSONAL/.test(n.head))) T.beefNews = 1;
+    if (s.news && s.news.list.some((n) => n.kind === "troll" && /HITS BACK|ROASTS|PETTY|RISES ABOVE|PERSONAL|BACK LINE|VIRAL|BANGER|KINDNESS|DROPS THE MIC|SLIDES INTO/.test(n.head))) T.beefNews = 1;
     if (s.ceremony) { T.ceremony = s.ceremony; T.ceremonySeenBy.add(name); }
     if (name === "Pia" && s.step === "season.end" && s.reveal && s.reveal.kind === "season") { const pid = s.pm.pid, mt = s.teams.find((t) => t.players.includes(pid)); T.title = { champion: s.reveal.champion, myTeam: mt ? mt.id : null, pid, mode: s.players.find((p) => p.you).mode }; }
     if (s.pm && s.pm.life) {

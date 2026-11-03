@@ -2,6 +2,7 @@
 // Pure and seeded: the same choices with the same seed always give the same stories. Everything numeric lives in params.life.
 import { makeRng, clamp } from "./rng.js";
 import { rate } from "./roster.js";
+import { loveWeek, secretDate, committed, likeOf } from "./affair.js";
 
 export const ACTS = ["train", "date", "party", "rest", "balance"];
 export const ACT_INFO = {
@@ -151,8 +152,17 @@ export function canMarry(game, p, pid) {
   return (L.dated[q.id] || 0) >= game.P.life.wedding.dates;
 }
 // Why this choice cannot be made right now (or null).
-export function blocked(game, p, act, { partner = null, joint = null } = {}) {
+export function blocked(game, p, act, { partner = null, joint = null, secret = false } = {}) {
   if (!ACTS.includes(act)) return "unknown";
+  if (secret) {                                                            // a secret date (an affair): only while committed, with someone from this week's list
+    const SL = ensureLife(game, p); if (act !== "date" || !partner) return "unknown";
+    if (!committed(SL)) return "Secret dates are for people in a relationship";
+    if (partner === SL.partner.id) return "That is your partner";
+    if (!(SL.opts && SL.opts.ids.includes(partner)) && !(SL.affair && SL.affair.id === partner)) return "That person is not on your list";
+    const b = npcBlock(game, partner, p.id); if (b) return b;
+    if ((p.coins || 0) < actCost(game, p, "date")) return "Not enough money";
+    return null;
+  }
   const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay ? 0 : 1);
   if (act === "party" && p.susp > 0) return "You are suspended";
   if (act === "date" && partner && isHuman(partner)) { if (!joint) return "Ask them first"; }
@@ -169,9 +179,9 @@ export function blocked(game, p, act, { partner = null, joint = null } = {}) {
 // of them (unless you turned them down three times); anyone you specifically turn down three times never comes back.
 function genOptions(game, p, day, keep, salt) {
   const L = ensureLife(game, p), r = makeRng(game.seed, "dates", p.id, game.season, day, salt || 0), list = keep.slice();
-  if (!list.length && L.partner && L.partner.id && !isHuman(L.partner.id) && (L.rej[L.partner.id] || 0) < 3 && !npcBlock(game, L.partner.id, p.id)) list.push(L.partner.id);
+  if (!list.length && L.partner && L.partner.id && !isHuman(L.partner.id) && !L.married && (L.rej[L.partner.id] || 0) < 3 && !npcBlock(game, L.partner.id, p.id)) list.push(L.partner.id);
   const gone = new Set((L.opts && L.opts.gone) || []);
-  const pool = PARTNER_LIST.filter((x) => !list.includes(x.id) && (L.rej[x.id] || 0) < 3 && !gone.has(x.id) && !npcBlock(game, x.id, p.id));
+  const pool = PARTNER_LIST.filter((x) => !list.includes(x.id) && (!L.married || !L.partner || x.id !== L.partner.id) && (L.rej[x.id] || 0) < 3 && !gone.has(x.id) && !npcBlock(game, x.id, p.id));
   while (list.length < 3 && pool.length) {
     const gs = list.map((id) => (partnerById(id) || { g: "F" }).g), slots = 3 - list.length, needF = !gs.includes("F"), needM = !gs.includes("M"), need = (needF ? 1 : 0) + (needM ? 1 : 0);
     let c = pool;
@@ -183,13 +193,12 @@ function genOptions(game, p, day, keep, salt) {
 }
 export function ensureOptions(game, p, day) {
   const L = ensureLife(game, p);
-  if (L.married) { L.opts = null; return []; }
   if (!L.opts || L.opts.day !== day || L.opts.season !== game.season) L.opts = { day, season: game.season, ids: genOptions(game, p, day, [], 0), gone: [], n: 0 };
   return L.opts.ids;
 }
 // "Not interested": counts against that person; a replacement takes the slot.
 export function declineDate(game, p, pid) {
-  const L = ensureLife(game, p); if (L.married || !L.opts || !L.opts.ids.includes(pid)) return false;
+  const L = ensureLife(game, p); if (!L.opts || !L.opts.ids.includes(pid)) return false;
   L.rej[pid] = (L.rej[pid] || 0) + 1;
   L.opts.gone.push(pid); L.opts.ids = L.opts.ids.filter((x) => x !== pid); L.opts.n++;
   L.opts.ids = genOptions(game, p, L.opts.day, L.opts.ids, L.opts.n);
@@ -267,9 +276,9 @@ const STORIES = [
     build: (c) => ({ head: `TROUBLE IN PARADISE FOR ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}`, sub: `Another late night out and a very quiet breakfast. Friends say "they are working through it". The dog has picked a side.`, fx: { fol: 700, love: -30 } }) },
   { id: "jet", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "✈️", when: (c) => c.act === "train" && c.L.own.plane && !c.L.flags.jet,
     build: (c) => ({ head: `${c.p.name.toUpperCase()} LANDS PRIVATE JET AT TRAINING GROUND`, sub: `Groundstaff were "mildly concerned" as the plane taxied past the cones. The gaffer is not amused. The fans are.`, fx: { fol: 1800 }, flag: "jet" }) },
-  { id: "yachtdate", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛥️", when: (c) => c.act === "date" && !!c.L.own.yacht && c.L.partner && c.L.partner.dates >= 3 && !c.L.flags.yachtdate,
+  { id: "yachtdate", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛥️", when: (c) => c.act === "date" && !(c.date && c.date.secret) && !!c.L.own.yacht && c.L.partner && c.L.partner.dates >= 3 && !c.L.flags.yachtdate,
     build: (c) => ({ head: `LOVE ON THE WATER: ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}`, sub: `A sunset, a very long deck and one tiny sofa. Photographers on jet skis got the shots.`, fx: { fol: 1100, love: 8 }, flag: "yachtdate" }) },
-  { id: "kebab", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🍟", when: (c) => c.act === "date" && !!c.L.partner && !c.L.flags.kebab,
+  { id: "kebab", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🍟", when: (c) => c.act === "date" && !(c.date && c.date.secret) && !!c.L.partner && !c.L.flags.kebab,
     build: (c) => ({ head: `CHIPS AND LOVE: ${c.p.name.toUpperCase()} SPOTTED WITH ${partnerOf(c.L).toUpperCase()}`, sub: `Sharing a tray of chips at 11pm. Staff say the ${club(c.game, c.p)} ${c.p.pos} tipped well and asked for extra sauce.`, fx: { fol: 800 }, flag: "kebab" }) },
   { id: "owner", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🎧", when: (c) => c.act === "party" && !!nightclub(c.L) && !c.L.flags.owner,
     build: (c) => ({ head: `OWNER'S SET: ${c.p.name.toUpperCase()} TAKES OVER THE DECKS AT ${(c.L.clubName || "OFFSIDE").toUpperCase()}`, sub: `A 3am set of nothing but stadium anthems goes viral. Management (also ${c.p.name}) approve the overtime.`, fx: { fol: 2500 }, flag: "owner" }) },
@@ -279,6 +288,32 @@ const STORIES = [
     build: (c) => ({ head: `GYM RAT ALERT: ${c.p.name.toUpperCase()} LOCKED IN THE GYM`, sub: `Cleaners found ${him(c.p)} still doing calf raises at midnight. The floodlights were switched off "as a hint".`, fx: { fol: 500 }, flag: "gym" }) },
   { id: "wild", prio: 1, chance: (c) => c.P.chance.wild, kind: "party", icon: "🍾", when: (c) => c.act === "party",
     build: (c, r) => ({ head: pick(r, [`WILD NIGHT OUT: ${c.p.name.toUpperCase()} SPOTTED AT 4AM`, `${c.p.name.toUpperCase()} DANCES ON A TABLE. IT HOLDS.`, `STARS OUT: ${c.p.name.toUpperCase()} LEADS THE CONGA LINE`]), sub: pick(r, [`Witnesses say the ${club(c.game, c.p)} ${c.p.pos} was "in great spirits" and had lost one shoe.`, `Fans filmed it all. The group chat has not recovered.`, `A kebab was involved. So was a traffic cone.`]), fx: { fol: 1500 } }) },
+  // ---- more nights out: the more a footballer goes out, the more the papers have to say ----
+  { id: "habit", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "tmz", icon: "🪩", when: (c) => c.act === "party" && c.L.cnt.party >= 3 && !c.L.flags.habit,
+    build: (c, r) => ({ head: pick(r, [`${c.p.name.toUpperCase()} OUT AGAIN: THE ${ordinal(c.L.cnt.party).toUpperCase()} NIGHT THIS SEASON`, `IS ${c.p.name.toUpperCase()} EVER AT HOME?`, `PARTY ANIMAL ALERT: ${c.p.name.toUpperCase()} HAS A TABLE AT EVERY CLUB IN TOWN`]), sub: pick(r, [`The ${club(c.game, c.p)} ${c.p.pos} was seen leaving at 5am with a pizza box, one shoe and a bouncer's hat. ${he(c.p)} says ${he(c.p).toLowerCase()} "was networking". Nobody asked who with.`, `Door staff now greet ${him(c.p)} by name and the cloakroom has stopped asking for a ticket. A source says the DJ plays ${his(c.p)} song by default.`, `Fans have started a spreadsheet. It has columns for the venue, the time and "approximate hydration". It is on version nine.`]), fx: { fol: 1200 }, flag: "habit" }) },
+  { id: "bounce", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "sun", icon: "🚪", when: (c) => c.act === "party" && c.L.cnt.party >= 4 && !c.L.flags.bounce,
+    build: (c, r) => ({ head: pick(r, [`BOUNCER SAYS NO: ${c.p.name.toUpperCase()} TURNED AWAY AT THE DOOR`, `"NOT TONIGHT, ${c.p.name.split(" ").slice(-1)[0].toUpperCase()}": THE QUEUE FILMS IT ALL`]), sub: pick(r, [`${c.p.name} offered an autograph, a signed shirt and, at one point, a hug. The doorman said the dress code was "shoes, ideally two". ${he(c.p)} got in via the kitchen.`, `A queue of two hundred cheered as the ${club(c.game, c.p)} ${c.p.pos} was asked to "step to the side, mate". The video has more views than the match highlights.`]), fx: { fol: 1000 }, flag: "bounce" }) },
+  { id: "tab", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "sun", icon: "🧾", when: (c) => c.act === "party" && c.L.cnt.party >= 5 && !c.L.flags.tab,
+    build: (c, r) => ({ head: pick(r, [`THE BILL: ${c.p.name.toUpperCase()}'S NIGHT OUT COSTS MORE THAN A RIGHT-BACK`, `${c.p.name.toUpperCase()} LEAVES A TIP THAT IS ALSO A TRANSFER FEE`]), sub: pick(r, [`One bottle came with sparklers, a second came with a small ceremony. The receipt has been framed by the waiter and pinned above the till. ${c.p.name} "doesn't remember the second half".`, `Staff report a tab of "more zeroes than the scoreboard on a bad day". The ${club(c.game, c.p)} finance department is "not mad, just disappointed".`]), fx: { fol: 1400, coins: -15 }, flag: "tab" }) },
+  { id: "stagedive", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "tmz", icon: "🎤", when: (c) => c.act === "party" && c.L.cnt.party >= 6 && !c.L.flags.stagedive,
+    build: (c, r) => ({ head: pick(r, [`${c.p.name.toUpperCase()} JOINS THE BAND, THEN THE CROWD`, `TAKE THE MIC AWAY: ${c.p.name.toUpperCase()}'S KARAOKE REVIVAL OF A BREAKUP SONG`]), sub: pick(r, [`Footage shows ${c.p.name} stage-diving into a crowd that had clearly not agreed to it. A man in a kilt was "very understanding". The band wants ${him(c.p)} to stop and also to come back.`, `${he(c.p)} sang something about "a defender who did me wrong". Nobody knows which one. Several defenders have been in touch.`]), fx: { fol: 1800 }, flag: "stagedive" }) },
+  { id: "walk", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "tmz", icon: "🥾", when: (c) => c.act === "party" && c.L.cnt.party >= 2 && !c.L.flags.walk,
+    build: (c, r) => ({ head: pick(r, [`WALK OF SHAME: ${c.p.name.toUpperCase()} PAPPED IN LAST NIGHT'S KIT`, `${c.p.name.toUpperCase()} OUT AT 7AM IN SUNGLASSES AND ONE SOCK`]), sub: pick(r, [`The ${club(c.game, c.p)} ${c.p.pos} was caught on camera leaving a flat "that was not mine", holding a stranger's jacket and a loaf of bread. The bread is, apparently, "a long story".`, `A paparazzo at a petrol station: "Best shot of the year. He asked me for a lift." ${c.p.name}'s agent says ${he(c.p).toLowerCase()} was "on a motivational run". In heels.`]), fx: { fol: 1300 }, flag: "walk" }) },
+  { id: "pplus", prio: 1, chance: (c) => c.P.chance.party2, kind: "party", src: "tmz", icon: "🍸", when: (c) => c.act === "party" && !!c.L.partner && !c.L.flags.pplus,
+    build: (c, r) => ({ head: pick(r, [`${c.p.name.toUpperCase()} PARTIES WHILE ${partnerOf(c.L).toUpperCase()} WAITS AT HOME`, `"I'LL BE HOME BY TEN": ${c.p.name.toUpperCase()}, AT TWO`]), sub: pick(r, [`${partnerOf(c.L)} has left four voicemails and a note on the fridge that just says "no". Friends say the relationship "has had a lot of nights like this".`, `The takeaway ${partnerOf(c.L)} ordered for two was eaten by one. ${c.p.name} walked in at dawn with a straw hat and a story. The story is not good.`]), fx: { fol: 900, love: -4 }, flag: "pplus" }) },
+  // ---- dating gossip: the tabloids love a couple ----
+  { id: "newlove", prio: 1, chance: (c) => c.P.chance.gossip, kind: "fun", src: "tmz", icon: "💘", when: (c) => c.act === "date" && !!c.date && !c.date.secret && (c.L.dated[c.date.id] || 0) === 1 && !c.L.flags.newlove,
+    build: (c, r) => ({ head: pick(r, [`NEW LOVE? ${c.p.name.toUpperCase()} AND ${c.date.name.toUpperCase()} SPOTTED TOGETHER`, `WHO IS ${c.date.name.toUpperCase()}? ${c.p.name.toUpperCase()}'S MYSTERY DINNER DATE`]), sub: pick(r, [`They shared a dessert, a very long glance and, according to the waiter, "the kind of silence that costs a lot". A photographer in the plant pot has the pictures.`, `${c.p.name} and ${c.date.name} left separately, in the same taxi. The taxi driver has a podcast now.`]), fx: { fol: 1000 }, flag: "newlove" }) },
+  { id: "baddate", prio: 1, chance: (c) => c.P.chance.gossip, kind: "fun", src: "tmz", icon: "🥶", when: (c) => c.act === "date" && !!c.date && !c.date.secret && !c.date.good && !c.L.flags.baddate,
+    build: (c, r) => ({ head: pick(r, [`DATE DISASTER: ${c.date.name.toUpperCase()} WALKS OUT ON ${c.p.name.toUpperCase()} BETWEEN COURSES`, `AWKWARD: ${c.p.name.toUpperCase()}'S DATE WITH ${c.date.name.toUpperCase()} GOES FULL OFFSIDE TRAP`]), sub: pick(r, [`Diners say ${c.p.name} spent twenty minutes on the offside rule, then forty on ${his(c.p)} own highlights. ${c.date.name} "asked for the bill, and a different life".`, `A waiter reports "three attempts at a compliment, two at a joke and one at a magic trick". ${c.date.name} left through the kitchen. ${c.p.name} finished both desserts.`]), fx: { fol: 1100, love: -3 }, flag: "baddate" }) },
+  { id: "sparks", prio: 1, chance: (c) => c.P.chance.gossip, kind: "fun", src: "tmz", icon: "🔥", when: (c) => c.act === "date" && !!c.date && !c.date.secret && c.date.good && (c.L.dated[c.date.id] || 0) >= 4 && !c.L.flags.sparks,
+    build: (c, r) => ({ head: pick(r, [`SPARKS FLY: ${c.p.name.toUpperCase()} AND ${c.date.name.toUpperCase()} CAN'T KEEP THEIR HANDS OFF EACH OTHER`, `GET A ROOM: ${c.p.name.toUpperCase()} AND ${c.date.name.toUpperCase()} AT THE CORNER TABLE`]), sub: pick(r, [`The couple were asked to leave a rooftop bar "for the sake of the other diners, and the plants". Both say it was "an unusually warm evening". It was snowing.`, `A fellow diner: "I came for the tapas and got a rom-com." ${c.p.name} and ${c.date.name} left a very large tip and a slightly smaller coat.`]), fx: { fol: 1400, love: 4 }, flag: "sparks" }) },
+  { id: "ringshop", prio: 2, chance: (c) => c.P.chance.gossip, kind: "wedding", src: "tmz", icon: "💍", when: (c) => !!c.L.partner && !c.L.married && !!c.L.partner.excl && (c.L.dated[c.L.partner.id] || 0) >= c.P.wedding.dates - 1 && !c.L.flags.ringshop,
+    build: (c, r) => ({ head: pick(r, [`RING SHOPPING? ${c.p.name.toUpperCase()} SPOTTED IN A JEWELLER'S`, `${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}: IS A PROPOSAL COMING?`]), sub: pick(r, [`The ${club(c.game, c.p)} ${c.p.pos} spent forty minutes in a Mayfair jeweller's "holding things up to the light and sweating". The sales assistant says ${he(c.p).toLowerCase()} asked if there was "a student discount".`, `A source says ${c.p.name} "has been practising a speech in the shower". The shower has declined to comment.`]), fx: { fol: 1600 }, flag: "ringshop" }) },
+  { id: "coldwar", prio: 2, chance: (c) => c.P.chance.gossip, kind: "trouble", src: "tmz", icon: "🧊", when: (c) => !!c.L.partner && committed(c.L) && (c.L.partner.cold || 0) >= 2 && !c.L.flags.coldwar,
+    build: (c, r) => ({ head: pick(r, [`THE COLD WAR: ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()} HAVEN'T BEEN SEEN TOGETHER IN WEEKS`, `IS IT OVER? ${partnerOf(c.L).toUpperCase()} UNFOLLOWS HALF OF ${c.p.name.toUpperCase()}'S FRIENDS`]), sub: pick(r, [`The ${club(c.game, c.p)} ${c.p.pos} was seen at a petrol station "buying the saddest bunch of flowers imaginable". ${partnerOf(c.L)}'s friends say it "needs more than a bunch of flowers".`, `${partnerOf(c.L)} has deleted every photo with ${c.p.name}, kept the one with the dog and, in a bold move, kept the dog.`]), fx: { fol: 800 }, flag: "coldwar" }) },
+  { id: "holiday", prio: 1, chance: (c) => c.P.chance.gossip, kind: "fun", src: "tmz", icon: "🏝️", when: (c) => c.act === "date" && !!c.date && !c.date.secret && c.L.married && !c.L.flags.holiday,
+    build: (c, r) => ({ head: pick(r, [`LOVE ON THE BEACH: ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()} ON A WEEKEND AWAY`, `SECOND HONEYMOON? ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()} SPOTTED IN A VERY SMALL HOTEL ROOM`]), sub: pick(r, [`The married couple were snapped at a spa, in matching robes, looking "suspiciously relaxed" and "like people who aren't checking their phones". The ${club(c.game, c.p)} physio is delighted.`, `A fellow guest: "They ordered room service four times and the Do Not Disturb sign has been up since Friday." The pictures are, regrettably, tasteful.`]), fx: { fol: 1500, love: 5 }, flag: "holiday" }) },
   // ---- style press: GQ, Harper's Bazaar and Vogue only write about the properly famous (one piece per magazine per season) ----
   { id: "gq", prio: 2, chance: (c) => c.P.chance.style, kind: "style", src: "gq", icon: "🕴️", when: (c) => c.L.fol >= c.P.style.gq && !c.L.flags["gq" + c.game.season],
     build: (c, r) => ({ head: pick(r, [`GQ BEST DRESSED: ${c.p.name.toUpperCase()} MAKES THE LIST`, `${c.p.name.toUpperCase()} IN GQ: "THE SUIT THAT LAUNCHED A THOUSAND TRANSFER RUMOURS"`, `GQ PROFILE: ${c.p.name.toUpperCase()} ON TAILORING, TUNNELS AND TRAINERS`]), sub: pick(r, [`${club(c.game, c.p)}'s ${c.p.pos} poses in a double-breasted blazer and says ${he(c.p).toLowerCase()} "only wears things ${he(c.p).toLowerCase()} could sprint in". Fans have counted the buttons.`, `Eight pages, one watch, no shin pads. The shoot reportedly ran two hours over because ${he(c.p).toLowerCase()} kept asking the photographer about the offside rule.`, `Style editors call it "football's quiet luxury". The ${club(c.game, c.p)} kit man calls it "a lot of dry cleaning".`]), flag: "gq" + c.game.season, fx: { fol: 2500 } }) },
@@ -317,9 +352,17 @@ const STORIES = [
       return { head: `${b.name.toUpperCase()} V ${c.p.name.toUpperCase()}: THE BOOT WAR IS ON`, sub: f.why === "breach" ? `${c.p.name} was seen in ${b.name} boots while under contract with ${brandById(f.other).name}. Lawyers, a fine and a lot of thumbs-down emojis are in play.` : pick(r, [`${b.name} are "disappointed" ${c.p.name} chose ${brandById(f.other).name}. Their billboard now just says "WE REMEMBER". It is outside the training ground.`, `${b.name}'s marketing chief called ${brandById(f.other).name} "a fancy sock company" on live TV. ${c.p.name} replied with one eyebrow.`]), fx: { fol: f.why === "breach" ? 1200 : 3000, coins: f.why === "breach" ? -c.P.breachFine : 0 } }; } },
 ];
 // Which paper or magazine carries each kind of story (public/assets/sources/<id>.png). A story can name its own with `src`.
-export const SOURCE_OF = { party: "sun", drunk: "sun", camera: "sun", trouble: "sun", rumour: "sun", fun: "sun", club: "sun", troll: "athletic", boring: "athletic", proud: "athletic", milestone: "athletic", sponsor: "telegraph", yacht: "telegraph", wedding: "telegraph", steroids: "lequipe", trophy: "lequipe", style: "gq" };
+export const SOURCE_OF = { party: "sun", drunk: "sun", camera: "tmz", trouble: "tmz", dm: "tmz", rumour: "sun", fun: "sun", club: "sun", troll: "athletic", boring: "athletic", proud: "athletic", milestone: "athletic", sponsor: "telegraph", yacht: "telegraph", wedding: "telegraph", steroids: "lequipe", trophy: "lequipe", style: "gq" };
 const kindIcon = Object.fromEntries(STORIES.map((s) => [s.kind, s.icon]));
 export { kindIcon };
+
+// The tabloid follow-up to a failed party drugs test: what the papers say about the night out that led to it.
+function wadaParty(game, p, r) {
+  const L = ensureLife(game, p), P_ = p.name.toUpperCase(), where = L.own.yacht ? "a yacht party" : nightclub(L) ? `${(L.clubName || "Offside").toUpperCase()}'s VIP booth` : "a very long night out", n = L.cnt.party;
+  return mk(game, p, { force: true, prio: 5, abs: true, kind: "party", src: "tmz", icon: "🍾", head: pick(r, [`PARTY ANIMAL: ${P_} BANNED AFTER NIGHT OUT`, `FROM THE VIP SECTION TO THE SIDELINES: ${P_}`, `${P_}'S WILD NIGHTS CAUGHT UP WITH ${him(p).toUpperCase()}`]),
+    sub: pick(r, [`Insiders say the drugs-test flag followed ${where}, ${n > 1 ? `the ${ordinal(n)} night out this season` : "a night nobody remembers"}. Sources claim ${he(p).toLowerCase()} was "dancing on a banquette and asking strangers if they had seen ${his(p)} other shoe".`, `Witnesses put ${p.name} at ${where} until sunrise, carrying a bottle the size of a toddler. The WADA ban "is a surprise to nobody who owns a phone", says one fan account.`, `Photographs from ${where} are all over the internet. ${p.name} is in most of them. So, regrettably, is a traffic cone. The ${club(game, p)} are "reviewing the situation".`]), fx: { fol: 1500 } });
+}
+const ordinal = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][Math.min(n % 10, 4)] || "th");
 
 // A club buying a nightclub is news on its own.
 export function purchaseStory(game, p, it) {
@@ -388,10 +431,10 @@ export function decideStory(game, id, yes) {
 export const dropPending = (game) => { for (const n of game.news || []) if (n.status === "pending") { n.status = "blocked"; n.approver = null; } };
 
 // Resolve one matchday's choice for one user player. Returns { act, cost, stories, wada }.
-export function runActivity(game, p, act, { day = 0, partner = null, joint = null } = {}) {
+export function runActivity(game, p, act, { day = 0, partner = null, joint = null, secret = false } = {}) {
   const P = game.P.life, L = ensureLife(game, p), R = ensureRom(game);
   game.weekDay = day;
-  if (blocked(game, p, act, { partner, joint })) { act = "balance"; partner = null; joint = null; }
+  if (blocked(game, p, act, { partner, joint, secret })) { act = "balance"; partner = null; joint = null; secret = false; }
   const a = { ...P.acts[act] }, r = makeRng(game.seed, "life", p.id, game.season, day);
   const boost = lifeBoost(game, p, act);                                    // Flowers, Ziplock baggie or Pre-workout: one is used up this week
   if (boost) { p.items[boost.id]--; if (p.items[boost.id] <= 0) delete p.items[boost.id]; if (boost.fx.stam) a.stam += boost.fx.stam; if (boost.fx.love) a.love += boost.fx.love; if (boost.fx.fol) a.fol = Math.round(a.fol * boost.fx.fol); }
@@ -405,7 +448,13 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
   let love = a.love;
   if (act === "party" && L.partner && L.partner.partier) love = P.partyLoveWithPartier;
   let wrong = null, cheat = null, date = null;
-  if (act === "date") {
+  if (act === "date" && secret) {                                           // a secret date: nobody but you knows (yet)
+    const info = personOf(game, partner) || PARTNER_LIST[0];
+    const q = clamp(0.4 + makeRng(game.seed, "sdq", p.id, partner, R.week)() * 0.5 + (boost && boost.fx.love ? 0.15 : 0), 0.05, 1), good = q >= P.rom.goodAt;
+    date = { id: info.id || partner, name: info.name, g: info.g, q: +q.toFixed(2), good, rivals: 0, secret: true };
+    love += good ? 4 : -2;
+    if (!isHuman(partner)) { const n = npcState(game, partner); n.seen.push({ pid: p.id, week: R.week }); if (n.seen.length > 12) n.seen.shift(); }
+  } else if (act === "date") {
     const prev = L.partner, id = L.married && prev ? prev.id : (partner || (prev && prev.id) || (L.opts && L.opts.ids[0]) || PARTNER_LIST[0].id), info = personOf(game, id) || PARTNER_LIST[0];
     const thr = L.thr && thrMembers(game, p).includes(id);
     // quality of the date: luck, flowers, how happy you are, and anyone else who has been taking this person out
@@ -479,10 +528,14 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
     const n = mk(game, p, { kind: s.kind, src: s.src, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
     if (n) { out.push(n); printed = true; }
   }
-  L.last = { act, cost, day, boost: boost ? boost.id : null, trained, date: date ? { name: date.name, good: date.good, q: date.q, rivals: date.rivals } : null };
+  // a flagged test at a party is a gift to the tabloids: the very next headline after the WADA announcement is theirs
+  if (wada) { const f = wadaParty(game, p, r); if (f) out.push(f); }
+  if (secret && date) secretDate(game, p, date, makeRng(game.seed, "heat", p.id, R.week));
+  const lov = loveWeek(game, p, { act, date, secret: !!(secret && date), r });
+  L.last = { act, cost, day, boost: boost ? boost.id : null, trained, date: date ? { name: date.name, good: date.good, q: date.q, rivals: date.rivals, secret: !!date.secret } : null };
   L.act = null;
   boots(game, p, day, r);
-  return { act, cost, stories: out, wada, boost: boost ? boost.id : null, trained, date, cheat, pcheat };
+  return { act, cost, stories: out, wada, boost: boost ? boost.id : null, trained, date, cheat, pcheat, love: lov };
 }
 // The life item that goes with this week's activity (the first one the footballer holds), or null.
 const BOOST_KEY = { flowers: "flowers", "ziplock-baggie": "ziplock", "pre-workout": "pre" };

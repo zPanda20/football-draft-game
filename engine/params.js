@@ -123,6 +123,7 @@ export const DEFAULT_PARAMS = {
     startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
     itemCap: 4,                                     // items a created player can wear in one match
     packs: 3, packCards: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
+    signShare: 1,                                   // share of the signing fee a manager pays that goes to the footballer's own wallet (1 = all of it)
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },
 
@@ -170,10 +171,15 @@ export const DEFAULT_PARAMS = {
         { id: "royal", name: "Wedding of the century", cost: 800, fol: 70000, love: 24, guests: 200, text: "Helicopters, a choir and a documentary crew." },
       ],
     },
+    // Relationships need looking after (engine/affair.js): a bond with the partner that decays when ignored, secret dates (an affair) that build a risk of being caught, and divorce.
+    upkeep: { start: 60, grace: 2, decayExcl: 4, decayMarried: 3, date: { good: 10, ok: 6, bad: 1 }, like: 6, warnAt: 40, leaveAt: 22, leaveExcl: 0.4, leaveMarried: 0.3 },   // bond gains from a date (good/ok/bad) or a thing they enjoy; weeks you can ignore them for free; yearly decay; the partner may walk out under leaveAt
+    affair: { heatDate: 14, heatRand: 8, heatFame: 10, cool: 7, rumourAt: 45, catchFrom: 20, catchK: 1.0, catchMax: 0.85, leaveExcl: 0.7, leaveMarried: 0.55, bondHit: 35, publicDates: 3, publicLove: 40, love: 12 },   // secret dates: risk of being caught climbs with each one and cools off slowly; what happens when caught
+    divorce: { share: 0.2, cool: 3 },                // the one at fault pays this share of their wallet in the settlement
+    dm: { max: 140, leakFol: 1200, subjectFol: 2500, subjectLove: -10, bondHit: 20 },   // a leaked DM: followers for the leaker and the person it came from, what it costs them in love life and with their partner
     beef: { chance: 0.35, replies: { high: { fol: 400, feud: 0, love: 0 }, funny: { fol: 1500, feud: 0.12, love: 0 }, petty: { fol: 1800, feud: 0.5, love: 0 }, rude: { fol: 3200, feud: 0.9, love: -4 }, ignore: { fol: 0, feud: 0, love: 0 } } },
     feudChance: 0.6, breachFine: 40,
-    boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3, perWeek: 1,
-    chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5, style: 0.35 },
+    boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 5, perWeek: 1,
+    chance: { party2: 0.28, gossip: 0.3, wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5, style: 0.35 },
     style: { gq: 40000, bazaar: 100000, vogue: 250000 },    // followers needed before a style magazine writes about the player
   },
   // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----

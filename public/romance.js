@@ -39,6 +39,11 @@ export const romHandlers = {
   wedEditBack() { ui().wedEdit = false; st.render(); },
   propose() { if (!ui().confirmProp) { ui().confirmProp = true; return st.render(); } ui().confirmProp = false; send({ t: "propose" }); },
   propKeep() { ui().confirmProp = false; st.render(); },
+  affairEnd() { send({ t: "affairEnd" }); },
+  affairPublic() { if (!ui().confirmPublic) { ui().confirmPublic = true; return st.render(); } ui().confirmPublic = false; send({ t: "affairPublic" }); },
+  affairKeep() { ui().confirmPublic = false; st.render(); },
+  divorce() { if (!ui().confirmDivorce) { ui().confirmDivorce = true; return st.render(); } ui().confirmDivorce = false; send({ t: "divorce" }); },
+  divorceKeep() { ui().confirmDivorce = false; st.render(); },
   beefReply(a) { send({ t: "beefReply", mode: a.mode }); },
   cerClose() { closeCeremony(); },
 };
@@ -71,11 +76,25 @@ function partnerBox(R, lf) {
   const actions = [];
   if (!q.human && !q.excl && !lf.married) actions.push(`<button class="btn sm pri" data-act="exclAsk" ${q.canExcl && R.open ? "" : "disabled"} title="${esc(q.canExcl ? "Depends on how the dates went and how loyal they are." : q.exclWhy)}">💞 Ask to go exclusive</button>${!q.canExcl && q.exclWhy ? `<span class="tiny mute">${esc(q.exclWhy)}</span>` : ""}`);
   if (q.prop && !R.wed) actions.push(ui().confirmProp ? `<span class="small">Propose to ${esc(q.name)}? Your chances look <b>${esc(q.prop.odds || "")}</b>. If it goes wrong they may leave.</span><button class="btn sm pri" data-act="propose">Yes, propose</button><button class="btn sm" data-act="propKeep">Not yet</button>` : `<button class="btn sm pri" data-act="propose" ${q.prop.can && R.open ? "" : "disabled"} title="${esc(q.prop.can ? "The answer depends on how the relationship has been going." : q.prop.why)}">💍 Propose</button><span class="tiny mute">${q.prop.can ? `Chances look ${esc(q.prop.odds)}` : esc(q.prop.why)}</span>`);
+  if (lf.married) actions.push(ui().confirmDivorce ? `<span class="small">File for divorce from ${esc(q.name)}? ${q.human != null ? "" : "No settlement if you are the one filing."}</span><button class="btn sm bad" data-act="divorce">Yes, divorce</button><button class="btn sm" data-act="divorceKeep">Stay married</button>` : `<button class="btn sm ghost" data-act="divorce">File for divorce</button>`);
   if (q.excl && !lf.married) actions.push(ui().confirmBreak ? `<span class="small">Really end it with ${esc(q.name)}?</span><button class="btn sm bad" data-act="breakUp">Yes, break up</button><button class="btn sm" data-act="breakKeep">Stay together</button>` : `<button class="btn sm ghost" data-act="breakUp" ${R.open ? "" : "disabled"}>Break up</button>`);
   return `<div class="relbox partner">${face(q, 58)}<div class="grow"><div class="row wrap" style="gap:8px"><b>${esc(q.name)}</b><span class="pill">${status}</span>${loy}</div>
     <div class="small mute mt">${q.dates} date${q.dates === 1 ? "" : "s"} · ${q.good} good · <span class="rq ${tier}">dates going ${tier === "great" ? "great" : tier === "good" ? "well" : "shakily"}${q.n ? ` (${q.avg}%)` : ""}</span>${q.cheated ? ` · <span style="color:var(--bad)">cheated ${q.cheated}×</span>` : ""}</div>
+    <div class="bondrow mt"><span class="small">Bond</span><span class="bondbar ${q.bond < 25 ? "bad" : q.bond < 40 ? "warn" : ""}"><i style="width:${Math.max(3, q.bond)}%"></i></span><b class="small">${q.bond}</b><span class="tiny ${q.bond < 40 ? "dn" : "mute"}">${esc(q.bondWord)}</span></div>
+    <div class="tiny mute">${q.like ? `They enjoy ${esc(q.like)}: a week doing that counts as time together. ` : ""}${q.committed ? `Dates raise the bond. Ignore them for a few weeks and it slowly drops: ${q.human != null ? "you may drift apart" : "they may walk out, or divorce you"}.` : ""}${q.bond < 40 && q.committed ? ` <b style="color:var(--bad)">${esc(q.name)} feels ignored.</b>` : ""}</div>
     ${q.rivals && q.rivals.length ? `<div class="tiny" style="color:var(--warn,#e9b44c)">Also seeing: ${q.rivals.map(esc).join(", ")}. It makes dates awkward and going exclusive harder.</div>` : ""}
     ${actions.length ? `<div class="row wrap mt" style="gap:8px">${actions.join("")}</div>` : ""}</div></div>`;
+}
+// The affair: a secret second track. The danger meter is how likely the next week is to end in the papers.
+function affairBox(R, lf) {
+  const a = R.affair; if (!a) return "";
+  const q = R.partner, tone = a.heat >= 75 ? "bad" : a.heat >= 50 ? "warn" : "";
+  const pub = a.canPublic ? (ui().confirmPublic ? `<span class="small">Leave ${esc(q ? q.name : "them")} for ${esc(a.name)}? It will be in every paper.</span><button class="btn sm bad" data-act="affairPublic">Yes, go public</button><button class="btn sm" data-act="affairKeep">Not yet</button>` : `<button class="btn sm" data-act="affairPublic" ${R.open ? "" : "disabled"}>💔 Leave ${esc(q ? q.name : "them")} for ${esc(a.name)}</button>`) : "";
+  return `<div class="relbox affair">${face(a, 46)}<div class="grow"><div class="row wrap" style="gap:8px"><b>🕵️ Secret: ${esc(a.name)}</b><span class="pill">${a.dates} secret date${a.dates === 1 ? "" : "s"}</span>${a.active ? "" : `<span class="pill">Over</span>`}</div>
+    <div class="bondrow mt"><span class="small">Feelings</span><span class="bondbar"><i style="width:${Math.max(3, a.love)}%"></i></span><b class="small">${a.love}</b></div>
+    <div class="bondrow"><span class="small" style="color:var(--bad)">Danger</span><span class="bondbar heat ${tone}"><i style="width:${Math.max(3, a.heat)}%"></i></span><b class="small">${a.heat}%</b><span class="tiny ${tone ? "dn" : "mute"}">${esc(a.word)}${a.chance ? ` · about ${a.chance}% to be caught next week` : ""}</span></div>
+    <div class="tiny mute">Every secret date raises the danger, and being famous makes it worse. It cools a little each week you stay away. If you are caught the papers print it, ${q && R.partner && R.partner.committed ? `${esc(q.name)} may leave you` : "your partner may leave you"}, and the bond takes a hit${q && lf.married ? ". Married? That can mean divorce" : ""}.</div>
+    <div class="row wrap mt" style="gap:8px">${a.active ? `<button class="btn sm ghost" data-act="affairEnd">End it</button>` : ""}${pub}</div></div></div>`;
 }
 function peopleList(R, lf, pm) {
   if (!R.people.length) return `<div class="small mute">No other footballers in this lobby.</div>`;
@@ -127,7 +146,7 @@ export function relPanel(S) {
   const outs = out ? `<div class="tiny mute mt">Waiting for an answer from: ${R.outgoing.map((r) => esc(r.who.name)).join(", ")}</div>` : "";
   return `<div class="card relp"><div class="row wrap" style="gap:8px"><h3 style="margin:0">Relationships</h3>${mine ? `<span class="pill bad">${mine} request${mine === 1 ? "" : "s"}</span>` : ""}<div class="grow"></div>${R.note ? `<span class="small" style="color:var(--acc)">${esc(R.note)}</span>` : ""}</div>
     ${beefCard(R)}${requestsIn(R)}
-    <div class="mt">${partnerBox(R, lf)}</div>${thr}${weddingBox(R, lf, pm)}${outs}
+    <div class="mt">${partnerBox(R, lf)}</div>${affairBox(R, lf)}${thr}${weddingBox(R, lf, pm)}${outs}
     <h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${feudLine(R, S)}
     <p class="tiny mute mt">Dating a listed person is shared: if another footballer is exclusive with them, they are off everyone else's list. Going out with someone else while exclusive is a cheating scandal.</p></div>`;
 }

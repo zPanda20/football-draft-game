@@ -27,8 +27,8 @@ export function plateTile(p, on, flash = false) {
   const cl = st.clubBy[p.clubs[0]];
   if (!on) return `<div class="plate locked"><span class="pl-lock">🔒</span><b>???</b><span class="tiny">${esc(p.hint)}</span></div>`;
   const sw = p.clubs.slice(0, 4).map((s) => st.clubBy[s]).filter(Boolean);
-  const art = p.kind === "club" && cl ? crestOfClub(cl, 34) : `<span class="pl-sw">${sw.map((c) => `<i style="background:${c.c1}"></i>`).join("") || "<i></i>"}</span>`;
-  return `<div class="plate on ${flash ? "flash" : ""}">${art}<b>${esc(p.name)}</b><span class="tiny">${p.kind === "pack" ? `${p.clubs.length} clubs` : p.kind === "throwbacks" ? "Throwback shirts on every club" : p.kind === "variant" ? "Alternate away kit" : "Club colours"}</span></div>`;
+  const art = p.kind === "portrait" ? `<span class="pl-por">${(p.faces || []).map((f) => `<img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="34" height="34">`).join("")}</span>` : p.kind === "club" && cl ? crestOfClub(cl, 34) : `<span class="pl-sw">${sw.map((c) => `<i style="background:${c.c1}"></i>`).join("") || "<i></i>"}</span>`;
+  return `<div class="plate on ${flash ? "flash" : ""}">${art}<b>${esc(p.name)}</b><span class="tiny">${p.kind === "pack" ? `${p.clubs.length} clubs` : p.kind === "throwbacks" ? "Throwback shirts on every club" : p.kind === "variant" ? "Alternate away kit" : p.kind === "portrait" ? "Footballer portraits (player mode)" : "Club colours"}</span></div>`;
 }
 
 // ---------- the unlock reveal: thunder, lightning, the plate slams down ----------

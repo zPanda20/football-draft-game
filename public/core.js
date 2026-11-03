@@ -68,7 +68,7 @@ export function avatar(code, size = 56, g = "M") {
   const back = h === 2 || h === 3 ? hair : "";
   return `<svg class="avatar" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="rgba(255,255,255,.14)"/><path d="M10 62c1-12 9-17 22-17s21 5 22 17z" fill="${g === "F" ? "#c0508a" : "#2c6cb0"}"/><rect x="27" y="36" width="10" height="11" rx="4" fill="${sk}"/>${back}<ellipse cx="32" cy="29" rx="12" ry="14" fill="${sk}"/>${h === 3 ? "" : h === 2 ? "" : hair}<circle cx="27.5" cy="29" r="1.5" fill="#1b1612"/><circle cx="36.5" cy="29" r="1.5" fill="#1b1612"/><path d="M27.5 35c2.5 2.4 6.5 2.4 9 0" stroke="#1b1612" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
 }
-export const faceOf = (img, size = 56, g = "M") => (img && img.startsWith("f:") ? `<img class="avatar" src="/assets/faces/${encodeURIComponent(img.slice(2))}" width="${size}" height="${size}" alt="">` : avatar(img, size, g));
+export const faceOf = (img, size = 56, g = "M") => (img && img.startsWith("p:") ? `<img class="avatar" src="/assets/portraits/${encodeURIComponent(img.slice(2))}" width="${size}" height="${size}" alt="">` : img && img.startsWith("f:") ? `<img class="avatar" src="/assets/faces/${encodeURIComponent(img.slice(2))}" width="${size}" height="${size}" alt="">` : avatar(img, size, g));
 export function flag(nat) {
   if (nat === "England") return tag("gbeng"); if (nat === "Scotland") return tag("gbsct");
   const c = ISO[nat]; return c ? String.fromCodePoint(...[...c].map((x) => 0x1f1e6 + x.charCodeAt(0) - 65)) : "🏳️";

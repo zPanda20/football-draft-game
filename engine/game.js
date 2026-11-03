@@ -73,6 +73,7 @@ export function autoFill(game) {
 // Team items come from the team's stock (a manager's own pick in team.active, or the CPU rule). Player items go to
 // one wearer: the manager's choice in team.equip, else the best attacker. Banned items (steroids) never go to anyone
 // unless a wearer was chosen. Created players can also wear items from their own wallet (p.equip).
+export const isBoots = (id) => /^boots-/.test(id || "");
 export function activeFx(team, lineup, game) {
   const P = game.P, fx = { team: {}, player: {}, used: [], usedPlayer: [], doped: [] };
   const inLine = new Set([lineup.gk, ...lineup.out].filter((x) => x != null));
@@ -82,7 +83,7 @@ export function activeFx(team, lineup, game) {
     : game.items.filter((i) => has(i) && !i.banned).sort((a, b) => b.price - a.price).slice(0, P.items.activeCap);
   const outfield = lineup.out.map((id, i) => ({ id, w: id == null ? 0 : SLOT_W[FORMATIONS[lineup.formation][i]][0] })).filter((x) => x.id != null).sort((a, b) => b.w - a.w);
   const addP = (id, it) => { const o = (fx.player[id] = fx.player[id] || {}); for (const [k, v] of Object.entries(it.fx)) o[k] = (o[k] || 0) + v; };
-  let boot = 0;
+  let boot = 0; const shod = new Set();   // a footballer wears one pair of boots in a match, whoever bought them
   for (const it of owned) {
     if (it.scope === "team") { fx.used.push(it.id); for (const [k, v] of Object.entries(it.fx)) fx.team[k] = (fx.team[k] || 0) + v; continue; }
     const want = team.equip ? team.equip[it.id] : null;
@@ -90,6 +91,7 @@ export function activeFx(team, lineup, game) {
     if (want != null) { if (inLine.has(+want) && !(game.players[+want] && game.players[+want].susp > 0)) id = +want; }
     else if (!it.banned && outfield[boot]) id = outfield[boot++].id;
     if (id == null) continue;
+    if (isBoots(it.id)) { if (shod.has(id)) continue; shod.add(id); }
     fx.used.push(it.id); addP(id, it); if (it.banned) fx.doped.push(id);
   }
   for (const id of inLine) {
@@ -98,6 +100,7 @@ export function activeFx(team, lineup, game) {
     for (const iid of p.equip) {
       const it = game.items.find((i) => i.id === iid);
       if (!it || it.scope !== "player" || !((p.items || {})[iid] > 0) || n >= P.player.itemCap) continue;
+      if (isBoots(iid)) { if (shod.has(id)) continue; shod.add(id); }
       n++; addP(id, it); fx.usedPlayer.push({ pid: id, id: iid }); if (it.banned) fx.doped.push(id);
     }
   }

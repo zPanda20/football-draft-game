@@ -653,3 +653,15 @@ body[data-pm="1"] .page{grid-template-columns:minmax(0,1fr)}body[data-pm="1"] .s
 @media(max-height:860px) and (max-width:1100px){.pmcardtile .pcard{zoom:.85}}
 @media(max-width:1100px){.pmgrid{grid-template-columns:minmax(0,1fr);grid-template-areas:"r" "l"}.pmtkbar{padding-right:0}}
 @media(max-width:560px){.pmL2{grid-template-columns:minmax(0,1fr)}}
+
+/* tabloid mini mode: a slim strip instead of the big banner */
+.newsban.mini{min-height:0;padding:7px 14px;border-bottom-width:2px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.newsban.mini .nb-top{gap:10px;letter-spacing:.04em;text-transform:none}.newsban.mini .nb-mh{flex:1;min-width:0;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.newsban.mini .nb-x{margin-left:auto}
+/* relationships: the bond and the affair danger meters */
+.bondrow{display:flex;align-items:center;gap:8px}.bondbar{flex:1;max-width:220px;height:8px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}.bondbar i{display:block;height:100%;background:linear-gradient(90deg,#42e695,#3bb2b8)}
+.bondbar.warn i{background:linear-gradient(90deg,#e9b44c,#f08a4b)}.bondbar.bad i{background:linear-gradient(90deg,#ff5d5d,#c4204a)}.bondbar.heat i{background:linear-gradient(90deg,#e9b44c,#ff5d5d)}
+.relbox.affair{border-color:rgba(255,93,93,.55);background:linear-gradient(180deg,rgba(255,93,93,.08),transparent)}.relbox.affair .bondrow{margin-top:4px}
+.secretrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.datec.secret{border-color:rgba(255,93,93,.5)}
+.dmline{background:rgba(120,80,200,.14);border-left:3px solid #9b7bff;padding:3px 6px;border-radius:4px;margin:2px 0}.dmline .dmtag{font-size:10px;letter-spacing:.08em;color:#b9a3ff}.dmsel{max-width:150px}.leakbtn{padding:0 8px;margin-left:4px}
+.pl-por{display:inline-flex;gap:4px}.pl-por img{border-radius:50%;border:1px solid rgba(255,255,255,.35)}

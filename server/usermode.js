@@ -5,6 +5,7 @@ import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, reviseUserPl
 import { findPlate } from "../engine/unlocks.js";
 import { feeFor, rosterRoom, maxLen } from "../engine/market.js";
 import { ensureLife, ensureRom, npcState, npcBlock, otherSuitors, isHuman, personOf, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub, thrMembers, leaveThr } from "../engine/life.js";
+import { bondOf, bondWord, likeText, likeOf, affairView, endAffair, leaveForAffair, divorce, committed, leakDM } from "../engine/affair.js";
 import { sendRequest, replyRequest, cancelJoint, askExclusive, breakUp, revealLoyalty, loyaltyWord, exclusiveState, avgQ, goodDates, planWedding, cancelWedding, answerPlan, withdrawPlan, propose, proposalState, proposalChance, oddsWord, holdWeddings, replyBeef, newWeek, tierOf } from "../engine/romance.js";
 
 const P0 = withParams({});
@@ -41,6 +42,7 @@ export const usermodeMethods = {
     const pool = this.settings.pool;
     if (c.gender === "F" || c.gender === "M") p.char.gender = pool === "female" ? "F" : pool === "male" ? "M" : c.gender;
     if (typeof c.img === "string" && /^(\d-\d-\d|f:[\w.-]{1,40})$/.test(c.img)) p.char.img = c.img;
+    else if (typeof c.img === "string" && /^p:[\w.-]{1,40}$/.test(c.img) && (this.D.plates || []).some((pl) => pl.kind === "portrait" && p.unlocks && p.unlocks.has(pl.id) && (pl.faces || []).includes(c.img.slice(2)))) p.char.img = c.img;   // a thunder-plate portrait: only once its plate is unlocked
     this.syncChar(p);
   },
   // The host changed the pool: footballers who no longer fit the league switch to the gender it uses.
@@ -94,6 +96,7 @@ export const usermodeMethods = {
     if (paid === false && o.from === "cpu") paid = signUserCpu(g, p, o.team, o.len, o.fee);       // a computer club stands by its offer
     if (paid === false) { o.status = "failed"; o.why = rosterRoom(g.teams[o.team], g.P) <= 0 ? "Their squad is full now." : "They can no longer afford the fee."; return this.changed(); }
     o.status = "accepted";
+    if (p.signing && p.signing.bonus > 0) this.privateNote(p.id, `Signed for ${g.teams[o.team].name}: ${p.signing.bonus} coins signing money paid into your wallet.`);
     for (const x of this.offers) if (x.pid === p.id && x !== o && x.status === "open") x.status = "closed";
     this.pushFeed({ kind: "signed", team: o.team, id: p.id, len: o.len, paid });
     this.changed();
@@ -165,12 +168,17 @@ export const usermodeMethods = {
   userPlayers() { return [...this.players.values()].filter((p) => this.isPlayerMode(p) && p.pid != null); },
   // Someone who is here and has not picked this week's activity yet.
   lifeOpen() { return this.userPlayers().some((u) => u.connected && !u.auto && !ensureLife(this.game, this.game.players[u.pid]).act); },
-  chooseActivity(token, act, partner) {
+  chooseActivity(token, act, partner, secret) {
     const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || this.step !== "md.lineup") return;
     const g = this.game, p = g.players[u.pid], L = ensureLife(g, p);
     if (L.act && L.act.joint) cancelJoint(g, p);                       // changing your mind frees the footballer you were going out with
     if (act == null) { L.act = null; return this.changed(); }
     partner = typeof partner === "string" && partner ? partner : null;
+    if (act === "date" && secret) {                                      // a secret date with someone from this week's list
+      ensureOptions(g, p, this.mdIdx);
+      if (isHuman(partner) || blocked(g, p, act, { partner, secret: true })) return;
+      L.act = { act, partner, secret: true }; this.changed(); return this.maybeGo();
+    }
     if (act === "date" && !L.married) {
       const ids = ensureOptions(g, p, this.mdIdx);
       if (!partner) partner = L.partner && !isHuman(L.partner.id) && (ids.includes(L.partner.id) || L.partner.excl) ? L.partner.id : ids[0] || null;
@@ -221,6 +229,25 @@ export const usermodeMethods = {
     const res = propose(this.game, me.p);
     me.u.romNote = !res.ok ? res.why : res.yes ? "They said YES! Plan the wedding below." : res.dumped ? `${res.name} said no and ended it.` : `${res.name} needs more time. Try again in about ${res.weeks} weeks.`;
     this.changed();
+  },
+  // An affair: end it, leave your partner for it, or file for divorce.
+  affairEnd(token) { const me = this.romMe(token); if (!me) return; const res = endAffair(this.game, me.p); me.u.romNote = res.ok ? `You ended it with ${res.name}.` : res.why; this.changed(); },
+  affairPublic(token) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = leaveForAffair(this.game, me.p); me.u.romNote = res.ok ? `You left ${res.oldName} for ${res.name}.` : res.why; this.deliver(res); this.changed();
+  },
+  fileDivorce(token) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = divorce(this.game, me.p, { by: "me" }); me.u.romNote = res.ok ? `You filed for divorce from ${res.name}.` : res.why; this.deliver(res); this.changed();
+  },
+  // Show the press a DM somebody sent you. Only the person it was sent to can; once it is out, it is out.
+  leakDM(token, id) {
+    const me = this.romMe(token); if (!me || !this.game) return;
+    const m = this.chat.find((c) => c.id === id); if (!m || !m.to || m.to !== this.pubOf(me.u) || m.leaked) return;
+    const sender = [...this.players.values()].find((x) => this.pubOf(x) === m.from); if (!sender) return;
+    const from = this.isPlayerMode(sender) && sender.pid != null ? this.game.players[sender.pid] : null;
+    const res = leakDM(this.game, me.p, from, m.text, sender.name); m.leaked = true;
+    this.deliver(res); me.u.romNote = "Leaked. It is in the papers."; this.changed();
   },
   weddingPlan(token, tier, day, pubs) {
     const me = this.romMe(token); if (!me || !this.loveOpen()) return;
@@ -301,8 +328,9 @@ export const usermodeMethods = {
         if (!QA || !QA.joint || QA.partner !== "u:" + p.id) ch = { act: "balance", partner: null };
       }
       if (p.team == null) p.stam = 100;
-      const res = runActivity(g, p, ch.act, { partner: ch.partner || null, day: this.mdIdx, joint: ch.joint || null });
-      u.lastLife = { act: res.act, cost: res.cost, stories: res.stories.map((n) => n.id), wada: res.wada, boost: res.boost, trained: res.trained, date: res.date ? { name: res.date.name, good: res.date.good } : null };
+      const res = runActivity(g, p, ch.act, { partner: ch.partner || null, day: this.mdIdx, joint: ch.joint || null, secret: !!ch.secret });
+      u.lastLife = { act: res.act, cost: res.cost, stories: res.stories.map((n) => n.id), wada: res.wada, boost: res.boost, trained: res.trained, date: res.date ? { name: res.date.name, good: res.date.good, secret: !!res.date.secret } : null };
+      this.deliver(res.love);
       for (const n of res.stories) {
         if (n.status === "pending") { const mgr = this.playerOfTeam(n.approver); if (!mgr || !mgr.connected || mgr.auto) { n.status = "live"; n.approver = null; n.pub = ++g.pubSeq; } }
       }
@@ -315,11 +343,11 @@ export const usermodeMethods = {
     const shop = {}; for (const it of SHOP) shop[it.id] = { price: priceFor(g, p, it), own: owns(L, it), better: ownsBetter(L, it) };
     const costs = {}; for (const a of Object.keys(g.P.life.acts)) costs[a] = actCost(g, p, a);
     const inc = lifeIncome(g, p);
-    const opts = this.step === "md.lineup" || this.step === "md.result" ? (L.married ? [] : (L.opts ? L.opts.ids : []).map((id) => { const x = partnerById(id); return { id, name: x.name, g: x.g, dates: L.dated[id] || 0, rej: L.rej[id] || 0, last: !!(L.partner && L.partner.id === id), block: npcBlock(g, id, p.id), rivals: otherSuitors(g, id, p.id).map((q) => (g.players[q] || {}).name).filter(Boolean), good: goodDates(L, id), known: !!(L.know && L.know[id]) ? npcState(g, id).loyalty : null }; })) : [];
+    const opts = this.step === "md.lineup" || this.step === "md.result" ? ((L.opts ? L.opts.ids : []).map((id) => { const x = partnerById(id); return { id, name: x.name, g: x.g, dates: L.dated[id] || 0, rej: L.rej[id] || 0, last: !!(L.partner && L.partner.id === id), block: npcBlock(g, id, p.id), rivals: otherSuitors(g, id, p.id).map((q) => (g.players[q] || {}).name).filter(Boolean), good: goodDates(L, id), known: !!(L.know && L.know[id]) ? npcState(g, id).loyalty : null }; })) : [];
     const boosts = {}; for (const it of g.items) if (it.life && (p.items[it.id] || 0) > 0) boosts[it.life] = { id: it.id, left: p.items[it.id] };
     const T = trainRec(g, L), tr = { gain: +T.gain.toFixed(2), cap: g.P.life.trainCap, sessions: T.sessions, per: g.P.life.trainGain };
     return { boosts, tr, opts, pref: L.pref, offer: L.offer ? { ...L.offer } : null, deal: L.deal, trophies: L.trophies, matchGain: L.matchGain || 0, lm: p.lastMatch ? { gf: p.lastMatch.gf, ga: p.lastMatch.ga, g: p.lastMatch.g, a: p.lastMatch.a, r: +p.lastMatch.r.toFixed(1), gain: p.lastMatch.gain } : null,
-      fol: L.fol, love: L.love, partner: L.partner, married: L.married, own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, rom: this.romView(u, p) };
+      fol: L.fol, love: L.love, partner: L.partner ? { ...L.partner, bond: Math.round(bondOf(g, L)) } : null, married: L.married, affair: affairView(g, p), committed: committed(L), own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, rom: this.romView(u, p) };
   },
   // Everything the Relationships panel shows: your partner, the other footballers, requests, thrupple, wedding and online beef.
   romView(u, p) {
@@ -332,7 +360,7 @@ export const usermodeMethods = {
     const q = L.partner; let partner = null;
     if (q) {
       const D = (L.dq || {})[q.id] || { n: 0, good: 0, sum: 0 }, human = isHuman(q.id), n = human ? null : npcState(g, q.id), ex = exclusiveState(g, p);
-      partner = { id: q.id, name: q.name, g: q.g, human: q.human != null ? q.human : null, img: human ? (g.players[+q.id.slice(2)] || {}).img : null, excl: !!q.excl, married: L.married, dates: L.dated[q.id] || 0, n: D.n, good: D.good, avg: D.n ? Math.round((D.sum / D.n) * 100) : 0, cheated: q.cheated || 0,
+      partner = { id: q.id, name: q.name, g: q.g, human: q.human != null ? q.human : null, img: human ? (g.players[+q.id.slice(2)] || {}).img : null, excl: !!q.excl, married: L.married, dates: L.dated[q.id] || 0, n: D.n, good: D.good, avg: D.n ? Math.round((D.sum / D.n) * 100) : 0, cheated: q.cheated || 0, bond: Math.round(bondOf(g, L)), bondWord: bondWord(bondOf(g, L)), cold: q.cold || 0, like: likeText(g, q.id), likeAct: likeOf(g, q.id), committed: committed(L),
         loyalty: n && L.know && L.know[q.id] ? { n: n.loyalty, word: loyaltyWord(n.loyalty) } : null, canReveal: !human && (L.dated[q.id] || 0) >= P.revealAt && !(L.know && L.know[q.id]),
         revealAt: P.revealAt, canExcl: ex.can && !human, exclWhy: ex.can ? "" : ex.why, prop: !human && q.excl && !L.married ? (() => { const ps = proposalState(g, p); return { can: ps.can, why: ps.why || "", odds: ps.can ? oddsWord(proposalChance(g, p, q.id)) : null }; })() : null, rivals: human ? [] : otherSuitors(g, q.id, p.id).map((x) => (g.players[x] || {}).name).filter(Boolean) };
     }
@@ -353,7 +381,7 @@ export const usermodeMethods = {
     const w = L.wed ? { ...L.wed, tierName: tn(L.wed.tier), plan: pl ? { ...pl, tierName: tn(pl.tier), mine: pl.by === p.id, byName: (g.players[pl.by] || {}).name || "Your partner" } : null } : null;
     const feuds = R.feuds.filter((f) => f.pid === p.id).map((f) => ({ team: f.team }));
     const bf = L.beef ? { id: L.beef.id, team: L.beef.team, teamName: g.teams[L.beef.team].name, text: L.beef.text } : null;
-    return { open: this.loveOpen(), lineup, incoming, outgoing, partner, people, thr: t ? t.members.map((m) => (personOf(g, m) || { name: "?" }).name) : null, wed: w, canPlan: !!(L.wed && L.wed.status === "planning"), tiers: P.tiers, days, next: this.mdIdx + 1, total: (this.days || []).length,
+    return { open: this.loveOpen(), lineup, affair: affairView(g, p), incoming, outgoing, partner, people, thr: t ? t.members.map((m) => (personOf(g, m) || { name: "?" }).name) : null, wed: w, canPlan: !!(L.wed && L.wed.status === "planning"), tiers: P.tiers, days, next: this.mdIdx + 1, total: (this.days || []).length,
       guests: this.guestsFor(u.token, p), note: u.romNote || null, beef: bf, beefLast: L.beefLast || null, feuds, dateMult: P.dateMult, wedDates: g.P.life.wedding.dates, exclDates: P.exclDates, exclGood: P.exclGood };
   },
   newsView(token) {

@@ -1,10 +1,12 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
-import { st, $, esc, send, coins, pl, initials, team, brandMark, clubInk, myClub } from "./core.js";
+import { st, $, esc, send, store, coins, pl, initials, team, brandMark, clubInk, myClub } from "./core.js";
 
 const ui = () => st.ui;
 export const lifeHandlers = {
+  secretOpen() { ui().secretOpen = !ui().secretOpen; ui().dateOpen = false; st.render(); },
   act(a) {
+    if (a.secret) { send({ t: "act", act: "date", partner: a.partner, secret: true }); ui().secretOpen = false; return; }
     if (a.k === "date" && !a.partner && st.S.pm && st.S.pm.life && !st.S.pm.life.married && (st.S.pm.life.opts || []).length) { ui().dateOpen = !ui().dateOpen; return st.render(); }
     send({ t: "act", act: a.k, partner: a.partner || undefined }); ui().dateOpen = false;
   },
@@ -18,6 +20,7 @@ export const lifeHandlers = {
   newsYes(a) { send({ t: "newsDecide", id: +a.id, yes: true }); },
   newsNo(a) { send({ t: "newsDecide", id: +a.id, yes: false }); },
   newsClose() { closeBanner(); },
+  tabMini() { store("tabmini", miniOn() ? "0" : "1"); st.render(); },
 };
 
 const fmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + "M" : n >= 1e4 ? Math.round(n / 1e3) + "K" : n >= 1e3 ? (n / 1e3).toFixed(1) + "K" : String(Math.round(n)));
@@ -58,9 +61,9 @@ export function lifeParts(S) {
   const marry = "";
   const tr = lf.tr, trainLine = tr ? `<div class="trainline"><span>Training this season</span><span class="tbar"><i style="width:${Math.min(100, (tr.gain / tr.cap) * 100)}%"></i></span><b>+${tr.gain.toFixed(1)} / +${tr.cap} OVR</b>${tr.gain >= tr.cap - 1e-9 ? `<span class="tiny mute">Maxed out. A new season opens it again.</span>` : `<span class="tiny mute">about ${Math.max(1, Math.ceil((tr.cap - tr.gain) / tr.per))} Train hard weeks to go</span>`}</div>` : "";
   const ll = pm.lastLife, tdone = ll && ll.trained && ll.trained.gain > 0 ? ` · <span style="color:var(--good)">${ll.trained.ovr ? `+${ll.trained.ovr} OVR` : "progress"}${ll.trained.stat ? `, ${SKILL[ll.trained.stat] || ll.trained.stat} +1` : ""}</span>` : "";
-  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${ll && ll.date ? ` · date with ${esc(ll.date.name)} <span style="color:var(--${ll.date.good ? "good" : "bad"})">${ll.date.good ? "went well" : "went badly"}</span>` : ""}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
+  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${ll && ll.date ? ` · ${ll.date.secret ? "secret " : ""}date with ${esc(ll.date.name)} <span style="color:var(--${ll.date.good ? "good" : "bad"})">${ll.date.good ? "went well" : "went badly"}</span>` : ""}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
   const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.joint ? " with " + esc((lf.rom.people.find((x) => "u:" + x.pid === lf.act.partner) || {}).name || "a friend") : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
-  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
+  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${secretRow(lf, pm)}${prefRow(lf)}${last}</div>`;
   return { status, offer: dealOfferCard(lf), week };
 }
 export function lifePanel(S) {
@@ -89,6 +92,15 @@ function datePicker(lf, pm) {
       <button class="btn sm ghost" data-act="turnDown" data-id="${x.id}" title="Not interested. Turn someone down three times and they never show up again.">Not interested</button></div></div>`;
   }).join("");
   return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Dates can go well or badly; good dates lead to going exclusive (see Relationships below).${ex ? ` <b style="color:var(--bad)">You are exclusive with ${esc(ex.name)}: dating anyone else is a cheating scandal.</b>` : ""}</span></div><div class="datecards mt">${cards}</div></div>`;
+}
+// A secret date: only for someone in a relationship. Same three people as the week's list, minus your partner.
+function secretRow(lf, pm) {
+  if (!lf.committed || !lf.partner) return "";
+  const cost = lf.costs.date, a = lf.affair, cur = lf.act && lf.act.secret ? lf.act.partner : null, opts = (lf.opts || []).filter((x) => x.id !== lf.partner.id && !x.block);
+  const meter = a ? `<span class="tiny ${a.heat >= 50 ? "dn" : "mute"}">Danger ${a.heat}% · ${esc(a.word)}${a.chance ? ` · about ${a.chance}% to be caught next week` : ""}</span>` : "";
+  const picker = ui().secretOpen && opts.length ? `<div class="datecards mt">${opts.map((x) => `<div class="datec secret ${cur === x.id ? "sel" : ""} ${x.g === "F" ? "gf" : "gm"}">${faceOfPartner(x)}<b>${esc(x.name)}</b><span class="tiny mute">${a && a.id === x.id ? `Secret: ${a.dates} date${a.dates === 1 ? "" : "s"}` : "Not met yet"}</span>
+      <button class="btn sm bad" data-act="act" data-secret="1" data-partner="${x.id}" ${lf.open && pm.coins >= cost ? "" : "disabled"}>Meet in secret · −${cost}</button></div>`).join("")}</div>` : "";
+  return `<div class="secretrow mt"><button class="btn sm ${cur ? "bad" : "ghost"}" data-act="secretOpen" ${lf.open ? "" : "disabled"} title="A second, secret dating track. Every secret date raises the risk of being caught.">🕵️ Secret date${cur ? " (locked in)" : ""}</button>${meter || `<span class="tiny mute">Seeing someone behind ${esc(lf.partner.name)}'s back? The risk of being caught builds with every secret date.</span>`}</div>${picker}`;
 }
 function prefRow(lf) {
   const info = st.cat.life.acts, ks = ["train", "date", "party", "rest", "balance"];
@@ -156,11 +168,15 @@ export function newsCard(S) {
 
 // ---------- the banner ----------
 export const WADA_MARK = `<img class="wadamark" src="/assets/wada-mark.png" alt="WADA" width="22" height="22">`;
-const KIND = { milestone: "Milestone", troll: "Online beef", camera: "Caught on camera", sponsor: "Boots business", trophy: "Silverware", steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business", style: "Style press" };
-const SRCNAME = { sun: "The Sun", athletic: "The Athletic", telegraph: "The Telegraph", lequipe: "L'Équipe", gq: "GQ", bazaar: "Harper's Bazaar", vogue: "Vogue" };
+const KIND = { milestone: "Milestone", troll: "Online beef", camera: "Caught on camera", sponsor: "Boots business", trophy: "Silverware", steroids: "Drugs ban", wedding: "Wedding", party: "Night out", drunk: "Scandal", proud: "Praise", yacht: "Yacht party", trouble: "Gossip column", boring: "The big question", rumour: "Rumour mill", fun: "Spotted", club: "Business", style: "Style press", dm: "Leaked DMs" };
+const SRCNAME = { sun: "The Sun", tmz: "TMZ", athletic: "The Athletic", telegraph: "The Telegraph", lequipe: "L'Équipe", gq: "GQ", bazaar: "Harper's Bazaar", vogue: "Vogue" };
 // A paper or magazine logo on a cream plate, so dark and coloured mastheads all read the same.
 const srcMark = (id, h = 22) => { const u = id && st.cat.art && st.cat.art.sources && st.cat.art.sources[id]; return u ? `<span class="srcplate" title="${esc(SRCNAME[id] || id)}"><img src="${esc(u)}" alt="${esc(SRCNAME[id] || id)}" style="height:${h}px"></span>` : ""; };
 let queue = [], showing = null, timer = null;
+// Tabloid stories (The Sun, TMZ) can run as a slim strip for managers who would rather not lose the top of the screen to them.
+export const isTabloid = (n) => n && (n.src === "sun" || n.src === "tmz");
+export const miniOn = () => store("tabmini") === "1";
+export const miniButton = () => `<button class="btn sm ${miniOn() ? "on" : ""}" data-act="tabMini" title="Tabloid stories (The Sun, TMZ) show as a slim strip and go away quicker.">📰 Tabloids: ${miniOn() ? "mini" : "full"}</button>`;
 const mast = () => { const u = st.cat.art && st.cat.art.ui && st.cat.art.ui.masthead; return u ? `<img class="nb-mast" src="${esc(u)}" alt="The Daily Whistle">` : "THE DAILY WHISTLE"; };
 export function newsTick(S) {
   const n = S.news; if (!n) return;
@@ -173,8 +189,12 @@ function nextBanner() {
   const n = queue.shift(); if (!n) { showing = null; return; }
   showing = n; clearTimeout(timer);
   let el = $("#newsban"); if (!el) { el = document.createElement("div"); el.id = "newsban"; document.body.appendChild(el); }
-  const wada = n.kind === "steroids";
-  el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "");
+  const wada = n.kind === "steroids", mini = miniOn() && isTabloid(n) && !wada;
+  el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "") + (mini ? " mini" : "");
+  if (mini) {
+    el.innerHTML = `<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)}</span><span class="nb-paper">${srcMark(n.src, 18)}</span><b class="nb-mh">${esc(n.head)}</b><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div></div>`;
+    timer = setTimeout(closeBanner, 3800); return;
+  }
   const pic = st.cat.art && st.cat.art.news && st.cat.art.news[n.kind];
   el.innerHTML = `${pic ? `<div class="nb-pic" style="background-image:url('${esc(pic)}')"></div>` : ""}${wada ? `<div class="nb-wada"><img src="/assets/wada.jpg" alt="World Anti-Doping Agency"></div>` : ""}<div class="nb-in"><div class="nb-top"><span class="nb-k">${esc(n.icon)} ${esc(KIND[n.kind] || "News")}</span><span class="nb-paper">${srcMark(n.src, 26) || mast()}</span><button class="nb-x" data-act="newsClose" aria-label="Close">✕</button></div>
     <h2>${esc(n.head)}</h2><p>${esc(n.sub)}</p><div class="nb-by">${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}${queue.length ? ` · ${queue.length} more` : ""}</div></div>`;

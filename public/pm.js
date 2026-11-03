@@ -13,7 +13,7 @@ export const pmHandlers = {
   charPos(a) { send({ t: "char", c: { pos: a.value } }); },
   charNat(a) { send({ t: "char", c: { nat: a.value } }); },
   charGender(a) { send({ t: "char", c: { gender: a.g } }); },
-  charFace(a) { const y = you(st.S), p = String((y && y.char && y.char.img) || "0-0-0").split("-").map(Number); if (a.f && a.f.startsWith("f:")) return send({ t: "char", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "char", c: { img: p.slice(0, 3).join("-") } }); },
+  charFace(a) { const y = you(st.S), p = String((y && y.char && y.char.img) || "0-0-0").split("-").map(Number); if (a.f && (a.f.startsWith("f:") || a.f.startsWith("p:"))) return send({ t: "char", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "char", c: { img: p.slice(0, 3).join("-") } }); },
   charSwap(a) {
     const i = +a.i, s = ui().swap, y = you(st.S), asg = y && y.char && y.char.assign;
     if (!asg) return;
@@ -30,7 +30,8 @@ export const pmHandlers = {
   gambleShow() { st.ui.gambleHide = null; st.render(); },
   pmEquip(a) {
     const pm = st.S.pm, cap = st.cat.rules.playerItemCap ?? 2; let ids = pm.equip.slice();
-    ids = ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...ids, a.id].slice(0, cap);
+    const boots = (x) => /^boots-/.test(x);
+    ids = ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...(boots(a.id) ? ids.filter((x) => !boots(x)) : ids), a.id].slice(0, cap);   // ticking a second pair of boots swaps them
     send({ t: "equipSelf", ids });
   },
   openPack() { send({ t: "itemPack" }); },
@@ -53,7 +54,9 @@ export function creator(S) {
   const pool = S.settings && S.settings.pool, gLock = pool === "female" || pool === "male", g = c.gender || "M", [fs, fh, fc] = String(c.img || "0-0-0").split("-").map(Number);
   const dots = (part, list, cur, label) => `<div class="facerow"><span class="small mute">${label}</span>${list.map((col, i) => `<button class="fdot ${cur === i ? "sel" : ""}" style="background:${col}" data-act="charFace" data-part="${part}" data-v="${i}" aria-label="${label} ${i + 1}"></button>`).join("")}</div>`;
   const hairBtns = `<div class="facerow"><span class="small mute">Hair</span>${HAIR_NAMES.map((n, i) => `<button class="btn sm ${fh === i ? "pri" : ""}" data-act="charFace" data-part="1" data-v="${i}">${n}</button>`).join("")}</div>`;
-  const looks = `<div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, g)}</div><div class="col grow" style="gap:6px;min-width:230px">${dots(0, SKIN, fs, "Skin")}${hairBtns}${dots(2, HAIRC, fc, "Hair colour")}${(st.cat.faces || []).length ? `<div class="facerow"><span class="small mute">Photos</span>${st.cat.faces.map((f) => `<button class="fphoto ${c.img === "f:" + f ? "sel" : ""}" data-act="charFace" data-f="f:${esc(f)}"><img src="/assets/faces/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("")}</div>` : ""}</div></div>`;
+  const have = new Set((y.unlocks) || []), tf = (st.cat.plates || []).filter((pl) => pl.kind === "portrait" && have.has(pl.id)).flatMap((pl) => (pl.faces || []).map((f) => ({ f, pl })));
+  const thunder = (st.cat.plates || []).some((pl) => pl.kind === "portrait") ? `<div class="facerow"><span class="small mute">⚡ Thunder plates</span>${tf.length ? tf.map(({ f, pl }) => `<button class="fphoto ${c.img === "p:" + f ? "sel" : ""}" data-act="charFace" data-f="p:${esc(f)}" title="${esc(pl.name)}"><img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("") : `<span class="tiny mute">Portraits that only a thunder plate unlocks. Enter a code in the trophy cabinet to open one.</span>`}</div>` : "";
+  const looks = `<div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, g)}</div><div class="col grow" style="gap:6px;min-width:230px">${dots(0, SKIN, fs, "Skin")}${hairBtns}${dots(2, HAIRC, fc, "Hair colour")}${(st.cat.faces || []).length ? `<div class="facerow"><span class="small mute">Photos</span>${st.cat.faces.map((f) => `<button class="fphoto ${c.img === "f:" + f ? "sel" : ""}" data-act="charFace" data-f="f:${esc(f)}"><img src="/assets/faces/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("")}</div>` : ""}${thunder}</div></div>`;
   return `<div class="card"><h3>Create your footballer</h3>
     <div class="row wrap" style="gap:10px"><input id="charname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="charName" style="flex:1;min-width:160px"><select data-change="charPos">${POS.map((p) => `<option ${p === c.pos ? "selected" : ""}>${p}</option>`).join("")}</select>
       <select data-change="charNat" title="Nation"><option value="">Nation…</option>${ISO_NATIONS.map((n) => `<option value="${esc(n)}" ${n === c.nat ? "selected" : ""}>${flag(n)} ${esc(n)}</option>`).join("")}</select>

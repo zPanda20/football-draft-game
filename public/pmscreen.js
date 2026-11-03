@@ -38,6 +38,7 @@ function cardTile(S, hub) {
     ${btn("kit", "🎒", "Kit", ` <span class="pill tiny">${worn}/${cap} worn</span>`)}
     ${hub ? "" : btn("rel", "💞", "Relationships", reqs ? ` <span class="pill bad tiny">${reqs}</span>` : "")}
     ${!hub && open ? btn("shop", "🛒", "Shop") : ""}
+    ${hub ? "" : btn("news", "📰", "News")}
     ${btn("table", "📊", "Table &amp; stats")}</div></div>`;
 }
 function tableTile(S) {
