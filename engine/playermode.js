@@ -128,9 +128,9 @@ function grow(game, p, eff) {
 export function lapseCards(game, p) { const c = p.career; for (const x of c.pending) c.log.push({ n: x.n, id: x.id, title: x.title, lapsed: true, season: game.season }); c.pending = []; }
 
 // ---------- a created player's own wallet and items ----------
-export function buyForUser(game, p, itemId, { store = false } = {}) {
+export function buyForUser(game, p, itemId, { store = false, elite = false } = {}) {
   const it = game.items.find((i) => i.id === itemId);
-  if (!it || it.scope !== "player" || it.supply != null || (it.storeOnly && !store) || p.coins < it.price) return false;
+  if (!it || it.scope !== "player" || (it.supply != null && !elite) || (it.storeOnly && !store) || p.coins < it.price) return false;
   p.coins -= it.price; p.items[it.id] = (p.items[it.id] || 0) + it.uses; return true;
 }
 export function setEquip(game, p, ids) {

@@ -6,7 +6,7 @@ import { rate } from "./roster.js";
 export const ACTS = ["train", "date", "party", "rest", "balance"];
 export const ACT_INFO = {
   train: { name: "Train hard", icon: "🏋️", text: "Skills up, followers up. Leaves you tired and your love life cold." },
-  date: { name: "Date", icon: "💘", text: "Love life up. Costs a little money and some energy. Ten dates with one partner and you can propose." },
+  date: { name: "Date", icon: "💘", text: "Love life up. Costs a little money and some energy. Good dates lead to going exclusive, and then a wedding you plan yourself. You can also ask another footballer out (you pay)." },
   party: { name: "Party", icon: "🪩", text: "Followers up, but it costs money, energy and love life. Small chance of a drugs flag (2-match ban)." },
   rest: { name: "Rest", icon: "🛌", text: "The best recovery there is. Love life and followers drift down." },
   balance: { name: "Balance", icon: "⚖️", text: "A normal week. Almost nothing changes." },
@@ -45,6 +45,67 @@ export const PARTNER_LIST = [
   ["omar-haddad", "Omar Haddad", "M"], ["anders-nilsson", "Anders Nilsson", "M"], ["diego-fuentes", "Diego Fuentes", "M"], ["jamal-carter", "Jamal Carter", "M"],
 ].map(([id, name, g]) => ({ id, name, g }));
 export const partnerById = (id) => PARTNER_LIST.find((x) => x.id === id) || null;
+// ---------- the shared love life ----------
+// Everything about the people you can date is shared by every footballer in the room: who is seeing whom, who is exclusive,
+// who got their heart broken, who is married, and each person's hidden loyalty.
+export function ensureRom(game) {
+  if (!game.rom) game.rom = { week: 0, npc: {}, req: [], reqSeq: 0, thr: [], thrSeq: 0, events: [], evSeq: 0, feuds: [] };
+  const R = game.rom; R.npc = R.npc || {}; R.req = R.req || []; R.thr = R.thr || []; R.events = R.events || []; R.feuds = R.feuds || [];
+  return R;
+}
+export function npcState(game, id) {
+  const R = ensureRom(game);
+  if (!R.npc[id]) R.npc[id] = { loyalty: 8 + Math.floor(makeRng(game.seed, "loyal", id)() * 88), excl: null, cool: 0, married: null, seen: [] };
+  return R.npc[id];
+}
+export const isHuman = (id) => typeof id === "string" && id.startsWith("u:");
+// Anybody you can be with: one of the listed people, or another footballer in the room ("u:<id>").
+export function personOf(game, id) {
+  if (isHuman(id)) { const q = game.players[+id.slice(2)]; return q ? { id, name: q.name, g: q.gender === "F" ? "F" : "M", human: q.id, img: q.img } : null; }
+  return partnerById(id);
+}
+// The other members of the thrupple this footballer is in (ids), or [].
+export function thrMembers(game, p) {
+  const L = p.life; if (!L || !L.thr) return [];
+  const t = ensureRom(game).thr.find((x) => x.id === L.thr); if (!t) return [];
+  return t.members.filter((m) => m !== "u:" + p.id);
+}
+// One footballer's relationship with `id` ends. The ex's side is cleared too; a broken heart makes a listed person unavailable for a while.
+export function leave(game, p, id, { cool = false } = {}) {
+  const L = ensureLife(game, p), R = ensureRom(game);
+  if (L.partner && L.partner.id === id) L.partner = null;
+  L.dated[id] = Math.floor((L.dated[id] || 0) / 2);
+  if (L.dq && L.dq[id]) { L.dq[id].n = Math.floor(L.dq[id].n / 2); L.dq[id].good = Math.floor(L.dq[id].good / 2); L.dq[id].sum /= 2; }
+  if (isHuman(id)) {
+    const q = game.players[+id.slice(2)], QL = q && q.life;
+    if (QL && QL.partner && QL.partner.id === "u:" + p.id) { QL.partner = null; QL.love = clamp(QL.love - 15, 0, 100); }
+    if (QL && QL.act && QL.act.partner === "u:" + p.id) QL.act = null;
+  } else { const n = npcState(game, id); if (n.excl === p.id) n.excl = null; if (cool) n.cool = R.week + game.P.life.rom.dumpHeart; }
+  if (L.act && L.act.partner === id) L.act = null;
+  if (L.thr) leaveThr(game, p);
+}
+export function leaveThr(game, p) {
+  const L = p.life, R = ensureRom(game); if (!L || !L.thr) return;
+  const t = R.thr.find((x) => x.id === L.thr); L.thr = null;
+  if (!t) return;
+  t.members = t.members.filter((m) => m !== "u:" + p.id);
+  const rest = t.members.filter(isHuman);
+  if (t.members.length < 3 || rest.length === 0) { for (const m of t.members) if (isHuman(m)) { const q = game.players[+m.slice(2)]; if (q && q.life) q.life.thr = null; } R.thr = R.thr.filter((x) => x !== t); }
+}
+// Why this person cannot be dated by this footballer right now (or null).
+export function npcBlock(game, id, pid) {
+  if (isHuman(id)) return null;
+  const n = npcState(game, id), R = ensureRom(game);
+  if (n.married != null && n.married !== pid) return "Married";
+  if (n.excl != null && n.excl !== pid) return "Taken";
+  if (n.cool > R.week) return "Heartbroken";
+  return null;
+}
+// Other footballers who took this person out lately.
+export function otherSuitors(game, id, pid) {
+  const R = ensureRom(game), n = npcState(game, id), lim = R.week - game.P.life.rom.seeWeeks;
+  return [...new Set(n.seen.filter((x) => x.pid !== pid && x.week > lim).map((x) => x.pid))];
+}
 // Boot makers that can sign a footballer. Logos go in public/assets/brands/<id>.png. `rival` is who they would love to annoy.
 // `rank` is how big the maker is: 1 = budget label, 2 = established, 3 = global giant. Bigger makers only come knocking at higher follower tiers.
 export const BOOT_BRANDS = [
@@ -66,7 +127,12 @@ export function ensureLife(game, p) {
   const L = p.life; L.dated = L.dated || {}; L.rej = L.rej || {}; L.hit = L.hit || {}; L.trophies = L.trophies || [];
   return L;
 }
-export const resetSeason = (game) => { for (const p of Object.values(game.players)) if (p.user && p.life) { p.life.cnt = { train: 0, date: 0, party: 0, rest: 0, balance: 0 }; p.life.sCount = 0; p.life.flags = {}; p.life.act = null; p.life.opts = null; } };
+export const resetSeason = (game) => {
+  for (const p of Object.values(game.players)) if (p.user && p.life) {
+    const L = p.life; L.cnt = { train: 0, date: 0, party: 0, rest: 0, balance: 0 }; L.sCount = 0; L.flags = {}; L.act = null; L.opts = null; L.beef = null;
+    if (L.wed && L.wed.status === "planned" && L.wed.season !== game.season) { p.coins = (p.coins || 0) + (L.wed.paid || 0); L.wed = null; }   // a wedding that never happened is refunded
+  }
+};
 
 export function nightclub(life) { return life.own.club ? shopItem(life.own.club) : null; }
 export function actCost(game, p, act) {
@@ -75,19 +141,22 @@ export function actCost(game, p, act) {
   return Math.round(act === "party" && club ? base * (1 - club.party) : base);
 }
 export const WEDDING_COST = (game) => game.P.life.wedding.cost;
-// Ten dates with the same person (the one named, or otherwise the last one) and you can propose.
+// A wedding can be planned with an exclusive partner you have been out with often enough (P.life.wedding.dates).
 export function canMarry(game, p, pid) {
-  const L = ensureLife(game, p); if (L.married) return false;
-  const id = pid || (L.partner && L.partner.id);
-  return !!(id && (L.dated[id] || 0) >= game.P.life.wedding.dates);
+  const L = ensureLife(game, p); if (L.married || L.wed) return false;
+  const q = L.partner; if (!q || !q.excl || (pid && pid !== q.id)) return false;
+  return (L.dated[q.id] || 0) >= game.P.life.wedding.dates;
 }
 // Why this choice cannot be made right now (or null).
-export function blocked(game, p, act, { marry = false, partner = null } = {}) {
+export function blocked(game, p, act, { partner = null, joint = null } = {}) {
   if (!ACTS.includes(act)) return "unknown";
-  const L = ensureLife(game, p), cost = actCost(game, p, act) + (marry ? WEDDING_COST(game) : 0);
+  const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay ? 0 : 1);
   if (act === "party" && p.susp > 0) return "You are suspended";
-  if (marry && !(act === "date" && canMarry(game, p, partner))) return "No wedding yet";
-  if (act === "date" && partner && !L.married && !(L.opts && L.opts.ids.includes(partner))) return "That person is not on your list";
+  if (act === "date" && partner && isHuman(partner)) { if (!joint) return "Ask them first"; }
+  else if (act === "date" && partner) {
+    if (!L.married && !(L.opts && L.opts.ids.includes(partner)) && !(L.partner && L.partner.id === partner)) return "That person is not on your list";
+    const b = npcBlock(game, partner, p.id); if (b) return b;
+  }
   if ((p.coins || 0) < cost) return "Not enough money";
   return null;
 }
@@ -97,11 +166,11 @@ export function blocked(game, p, act, { marry = false, partner = null } = {}) {
 // of them (unless you turned them down three times); anyone you specifically turn down three times never comes back.
 function genOptions(game, p, day, keep, salt) {
   const L = ensureLife(game, p), r = makeRng(game.seed, "dates", p.id, game.season, day, salt || 0), list = keep.slice();
-  if (!list.length && L.partner && L.partner.id && (L.rej[L.partner.id] || 0) < 3) list.push(L.partner.id);
+  if (!list.length && L.partner && L.partner.id && !isHuman(L.partner.id) && (L.rej[L.partner.id] || 0) < 3 && !npcBlock(game, L.partner.id, p.id)) list.push(L.partner.id);
   const gone = new Set((L.opts && L.opts.gone) || []);
-  const pool = PARTNER_LIST.filter((x) => !list.includes(x.id) && (L.rej[x.id] || 0) < 3 && !gone.has(x.id));
+  const pool = PARTNER_LIST.filter((x) => !list.includes(x.id) && (L.rej[x.id] || 0) < 3 && !gone.has(x.id) && !npcBlock(game, x.id, p.id));
   while (list.length < 3 && pool.length) {
-    const gs = list.map((id) => partnerById(id).g), slots = 3 - list.length, needF = !gs.includes("F"), needM = !gs.includes("M"), need = (needF ? 1 : 0) + (needM ? 1 : 0);
+    const gs = list.map((id) => (partnerById(id) || { g: "F" }).g), slots = 3 - list.length, needF = !gs.includes("F"), needM = !gs.includes("M"), need = (needF ? 1 : 0) + (needM ? 1 : 0);
     let c = pool;
     if (need >= slots) c = pool.filter((x) => x.g === (needF ? "F" : "M"));
     if (!c.length) c = pool;
@@ -128,10 +197,10 @@ export function declineDate(game, p, pid) {
 export function weekChoice(game, p, day) {
   const L = ensureLife(game, p), r = makeRng(game.seed, "pref", p.id, game.season, day);
   if (L.pref && r() < game.P.life.prefChance) {
-    const partner = L.pref === "date" && !L.married ? (L.partner && L.opts && L.opts.ids.includes(L.partner.id) ? L.partner.id : (ensureOptions(game, p, day)[0] || null)) : null;
-    if (!blocked(game, p, L.pref, { partner })) return { act: L.pref, marry: false, partner };
+    const partner = L.pref !== "date" ? null : L.partner && !isHuman(L.partner.id) && (L.married || L.partner.excl || (L.opts && L.opts.ids.includes(L.partner.id))) && !npcBlock(game, L.partner.id, p.id) ? L.partner.id : L.married || (L.partner && L.partner.excl) ? null : (ensureOptions(game, p, day)[0] || null);
+    if (!blocked(game, p, L.pref, { partner })) return { act: L.pref, partner };
   }
-  return { act: "balance", marry: false, partner: null };
+  return { act: "balance", partner: null };
 }
 
 // ---------- buying ----------
@@ -222,14 +291,22 @@ const STORIES = [
   { id: "troll", prio: 1, chance: (c) => c.P.chance.troll, kind: "troll", icon: "🤡", when: (c) => !!c.p.lastMatch && !c.p.lastMatch.trolled && c.p.lastMatch.opp != null && (c.p.lastMatch.gf < c.p.lastMatch.ga || c.p.lastMatch.r < 6),
     build: (c, r) => {
       const lm = c.p.lastMatch, rival = c.game.teams[lm.opp].name; lm.trolled = true;
-      return { head: pick(r, [`${rival.toUpperCase()} TROLL ${c.p.name.toUpperCase()} ONLINE`, `${rival.toUpperCase()}'S SOCIAL TEAM GOES AFTER ${c.p.name.toUpperCase()}`, `"DID YOU SEE ${c.p.name.toUpperCase()}?" ${rival.toUpperCase()} HAVE ENTERED THE CHAT`]),
-        sub: pick(r, [`After the ${lm.gf}-${lm.ga}, ${rival} posted a slow-motion replay of the ${c.p.pos}'s afternoon set to sad violins. ${club(c.game, c.p)} replied with a clown emoji. The internet took sides.`, `${rival}'s admin changed their profile picture to a very small ${c.p.name}. It has 40,000 likes and one apology that was not an apology.`, `${rival} sent a "get well soon" message after the ${lm.gf}-${lm.ga}. Nobody was ill. Everybody understood.`]), fx: { fol: 1500 } };
+      const R = ensureRom(c.game), head = pick(r, [`${rival.toUpperCase()} TROLL ${c.p.name.toUpperCase()} ONLINE`, `${rival.toUpperCase()}'S SOCIAL TEAM GOES AFTER ${c.p.name.toUpperCase()}`, `"DID YOU SEE ${c.p.name.toUpperCase()}?" ${rival.toUpperCase()} HAVE ENTERED THE CHAT`]),
+        sub = pick(r, [`After the ${lm.gf}-${lm.ga}, ${rival} posted a slow-motion replay of the ${c.p.pos}'s afternoon set to sad violins. ${club(c.game, c.p)} replied with a clown emoji. The internet took sides.`, `${rival}'s admin changed their profile picture to a very small ${c.p.name}. It has 40,000 likes and one apology that was not an apology.`, `${rival} sent a "get well soon" message after the ${lm.gf}-${lm.ga}. Nobody was ill. Everybody understood.`]);
+      if (!c.L.beef) c.L.beef = { id: (R.beefSeq = (R.beefSeq || 0) + 1), team: lm.opp, text: sub, season: c.game.season };          // the footballer can answer it (Relationships & beef panel)
+      return { head, sub, fx: { fol: 1500 } };
     } },
   { id: "camera", prio: 3, chance: (c) => c.P.chance.camera, kind: "camera", icon: "📸", when: (c) => !!c.wrong,
     build: (c, r) => {
       const w = c.wrong; c.L.dated[w.prev.id] = Math.floor((c.L.dated[w.prev.id] || 0) / 2);
       return { head: `CAUGHT ON CAMERA: ${c.p.name.toUpperCase()} WITH ${w.now.name.toUpperCase()} — NOT ${w.prev.name.toUpperCase()}`, sub: pick(r, [`Photographers outside a quiet restaurant got the shot. ${w.prev.name} saw it before breakfast. The group chat has gone silent.`, `${w.now.name} says they are "just friends". The fingers say otherwise. ${w.prev.name} has unfollowed everyone.`, `A very long dinner, one shared dessert and a hand that did not move. ${w.prev.name} has "no comment", repeated for forty minutes.`]), fx: { fol: 2200, love: -20 } };
     } },
+  { id: "cheat", g: true, prio: 4, kind: "camera", icon: "🚨", when: (c) => !!c.cheat,
+    build: (c, r) => { const w = c.cheat;
+      return { head: `CHEATING SCANDAL: ${c.p.name.toUpperCase()} AND ${w.now.name.toUpperCase()}, ${w.prev.name.toUpperCase()} IS NOT AMUSED`, sub: w.dumped ? pick(r, [`${w.prev.name} saw the pictures before breakfast and has moved out. ${c.p.name} says it was "a misunderstanding". The photographer says it was a very clear photograph.`, `Exclusive, then not. ${w.prev.name} has blocked ${c.p.name} everywhere and the group chat has been renamed.`]) : pick(r, [`${w.prev.name} has "decided to forgive, for now". The paparazzi have decided to stay.`, `Pictures everywhere. ${w.prev.name} stays, but the sofa has become a bed. ${c.p.name} is on a very short leash.`]), fx: { fol: -Math.round(c.L.fol * 0.03) + 2500, love: -12 } }; } },
+  { id: "pcheat", g: true, prio: 4, kind: "camera", icon: "💔", when: (c) => !!c.pcheat,
+    build: (c, r) => { const w = c.pcheat.partner;
+      return { head: `${w.name.toUpperCase()} CAUGHT CHEATING ON ${c.p.name.toUpperCase()}`, sub: pick(r, [`A phone left on a table in a coffee shop. ${c.p.name} knows. You can end it from the Relationships panel.`, `${w.name} was seen on a "friends only" dinner that was not friends only. ${c.p.name}'s agent is "monitoring the situation".`, `A very long hug in a very short alley. ${w.name} says it was a cousin. The cousin has a different surname.`]), fx: { fol: 2000, love: -25 } }; } },
   { id: "leak", prio: 3, chance: (c) => c.P.chance.leak, kind: "wedding", icon: "📋", when: (c) => c.leakLeft > 0 && c.L.married && !c.L.hit.leak,
     build: (c, r) => ({ head: `GUEST LIST LEAKED: WHO IS COMING TO ${c.p.name.toUpperCase()}'S WEDDING?`, sub: pick(r, [`The list reportedly runs to 140 names, including the gaffer, three agents, ${partnerOf(c.L)}'s ex and a goalkeeper nobody remembers inviting. The caterers have been "spoken to".`, `Seating plan, menu and a table of rival defenders have all hit the papers. ${club(c.game, c.p)} deny the stag do ever happened. There are photos.`, `Someone has seen the guest list. It includes ${c.p.name}'s old school coach and a table marked only "DO NOT SEAT NEAR EACH OTHER".`]), fx: { fol: 3500, love: -8 }, hit: "leak" }) },
   { id: "feud", g: true, retry: true, prio: 3, kind: "sponsor", icon: "🥊", when: (c) => !!c.L.hit.feud && (c.L.hit.feud.season < c.game.season || c.L.hit.feud.day <= c.day),
@@ -267,7 +344,7 @@ function overwrite(game, n) {
     if (n.gflag && game.newsFlags) delete game.newsFlags[n.gflag + n.season];
   }
 }
-function mk(game, p, s) {
+export function mk(game, p, s) {
   const room = weekRoom(game, s.prio ?? 0); if (!room) return null;
   if (room.replace) overwrite(game, room.replace);
   game.newsSeq = (game.newsSeq || 0) + 1; game.pubSeq = game.pubSeq || 0;
@@ -279,7 +356,7 @@ function mk(game, p, s) {
   if (s.fx) applyFx(game, p, s.fx);
   return n;
 }
-function applyFx(game, p, fx) {
+export function applyFx(game, p, fx) {
   const L = ensureLife(game, p);
   if (fx.fol) L.fol = Math.max(0, Math.round(L.fol + fx.fol));
   if (fx.love) L.love = clamp(L.love + fx.love, L.married ? 10 : 0, 100);
@@ -308,14 +385,14 @@ export function decideStory(game, id, yes) {
 export const dropPending = (game) => { for (const n of game.news || []) if (n.status === "pending") { n.status = "blocked"; n.approver = null; } };
 
 // Resolve one matchday's choice for one user player. Returns { act, cost, stories, wada }.
-export function runActivity(game, p, act, { marry = false, day = 0, partner = null } = {}) {
-  const P = game.P.life, L = ensureLife(game, p);
+export function runActivity(game, p, act, { day = 0, partner = null, joint = null } = {}) {
+  const P = game.P.life, L = ensureLife(game, p), R = ensureRom(game);
   game.weekDay = day;
-  if (blocked(game, p, act, { marry, partner })) { act = "balance"; marry = false; partner = null; }
+  if (blocked(game, p, act, { partner, joint })) { act = "balance"; partner = null; joint = null; }
   const a = { ...P.acts[act] }, r = makeRng(game.seed, "life", p.id, game.season, day);
   const boost = lifeBoost(game, p, act);                                    // Flowers, Ziplock baggie or Pre-workout: one is used up this week
   if (boost) { p.items[boost.id]--; if (p.items[boost.id] <= 0) delete p.items[boost.id]; if (boost.fx.stam) a.stam += boost.fx.stam; if (boost.fx.love) a.love += boost.fx.love; if (boost.fx.fol) a.fol = Math.round(a.fol * boost.fx.fol); }
-  const cost = actCost(game, p, act) + (marry ? WEDDING_COST(game) : 0);
+  const cost = act === "date" && joint ? (joint.pay ? actCost(game, p, act) * P.rom.dateMult : 0) : actCost(game, p, act);
   p.coins = Math.max(0, (p.coins || 0) - cost);
   L.cnt[act]++;
   // stamina is "recovery": it moves the player's starting energy for this match
@@ -324,19 +401,36 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
   // love life
   let love = a.love;
   if (act === "party" && L.partner && L.partner.partier) love = P.partyLoveWithPartier;
-  let wrong = null;
+  let wrong = null, cheat = null, date = null;
   if (act === "date") {
-    const prev = L.partner, id = L.married && prev ? prev.id : (partner || (prev && prev.id) || (L.opts && L.opts.ids[0]) || PARTNER_LIST[0].id), info = partnerById(id);
+    const prev = L.partner, id = L.married && prev ? prev.id : (partner || (prev && prev.id) || (L.opts && L.opts.ids[0]) || PARTNER_LIST[0].id), info = personOf(game, id) || PARTNER_LIST[0];
+    const thr = L.thr && thrMembers(game, p).includes(id);
+    // quality of the date: luck, flowers, how happy you are, and anyone else who has been taking this person out
+    const rivals = isHuman(id) ? 0 : otherSuitors(game, id, p.id).length;
+    const qs = isHuman(id) ? [p.id, +id.slice(2)].sort().join("-") : p.id;
+    let q = 0.4 + makeRng(game.seed, "dq", qs, id.startsWith("u:") ? "" : id, R.week)() * 0.45 + (boost && boost.fx.love ? 0.15 : 0) + (isHuman(id) ? 0 : (L.love - 50) / 250) - P.rom.rivalQ * rivals + (thr ? 0.05 : 0);
+    q = clamp(q, 0.05, 1); const good = q >= P.rom.goodAt;
+    const D = (L.dq = L.dq || {})[id] = (L.dq || {})[id] || { n: 0, good: 0, sum: 0 };
+    D.n++; D.sum += q; if (good) D.good++;
+    date = { id, name: info.name, q: +q.toFixed(2), good, rivals };
+    if (!isHuman(id)) { const n = npcState(game, id); n.seen.push({ pid: p.id, week: R.week }); if (n.seen.length > 12) n.seen.shift(); }
     if (!prev || prev.id !== id) {
-      // a new face: remember who it was before (cheating on someone you have been seeing is the paparazzi's favourite)
-      if (prev && !L.married && (L.dated[prev.id] || 0) >= P.cameraAt) wrong = { prev, now: info };
-      L.partner = { id, name: info.name, g: info.g, partier: makeRng(game.seed, "partier", p.id, id)() < P.partnerParty, dates: L.dated[id] || 0 };
+      if (prev && prev.excl && !L.married) {                               // going out with someone else while exclusive: a cheating scandal
+        const dumped = makeRng(game.seed, "dump", p.id, R.week)() < P.rom.dumpCheat;
+        cheat = { prev: { ...prev }, now: info, dumped };
+        if (dumped) leave(game, p, prev.id, { cool: true });
+        else { L.love = clamp(L.love - 10, 0, 100); if (isHuman(prev.id)) { const o = game.players[+prev.id.slice(2)]; if (o && o.life) o.life.love = clamp(o.life.love - 15, 0, 100); } }
+      } else if (prev && !L.married && (L.dated[prev.id] || 0) >= P.cameraAt) wrong = { prev, now: info };
+      if (!cheat || cheat.dumped) L.partner = { id, name: info.name, g: info.g, partier: isHuman(id) ? false : makeRng(game.seed, "partier", p.id, id)() < P.partnerParty, dates: L.dated[id] || 0, ...(isHuman(id) ? { human: +id.slice(2) } : {}) };
     }
-    L.dated[id] = (L.dated[id] || 0) + 1; L.partner.dates = L.dated[id];
+    L.dated[id] = (L.dated[id] || 0) + 1; if (L.partner && L.partner.id === id) L.partner.dates = L.dated[id];
+    if (good && L.partner && L.partner.id === id) love += 3;
+    if (thr) love += P.rom.thrLove;
+    if (!good) love -= 6;
   }
   if (L.hit.wedLeft > 0) L.hit.wedLeft--;
   L.love = clamp(L.love + love, L.married ? 10 : 0, 100);
-  if (L.partner && !L.married && L.love <= 0) L.partner = null;             // the relationship fizzles out
+  if (L.partner && !L.married && !L.partner.excl && L.love <= 0) L.partner = null;     // the relationship fizzles out
   L.fol = Math.max(0, Math.round(L.fol + a.fol * (1 + Math.max(0, p.ovr - 80) / 40)));
   let trained = null;
   if (act === "train") {                                                    // steady skill gains: a few skill points a session, at most +trainCap overall a season
@@ -350,10 +444,18 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
       trained = { stat: up ? k : null, ovr: p.ovr - before, gain, capped: T.gain >= P.trainCap - 1e-9 };
     } else trained = { stat: null, ovr: 0, gain: 0, capped: true };
   }
+  // a partner with a roving eye (hidden loyalty) may cheat on you
+  let pcheat = null;
+  if (L.partner && !isHuman(L.partner.id) && (L.partner.excl || L.married)) {
+    const n = npcState(game, L.partner.id);
+    if (n.loyalty < P.rom.cheatBelow) {
+      const ch = P.rom.cheatMax * (1 - n.loyalty / P.rom.cheatBelow) * (act === "date" && date && date.id === L.partner.id ? 0.4 : 1);
+      if (makeRng(game.seed, "pcheat", p.id, L.partner.id, R.week)() < ch) { pcheat = { partner: { ...L.partner } }; L.partner.cheated = (L.partner.cheated || 0) + 1; }
+    }
+  }
   let wada = false;
   if (act === "party" && r() < (boost && boost.fx.wada ? boost.fx.wada : P.wada)) { wada = true; p.susp = Math.max(p.susp || 0, P.wadaBan); }
-  const c = { game, p, act, L, P, r, married: L.married, wedding: !!marry, wada, wrong, day, leakLeft: L.hit.wedLeft || 0 };
-  if (marry) { L.married = true; L.hit.wedLeft = P.leakWeeks + 1; L.opts = null; }
+  const c = { game, p, act, L, P, r, married: L.married, wedding: false, wada, wrong, cheat, pcheat, date, day, leakLeft: L.hit.wedLeft || 0 };
   const out = [];
   // Everything that qualifies this week; the biggest story is the one printed (see the story table).
   const cands = [];
@@ -374,10 +476,10 @@ export function runActivity(game, p, act, { marry = false, day = 0, partner = nu
     const n = mk(game, p, { kind: s.kind, src: s.src, icon: s.icon, approval: s.approval, prio: s.prio, abs: !!s.g, ...b });
     if (n) { out.push(n); printed = true; }
   }
-  L.last = { act, cost, day, wed: !!marry, boost: boost ? boost.id : null, trained };
+  L.last = { act, cost, day, boost: boost ? boost.id : null, trained, date: date ? { name: date.name, good: date.good, q: date.q, rivals: date.rivals } : null };
   L.act = null;
   boots(game, p, day, r);
-  return { act, cost, stories: out, wada, boost: boost ? boost.id : null, trained };
+  return { act, cost, stories: out, wada, boost: boost ? boost.id : null, trained, date, cheat, pcheat };
 }
 // The life item that goes with this week's activity (the first one the footballer holds), or null.
 const BOOST_KEY = { flowers: "flowers", "ziplock-baggie": "ziplock", "pre-workout": "pre" };

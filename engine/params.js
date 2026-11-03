@@ -121,13 +121,13 @@ export const DEFAULT_PARAMS = {
     offersPerMarket: 3,                             // CPU teams that make an offer when a market opens
     maxOpenOffers: 3,                               // per manager
     startCoins: 150, income: 15,                    // a created player's own wallet: start and per matchday
-    itemCap: 2,                                     // items a created player can wear in one match
+    itemCap: 4,                                     // items a created player can wear in one match
     packs: 3, packCards: 3, packCoins: [30, 60],                  // item packs a created player opens during the pack draft (one item or a small coin bonus in each)
     cpuContract: 2,                                 // seasons on the deal a CPU team gives an unsigned player (no fee)
   },
 
   // ---- items ----
-  items: { activeCap: 3 },
+  items: { activeCap: 3, eliteChance: 0.18 },   // eliteChance: how often one of the one-of-a-kind top boots (if any are left) turns up in the store
   // Steroids: store-only, shows up now and then. Caught means a suspension of max(ban, games left this season).
   // Player-mode life between matches (engine/life.js). stam is the "recovery" the activities move.
   life: {
@@ -144,12 +144,31 @@ export const DEFAULT_PARAMS = {
     partnerParty: 0.3, partyLoveWithPartier: 3,     // a new partner is a party-er this often; partying with one costs no love life
     wada: 0.04, wadaBan: 2,                         // Party: chance of a flagged test, and the ban in matches
     sponsor: { per: 2000, cap: 40 },                // coins a matchday = followers / per, up to cap
-    wedding: { dates: 10, cost: 60 },
+    wedding: { dates: 6, cost: 60 },                 // dates with an exclusive partner before the wedding can be planned (the cost is the cheapest ceremony)
     cameraAt: 3, leakWeeks: 3, prefChance: 0.8,       // dated someone this often before a new face counts as cheating; weeks the wedding guest list can leak; how often the preferred activity is picked when you choose nothing
     milestone: { m100k: 80, m1m: 400 },             // coins that come with the follower milestones
     fans: { goal: 700, assist: 450, win: 150, potm: 1200, hatTrick: 2500, goodAt: 7.5, good: 600, greatAt: 8.5, great: 1500, badAt: 5.5, bad: 500 }, // followers from a match
     trophy: { title: { fol: 120000, coins: 150 }, ballon: { fol: 300000, coins: 300 }, boot: { fol: 100000, coins: 100 }, playmaker: { fol: 100000, coins: 100 }, glove: { fol: 100000, coins: 100 } },
     deals: [{ fol: 15000, pay: 6, seasons: 2 }, { fol: 60000, pay: 12, seasons: 2 }, { fol: 250000, pay: 22, seasons: 3 }, { fol: 1000000, pay: 36, seasons: 3 }], // boot-maker offers by followers
+    rom: {
+      dateMult: 2,                                  // a date with another user player: the one who asks pays this many times a normal date
+      goodAt: 0.55,                                 // a date this good counts as a success
+      exclDates: 3, exclGood: 2,                    // dates, and good dates, needed before you can ask for exclusive
+      exclBase: 0.12, exclQ: 0.5, exclLoyal: 0.28, exclRival: 0.12, exclCool: 2,  // the partner's answer: base + dates + loyalty - others she is seeing; weeks before asking again
+      revealAt: 3,                                  // dates before a partner's hidden loyalty can be looked up
+      seeWeeks: 4, rivalQ: 0.12,                    // another footballer counts as "also seeing" a person for this many weeks; date quality lost for each of them
+      cheatBelow: 55, cheatMax: 0.16,               // a partner with loyalty under this may cheat each week (the chance grows towards cheatMax at 0)
+      dumpCheat: 0.6, dumpHeart: 3,                 // chance a cheated-on partner leaves; weeks a heartbroken partner is unavailable
+      thrLove: 6, thrAsk: 0.15, thrOpen: 0.5,      // extra love from dates in a thrupple; base chance a partner is open to it and how much a low loyalty adds
+      reqWeeks: 1,                                  // a request lapses after the matchday it was sent
+      tiers: [
+        { id: "quiet", name: "Registry office", cost: 60, fol: 1500, love: 10, guests: 6, text: "A quiet signing and a sandwich." },
+        { id: "classic", name: "Classic wedding", cost: 160, fol: 6000, love: 14, guests: 20, text: "Church, marquee, band." },
+        { id: "lavish", name: "Lavish celebration", cost: 360, fol: 20000, love: 18, guests: 60, text: "A castle, fireworks and a horse." },
+        { id: "royal", name: "Wedding of the century", cost: 800, fol: 70000, love: 24, guests: 200, text: "Helicopters, a choir and a documentary crew." },
+      ],
+    },
+    beef: { chance: 0.35, replies: { high: { fol: 400, feud: 0, love: 0 }, funny: { fol: 1500, feud: 0.12, love: 0 }, petty: { fol: 1800, feud: 0.5, love: 0 }, rude: { fol: 3200, feud: 0.9, love: -4 }, ignore: { fol: 0, feud: 0, love: 0 } } },
     feudChance: 0.6, breachFine: 40,
     boringAt: 15, drunkAt: 5, sleepAt: 4, gymAt: 8, maxStories: 3, perWeek: 1,
     chance: { wild: 0.12, drunk: 0.2, proud: 0.1, monaco: 0.15, trouble: 0.12, fun: 0.1, troll: 0.3, camera: 0.6, leak: 0.5, style: 0.35 },

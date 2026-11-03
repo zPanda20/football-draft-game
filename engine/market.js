@@ -75,9 +75,9 @@ export function resolveMarketRound(game, bids, P, label) {
 }
 
 // Ordinary items have a fixed price and unlimited supply.
-export function buyItem(game, teamIdx, itemId, { store = false } = {}) {
+export function buyItem(game, teamIdx, itemId, { store = false, elite = false } = {}) {
   const team = game.teams[teamIdx], it = game.items.find((i) => i.id === itemId);
-  if (!it || it.supply != null || (it.storeOnly && !store) || team.coins < it.price) return false;
+  if (!it || (it.supply != null && !elite) || (it.storeOnly && !store) || team.coins < it.price) return false;
   team.coins -= it.price; team.items[it.id] = (team.items[it.id] || 0) + it.uses;
   return true;
 }

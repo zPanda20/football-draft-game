@@ -343,12 +343,15 @@ export class Room {
     const p = this.players.get(token); if (!p || !this.game) return;
     const g = this.game, inStore = STORE_STEPS.includes(this.step), it = g.items.find((i) => i.id === itemId);
     if (!it || !(inStore || this.step === "market.bid")) return;
-    if (it.storeOnly && !(inStore && (this.store[it.id] || 0) > 0)) return;       // banned items: store only, while in stock
-    if (it.supply != null) return;                                                 // finite items go through the draw
+    const key = it.id === "steroids" && p.mode === "player" ? "steroidsP" : it.id;      // footballers and managers have their own steroid stock
+    if (it.storeOnly && !(inStore && (this.store[key] || 0) > 0)) return;       // banned items: store only, while in stock
+    const elite = it.supply != null;                                               // one-of-a-kind items: only through the draw, or when one turns up in the store
+    if (elite && !(inStore && (this.store[it.id] || 0) > 0 && (g.supply[it.id] ?? it.supply) > 0)) return;
     let ok = false;
-    if (p.mode === "player") { if (p.pid != null) ok = buyForUser(g, g.players[p.pid], itemId, { store: true }); }
-    else if (p.teamId != null) ok = buyItem(g, p.teamId, itemId, { store: true });
-    if (ok && it.storeOnly) this.store[it.id]--;
+    if (p.mode === "player") { if (p.pid != null) ok = buyForUser(g, g.players[p.pid], itemId, { store: true, elite }); }
+    else if (p.teamId != null) ok = buyItem(g, p.teamId, itemId, { store: true, elite });
+    if (ok && (it.storeOnly || elite)) this.store[key]--;
+    if (ok && elite) g.supply[it.id] = (g.supply[it.id] ?? it.supply) - 1;
     if (ok) this.changed();
   }
   buyScout(token) {
@@ -356,11 +359,15 @@ export class Room {
     if (scoutBuy(this.game, p.teamId) !== false) this.changed();
   }
   rollStore() {
-    const g = this.game, r = makeRng(g.seed, "store", g.season, this.mdIdx);
+    const g = this.game, r = makeRng(g.seed, "store", g.season, this.mdIdx), rp = makeRng(g.seed, "storeP", g.season, this.mdIdx), re = makeRng(g.seed, "elite", g.season, this.mdIdx);
     const force = +process.env.TEST_STEROIDS || 0;   // tests: always stock this many
-    this.store = { steroids: force ? force : r() < g.P.steroids.chance ? g.P.steroids.stock : 0 };
+    const roll = (x) => (force ? force : x() < g.P.steroids.chance ? g.P.steroids.stock : 0);
+    this.store = { steroids: roll(r), steroidsP: roll(rp) };
+    // now and then one of the one-of-a-kind top boots (if any pair is still unclaimed) is for sale to whoever is quickest
+    const left = g.items.filter((i) => i.scope === "player" && i.supply != null && (g.supply[i.id] ?? i.supply) > 0), eliteForce = process.env.TEST_ELITE === "1";
+    if (left.length && (eliteForce || re() < g.P.items.eliteChance)) this.store[left[Math.floor(re() * left.length)].id] = 1;
   }
-  notify(text) { this.notices.push({ id: ++this.noticeSeq, text }); if (this.notices.length > 8) this.notices.shift(); }
+  notify(text, to) { this.notices.push({ id: ++this.noticeSeq, text, ...(to ? { to } : {}) }); if (this.notices.length > 24) this.notices.shift(); }
   gift(token, itemId, pid) {
     const p = this.players.get(token); if (!p || p.teamId == null || !STORE_STEPS.includes(this.step)) return;
     if (giftItem(this.game, p.teamId, pid | 0, itemId)) this.changed();
@@ -544,6 +551,10 @@ export class Room {
       });
       const res = finishMatch(g, m, changes, { effort: (t) => this.effortHook(t) });
       this.results.push({ day, a: m.a, b: m.b, ga: res.score[0], gb: res.score[1] });
+      for (const i of [0, 1]) for (const pid of (m.fx && m.fx[i] && m.fx[i].doped) || []) {         // a footballer on a manager's team used steroids: the manager is always told
+        const up = g.players[pid], mgr = up && up.user ? this.playerOfTeam(m.sides[i].id) : null;
+        if (mgr && !this.isPlayerMode(mgr)) this.notify(`${up.name} used steroids in this match${(res.dope || []).some((d) => d.pid === pid) ? " and failed the drugs test." : ". The test came back clean."}`, mgr.token);
+      }
       for (const d of res.dope || []) {
         steroidStory(g, d);
         const pp = g.players[d.pid], tn = d.team != null ? g.teams[d.team].name : "no team";
@@ -687,7 +698,7 @@ export class Room {
     v.history = g.history || []; v.final = !!this.final;
     const gv = this.hold ? Object.assign(Object.create(g), { stats: this.hold.stats, goals: this.hold.goals }) : g;
     v.boot = topScorers(gv, 10); v.leaders = seasonLeaders(gv, 10); v.lastDay = this.lastDay || null;
-    v.store = { open: STORE_STEPS.includes(this.step), stock: this.store }; v.notices = this.notices;
+    v.store = { open: STORE_STEPS.includes(this.step), stock: { ...this.store, steroids: me && me.mode === "player" ? this.store.steroidsP : this.store.steroids } }; { const R = g && g.rom; v.ceremony = R && R.events && R.events.length ? R.events[R.events.length - 1] : null; v.feuds = R && R.feuds ? R.feuds : []; } v.notices = this.notices.filter((n) => !n.to || n.to === token).map(({ id, text }) => ({ id, text }));
     if (this.phase === "season" && ["season.intro", "md.lineup", "md.result", "season.end"].includes(this.step)) v.sched = { days: this.days || [], results: this.results.map((r) => [r.day, r.a, r.b, r.ga, r.gb]) };
     if (this.phase === "season") v.season = { day: this.mdIdx, total: (this.days || []).length, fixtures: (this.days || [])[this.mdIdx] || null, results: this.results.filter((r) => r.day >= this.mdIdx - 0).map((r) => ({ day: r.day, a: r.a, b: r.b, ga: r.ga, gb: r.gb })) };
     if (me && me.teamId != null) {

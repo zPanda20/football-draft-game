@@ -376,8 +376,8 @@ t("life items: Pre-workout speeds training, Flowers improve a date, a Ziplock ba
   let [g, p] = mk(31); L.runActivity(g, p, "train", { day: 0 }); const plain = p.ovrf - 80;
   [g, p] = mk(31); p.items["pre-workout"] = 3; const res = L.runActivity(g, p, "train", { day: 0 });
   assert.ok(Math.abs((p.ovrf - 80) - plain * g.P.life.boost.pre.gain) < 1e-9 && res.boost === "pre-workout" && p.items["pre-workout"] === 2, "pre-workout: +75% progress, one use gone");
-  [g, p] = mk(32); L.runActivity(g, p, "date", { day: 0 }); const love0 = p.life.love;
-  [g, p] = mk(32); p.items.flowers = 1; L.runActivity(g, p, "date", { day: 0 });
+  [g, p] = mk(32); g.P.life.rom.goodAt = 0; L.runActivity(g, p, "date", { day: 0 }); const love0 = p.life.love;     // (every date counts as good, so only the flowers differ)
+  [g, p] = mk(32); g.P.life.rom.goodAt = 0; p.items.flowers = 1; L.runActivity(g, p, "date", { day: 0 });
   assert.equal(p.life.love - love0, g.P.life.boost.flowers.love, "flowers: more love"); assert.equal(p.items.flowers, undefined, "flowers used up");
   [g, p] = mk(33); L.runActivity(g, p, "party", { day: 0 }); const fol0 = p.life.fol, stam0 = p.stam;
   [g, p] = mk(33); p.items["ziplock-baggie"] = 1; L.runActivity(g, p, "party", { day: 0 });
@@ -405,8 +405,14 @@ t("player life: activities move energy, love, money and followers; stories follo
   p.stam = 80; const f1 = lf.fol; L.runActivity(g, p, "party", { day: 1 }); assert.ok(p.stam < 70 && lf.fol > f1 && p.coins < c0, "party: tired, famous, poorer");
   p.coins = 5; assert.equal(L.blocked(g, p, "party"), "Not enough money"); assert.equal(L.runActivity(g, p, "party", { day: 2 }).act, "balance", "cannot afford: falls back to balance");
   p.coins = 5000; for (let d = 0; d < 10; d++) L.runActivity(g, p, "date", { day: 10 + d });
-  assert.ok(L.canMarry(g, p) && lf.partner.dates >= 10); const w = L.runActivity(g, p, "date", { marry: true, day: 30 });
-  assert.ok(lf.married && w.stories.some((n) => n.kind === "wedding" && n.status === "live"), "wedding story goes to the lobby");
+  const RM = await import("../engine/romance.js"); assert.ok(!L.canMarry(g, p), "no wedding before going exclusive");
+  g.P.life.rom.exclBase = 5; for (let k = 0; k < 30 && !lf.partner.excl; k++) { RM.newWeek(g); RM.askExclusive(g, p); }
+  assert.ok(lf.partner.excl && L.canMarry(g, p) && lf.partner.dates >= g.P.life.wedding.dates, "exclusive, enough dates: a wedding can be planned");
+  assert.equal(RM.planWedding(g, p, { tier: "classic", day: 3 }, { next: 5, total: 60 }).ok, false, "a day that has gone cannot be booked");
+  const cash = p.coins; assert.ok(RM.planWedding(g, p, { tier: "classic", day: 30, guests: [{ pub: "abc", name: "Gus" }] }, { next: 5, total: 60 }).ok && cash - p.coins === 160, "paid up front");
+  assert.equal(RM.holdWeddings(g, 29).length, 0, "not before the day"); const held = RM.holdWeddings(g, 30);
+  assert.ok(lf.married && held.length === 1 && held[0].guests[0] === "abc" && g.rom.events.at(-1).a.name === "Test Pro" && g.rom.events.at(-1).b.npc, "the ceremony is an event everybody sees");
+  assert.ok(g.news.some((n) => n.kind === "wedding" && n.status === "live" && /SAYS "I DO"/.test(n.head)), "wedding story goes to the lobby");
   for (let d = 0; d < 20; d++) L.runActivity(g, p, "train", { day: 40 + d }); assert.ok(p.ovr > o0 && p.ovr <= o0 + g.P.life.trainCap, "training helps, but never more than the season cap");
   // boring: 15 balance weeks in one season, guaranteed
   const g2 = createGame({ D, N: 10, seed: 10 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
@@ -469,9 +475,10 @@ t("news: at most one story a week, the bigger one wins, certain events still hap
   const L = await import("../engine/life.js");
   const g = createGame({ D, N: 10, seed: 12 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
   const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Test Pro", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.gender = "M"; p.coins = 9000; const lf = L.ensureLife(g, p);
-  for (let d = 0; d < 10; d++) L.runActivity(g, p, "date", { day: d });
+  const RM = await import("../engine/romance.js"), wed = (gg, pp) => { const l = L.ensureLife(gg, pp); gg.P.life.rom.exclBase = 5; for (let d = 0; d < 10; d++) L.runActivity(gg, pp, "date", { day: d }); for (let k = 0; k < 30 && !l.partner.excl; k++) { RM.newWeek(gg); RM.askExclusive(gg, pp); } assert.ok(RM.planWedding(gg, pp, { tier: "quiet", day: 30 }, { next: 10, total: 60 }).ok); };
+  wed(g, p);
   // a wedding and a steroid ban in the same week: only the ban is printed, the marriage still happens
-  const w = L.runActivity(g, p, "date", { marry: true, day: 30 }); assert.ok(lf.married && w.stories.length === 1 && w.stories[0].kind === "wedding");
+  const w = { stories: RM.holdWeddings(g, 30).length ? [g.news.at(-1)] : [] }; assert.ok(lf.married && w.stories.length === 1 && w.stories[0].kind === "wedding");
   const fol = lf.fol; const s = L.steroidStory(g, { pid: p.id, team: null, games: 10 });
   assert.ok(s && s.kind === "steroids"); assert.equal(g.news.find((n) => n.id === w.stories[0].id).status, "replaced", "the smaller story is overwritten");
   assert.equal(g.news.filter((n) => n.status === "live" && n.day === 30).length, 1, "one live story that week");
@@ -479,9 +486,9 @@ t("news: at most one story a week, the bigger one wins, certain events still hap
   // the other way round: the ban is already printed, the wedding headline does not appear
   const g2 = createGame({ D, N: 10, seed: 13 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
   const q = createUserPlayer(g2, { token: "u", name: "Other Pro", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "M"; q.coins = 9000; const lq = L.ensureLife(g2, q);
-  for (let d = 0; d < 10; d++) L.runActivity(g2, q, "date", { day: d });
+  wed(g2, q);
   g2.weekDay = 30; assert.ok(L.steroidStory(g2, { pid: q.id, team: null, games: 10 }));
-  const w2 = L.runActivity(g2, q, "date", { marry: true, day: 30 }); assert.ok(lq.married && w2.stories.length === 0, "married, but the headline lost the week");
+  const before2 = g2.news.length; RM.holdWeddings(g2, 30); assert.ok(lq.married && g2.news.length === before2, "married, but the headline lost the week");
   assert.equal(L.steroidStory(g2, { pid: q.id, team: null, games: 10 }), null, "a second story of the same size does not print");
   // a new week, a new story; and with every random chance at one there is never more than one story a week
   const g3 = createGame({ D, N: 10, seed: 14 }); g3.md = { day: 0, total: 40 }; g3.P.life.wada = 0; for (const k of Object.keys(g3.P.life.chance)) g3.P.life.chance[k] = 1; g3.P.life.maxStories = 99;
@@ -491,6 +498,68 @@ t("news: at most one story a week, the bigger one wins, certain events still hap
   for (let d = 0; d < 30; d++) { z.coins = 99999; const out = L.runActivity(g3, z, acts[d % acts.length], { day: d }); assert.ok(out.stories.length <= 1, "day " + d); printed += out.stories.length; }
   const perDay = new Map(); for (const n of g3.news) if (n.status === "live" || n.status === "pending") perDay.set(n.day, (perDay.get(n.day) || 0) + 1);
   assert.ok([...perDay.values()].every((c) => c <= 1) && printed > 5, "never more than one live story in a week; plenty over the season");
+});
+t("relationships: shared partners, asking another footballer out, exclusive, cheating, break-up, thrupple, online beef", async () => {
+  const L = await import("../engine/life.js"), RM = await import("../engine/romance.js");
+  const g = createGame({ D, N: 10, seed: 55 }); g.md = { day: 0, total: 18 }; g.P.life.wada = 0;
+  const r = rollNumbers(g.P, "x", "t", 0), mkp = (tok, name, gender) => { const u = createUserPlayer(g, { token: tok, name, pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); u.gender = gender; u.coins = 9000; L.ensureLife(g, u); return u; };
+  const a = mkp("a", "Alex", "M"), b = mkp("b", "Bea", "F"), c = mkp("c", "Cal", "M");
+  // a listed person is shared: while Alex is exclusive with her, she is off everyone else's list; two footballers going out with her make dates awkward
+  const sofia = "sofia-marquez"; L.ensureOptions(g, a, 0); a.life.opts.ids = [sofia]; b.life.opts = { day: 0, season: 1, ids: [sofia], gone: [], n: 0 };
+  assert.deepEqual(L.otherSuitors(g, sofia, a.id), [], "nobody else yet"); L.runActivity(g, a, "date", { day: 0, partner: sofia });
+  b.life.opts = { day: 1, season: 1, ids: [sofia], gone: [], n: 0 }; const rb = L.runActivity(g, b, "date", { day: 1, partner: sofia });
+  assert.ok(rb.date.rivals === 1 && L.otherSuitors(g, sofia, a.id).includes(b.id), "she is already seeing Alex, so Bea's date is awkward");
+  g.P.life.rom.exclBase = 5; g.P.life.rom.goodAt = 0; a.life.opts.ids = [sofia]; for (let d = 2; d < 8; d++) { a.life.opts = { day: d, season: 1, ids: [sofia], gone: [], n: 0 }; L.runActivity(g, a, "date", { day: d, partner: sofia }); }
+  for (let k = 0; k < 30 && !a.life.partner.excl; k++) { RM.newWeek(g); RM.askExclusive(g, a); }
+  assert.ok(a.life.partner.excl && g.rom.npc[sofia].excl === a.id, "Alex is exclusive with Sofia");
+  assert.equal(L.npcBlock(g, sofia, b.id), "Taken"); assert.ok(!L.ensureOptions(g, b, 9).includes(sofia), "Sofia is gone from Bea's list"); assert.equal(L.blocked(g, b, "date", { partner: sofia }), "Taken");
+  assert.equal(RM.revealLoyalty(g, a, sofia).ok, true); assert.equal(RM.revealLoyalty(g, b, sofia).ok, false, "loyalty is revealed only after enough dates");
+  // cheating: another date while exclusive is a scandal and she may leave; her roving eye is the hidden loyalty
+  g.P.life.rom.dumpCheat = 1; a.life.opts = { day: 20, season: 1, ids: ["camille-dubois"], gone: [], n: 0 };
+  const ch = L.runActivity(g, a, "date", { day: 20, partner: "camille-dubois" }); assert.ok(ch.cheat && ch.cheat.dumped && ch.stories.some((n) => /CHEATING SCANDAL/.test(n.head)), "cheating scandal");
+  assert.equal(g.rom.npc[sofia].excl, null); assert.ok(g.rom.npc[sofia].cool > g.rom.week, "she is heartbroken for a while"); assert.equal(L.npcBlock(g, sofia, c.id), "Heartbroken");
+  const n2 = L.npcState(g, "ingrid-larsen"); n2.loyalty = 0; g.P.life.rom.cheatMax = 1; a.life.partner = { id: "ingrid-larsen", name: "Ingrid Larsen", g: "F", excl: true, dates: 9 }; n2.excl = a.id;
+  const pc = L.runActivity(g, a, "rest", { day: 21 }); assert.ok(pc.pcheat && a.life.partner.cheated === 1 && pc.stories.some((n) => /CAUGHT CHEATING/.test(n.head)), "a disloyal partner cheats");
+  n2.loyalty = 100; for (let w = 0; w < 40; w++) { RM.newWeek(g); assert.ok(!L.runActivity(g, a, "rest", { day: 22 + w }).pcheat, "a loyal partner never does"); }
+  // breaking up
+  const bu = RM.breakUp(g, a); assert.ok(bu.ok && !a.life.partner && n2.excl === null && n2.cool > g.rom.week, "break up after going exclusive"); assert.equal(RM.breakUp(g, a).ok, false);
+  // asking another footballer: accept, the asker pays double, both are booked; a change of mind frees them; the date happens
+  const coinsA = a.coins, coinsB = b.coins; g.P.life.rom.goodAt = 0;
+  const rq = RM.sendRequest(g, a, b.id, "date"); assert.ok(rq.ok && rq.notes[0].pid === b.id); assert.equal(RM.sendRequest(g, a, b.id, "date").ok, false, "no duplicate");
+  assert.equal(RM.replyRequest(g, c, rq.req.id, true).ok, false, "only the person asked can answer"); const yes = RM.replyRequest(g, b, rq.req.id, true);
+  assert.ok(yes.ok && a.life.act.joint.pay && !b.life.act.joint.pay && b.life.act.partner === "u:" + a.id);
+  RM.cancelJoint(g, b); assert.ok(!a.life.act && !b.life.act, "changing your mind frees the other");
+  RM.replyRequest(g, b, RM.sendRequest(g, a, b.id, "date").req.id, true);
+  const da = L.runActivity(g, a, "date", { day: 40, partner: a.life.act.partner, joint: a.life.act.joint }), db = L.runActivity(g, b, "date", { day: 40, partner: b.life.act.partner, joint: b.life.act.joint });
+  assert.equal(coinsA - a.coins, g.P.life.acts.date.cost * g.P.life.rom.dateMult, "the one who asked pays for both"); assert.equal(coinsB, b.coins, "the other pays nothing");
+  assert.ok(da.date.q === db.date.q && a.life.partner.id === "u:" + b.id && b.life.partner.id === "u:" + a.id, "they see each other, and the date went the same for both");
+  // going exclusive needs both; the date count and good dates gate it
+  for (let d = 41; d < 47; d++) { a.life.act = { act: "date", partner: "u:" + b.id, joint: { pay: true } }; b.life.act = { act: "date", partner: "u:" + a.id, joint: { pay: false } }; L.runActivity(g, a, "date", { day: d, partner: "u:" + b.id, joint: { pay: true } }); L.runActivity(g, b, "date", { day: d, partner: "u:" + a.id, joint: { pay: false } }); }
+  const ex = RM.sendRequest(g, a, b.id, "excl"); assert.ok(ex.ok); assert.ok(RM.replyRequest(g, b, ex.req.id, true).ok && a.life.partner.excl && b.life.partner.excl, "both exclusive");
+  // thrupple: Cal asks Bea (who is exclusive with Alex); Alex has to say yes too
+  const th = RM.sendRequest(g, c, b.id, "thr"); assert.ok(th.ok, th.why); const t1 = RM.replyRequest(g, b, th.req.id, true); assert.ok(t1.ok && !c.life.thr, "still waiting for Alex");
+  const req2 = g.rom.req.find((x) => x.kind === "thr2" && x.status === "open"); assert.ok(req2 && req2.to === a.id); assert.ok(RM.replyRequest(g, a, req2.id, true).ok);
+  assert.ok(a.life.thr && a.life.thr === b.life.thr && b.life.thr === c.life.thr && L.thrMembers(g, c).length === 2, "three in a thrupple");
+  assert.equal(RM.sendRequest(g, c, a.id, "thr").ok, false); L.leaveThr(g, c); assert.ok(!c.life.thr && !a.life.thr, "when one leaves, it is over");
+  // online beef: a rude reply can start a rivalry with that club
+  g.teams[1].human = false; a.team = 0; c.team = 3; g.P.life.beef.replies.rude.feud = 1; a.life.beef = { id: 1, team: 4, text: "x", season: 1 };
+  const bf = RM.replyBeef(g, a, "rude"); assert.ok(bf.ok && bf.feud && g.rom.feuds.some((f) => f.pid === a.id && f.team === 4) && !a.life.beef, "rude reply: rivals");
+  a.life.beef = { id: 2, team: 5, text: "y", season: 1 }; const hi = RM.replyBeef(g, a, "high"); assert.ok(hi.ok && !hi.feud, "the high road starts no feud");
+  assert.equal(RM.replyBeef(g, a, "rude").ok, false, "nothing left to answer");
+  // a wedding between two footballers needs both exclusive and both to agree; the ceremony shows both
+  const wp = RM.sendRequest(g, a, b.id, "wed"); assert.ok(wp.ok, wp.why); RM.replyRequest(g, b, wp.req.id, true);
+  const pl = RM.planWedding(g, a, { tier: "lavish", day: 60 }, { next: 50, total: 90 }); assert.ok(pl.ok && b.life.wed.status === "planned" && b.life.wed.organiser === false);
+  const held = RM.holdWeddings(g, 60); assert.ok(a.life.married && b.life.married && held[0].ev.b.pid === b.id && held[0].ev.a.img, "two footballers marry and both portraits are in the event");
+});
+t("store: elite boots turn up now and then, footballers have their own steroid stock, a manager is told when a footballer on his team doped", async () => {
+  const { Room } = await import("../server/room.js"); process.env.TEST_ELITE = "1";
+  const r = new Room({ code: "ELIT", D, hostToken: "h", onChange() {}, onSave() {} }); r.addPlayer("h", "Host");
+  r.game = createGame({ D, N: 10, seed: 3 }); r.mdIdx = 0; r.rollStore();
+  const elite = r.game.items.filter((i) => i.supply != null && r.store[i.id] > 0); assert.equal(elite.length, 1, "one elite pair for sale"); delete process.env.TEST_ELITE;
+  assert.ok("steroids" in r.store && "steroidsP" in r.store, "separate stock");
+  const it = elite[0]; assert.equal(r.game.supply[it.id] ?? it.supply, 1);
+  const T = await import("../engine/market.js"); const team = r.game.teams[0]; team.coins = 999;
+  assert.equal(T.buyItem(r.game, 0, it.id, { store: true }), false, "not through the ordinary route"); assert.ok(T.buyItem(r.game, 0, it.id, { store: true, elite: true }) && team.items[it.id] > 0);
 });
 t("substitution plan: swaps and tired rules apply on their own, only with what is there", async () => {
   const { applyPlan, cleanPlan, emptyPlan } = await import("../engine/subplan.js"); const { halftimeRecs } = await import("../engine/game.js");

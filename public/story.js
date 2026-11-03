@@ -4,7 +4,13 @@ import { st, esc, send, team, club, crest } from "./core.js";
 // ---------- rivals ----------
 export const rivalPairs = (S) => (S && S.rivalPairs) || [];
 const pubOfTeam = (S, id) => { const p = S.players.find((x) => x.teamId === id); return p ? p.pub : null; };
+// A footballer who fell out with a club online: that footballer's team and the club are rivals too.
+function feudBetween(S, a, b) {
+  return (S.feuds || []).some((f) => { const pt = (S.teams || []).find((t) => t.players && t.players.includes(f.pid)); return !!pt && pt.id !== f.team && ((pt.id === a && f.team === b) || (pt.id === b && f.team === a)); });
+}
 export function isRival(S, a, b) {
+  if (a === b || a == null || b == null) return false;
+  if (feudBetween(S, a, b)) return true;
   const pa = pubOfTeam(S, a), pb = pubOfTeam(S, b); if (!pa || !pb || pa === pb) return false;
   return rivalPairs(S).some(([x, y]) => (x === pa && y === pb) || (x === pb && y === pa));
 }

@@ -1,12 +1,12 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
-import { st, $, esc, send, coins, pl, initials, team, brandMark, clubInk } from "./core.js";
+import { st, $, esc, send, coins, pl, initials, team, brandMark, clubInk, myClub } from "./core.js";
 
 const ui = () => st.ui;
 export const lifeHandlers = {
   act(a) {
     if (a.k === "date" && !a.partner && st.S.pm && st.S.pm.life && !st.S.pm.life.married && (st.S.pm.life.opts || []).length) { ui().dateOpen = !ui().dateOpen; return st.render(); }
-    send({ t: "act", act: a.k, marry: a.marry === "1", partner: a.partner || undefined }); ui().dateOpen = false;
+    send({ t: "act", act: a.k, partner: a.partner || undefined }); ui().dateOpen = false;
   },
   turnDown(a) { send({ t: "turnDown", id: a.id }); },
   setPref(a) { const lf = st.S.pm && st.S.pm.life; send({ t: "pref", act: lf && lf.pref === a.k ? null : a.k }); },
@@ -52,13 +52,13 @@ export function lifePanel(S) {
   const acts = ["train", "date", "party", "rest", "balance"].map((k) => {
     const cost = lf.costs[k], dis = !lf.open || cost > coinsNow || (k === "party" && pm.susp > 0);
     const bo = lf.boosts && lf.boosts[k], bit = bo && st.items[bo.id], capped = k === "train" && lf.tr && lf.tr.gain >= lf.tr.cap - 1e-9;
-    return `<button class="act ${cur === k && !lf.act.marry ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${capped ? `<span class="ch flat">Skills maxed this season</span>` : chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}${bit ? `<span class="ch up boost">${ico(bit, 16)} ${esc(bit.name)} ×${bo.left}</span>` : ""}</span></button>`;
+    return `<button class="act ${cur === k ? "sel" : ""}" data-act="act" data-k="${k}" ${dis ? "disabled" : ""} title="${esc(info[k].text)}"><span class="ai">${info[k].icon}</span><b>${esc(info[k].name)}</b><span class="chs">${capped ? `<span class="ch flat">Skills maxed this season</span>` : chips(k)}${cost ? `<span class="ch dn">Money −${cost}</span>` : ""}${bit ? `<span class="ch up boost">${ico(bit, 16)} ${esc(bit.name)} ×${bo.left}</span>` : ""}</span></button>`;
   }).join("");
   const marry = "";
   const tr = lf.tr, trainLine = tr ? `<div class="trainline"><span>Training this season</span><span class="tbar"><i style="width:${Math.min(100, (tr.gain / tr.cap) * 100)}%"></i></span><b>+${tr.gain.toFixed(1)} / +${tr.cap} OVR</b>${tr.gain >= tr.cap - 1e-9 ? `<span class="tiny mute">Maxed out. A new season opens it again.</span>` : `<span class="tiny mute">about ${Math.max(1, Math.ceil((tr.cap - tr.gain) / tr.per))} Train hard weeks to go</span>`}</div>` : "";
   const ll = pm.lastLife, tdone = ll && ll.trained && ll.trained.gain > 0 ? ` · <span style="color:var(--good)">${ll.trained.ovr ? `+${ll.trained.ovr} OVR` : "progress"}${ll.trained.stat ? `, ${SKILL[ll.trained.stat] || ll.trained.stat} +1` : ""}</span>` : "";
-  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
-  const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.marry ? " + proposal" : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
+  const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${ll && ll.date ? ` · date with ${esc(ll.date.name)} <span style="color:var(--${ll.date.good ? "good" : "bad"})">${ll.date.good ? "went well" : "went badly"}</span>` : ""}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
+  const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.joint ? " with " + esc((lf.rom.people.find((x) => "u:" + x.pid === lf.act.partner) || {}).name || "a friend") : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
   week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
   return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${dealOfferCard(lf)}${week}</div>`;
 }
@@ -71,24 +71,26 @@ const faceOfPartner = (x, size = 54) => {
 };
 function datePicker(lf, pm) {
   if (lf.married || !(lf.opts || []).length || !ui().dateOpen) return lf.married && lf.partner ? `<div class="small mute mt">💍 Married to <b>${esc(lf.partner.name)}</b>. A Date week is a night out with your spouse.</div>` : "";
-  const coinsNow = pm.coins, cost = lf.costs.date, cur = lf.act && lf.act.act === "date" ? lf.act.partner : null;
+  const coinsNow = pm.coins, cost = lf.costs.date, cur = lf.act && lf.act.act === "date" ? lf.act.partner : null, ex = lf.partner && lf.partner.excl ? lf.partner : null;
   const cards = lf.opts.map((x) => {
-    const can = lf.open && coinsNow >= cost, prop = x.can && lf.open && coinsNow >= cost + lf.wedCost;
+    const mineX = ex && ex.id === x.id, cheat = ex && !mineX, can = lf.open && coinsNow >= cost && !x.block;
     return `<div class="datec ${cur === x.id ? "sel" : ""} ${x.g === "F" ? "gf" : "gm"}">${faceOfPartner(x)}<b>${esc(x.name)}</b>
-      <span class="tiny mute">${x.last ? "❤ Your last date · " : ""}${x.dates ? x.dates + " date" + (x.dates === 1 ? "" : "s") : "Not met yet"}</span>
+      <span class="tiny mute">${x.last ? "❤ Your last date · " : ""}${x.dates ? x.dates + " date" + (x.dates === 1 ? "" : "s") + (x.good ? ` · ${x.good} good` : "") : "Not met yet"}</span>
+      ${x.known != null ? `<span class="tiny ${x.known < 40 ? "dn" : "mute"}">Loyalty ${x.known}</span>` : ""}
+      ${x.rivals && x.rivals.length ? `<span class="tiny" style="color:#e9b44c">Also seeing ${x.rivals.map(esc).join(", ")}</span>` : ""}
+      ${x.block ? `<span class="tiny dn">${esc(x.block)}</span>` : ""}
       ${x.rej ? `<span class="tiny ${x.rej >= 2 ? "dn" : "mute"}">Turned down ${x.rej}×${x.rej >= 2 ? " · one more and they are gone" : ""}</span>` : ""}
-      <div class="col" style="gap:5px;width:100%"><button class="btn sm pri" data-act="act" data-k="date" data-partner="${x.id}" ${can ? "" : "disabled"}>Take on a date · −${cost}</button>
-      ${x.can ? `<button class="btn sm" data-act="act" data-k="date" data-partner="${x.id}" data-marry="1" ${prop ? "" : "disabled"}>💍 Propose · −${cost + lf.wedCost}</button>` : ""}
+      <div class="col" style="gap:5px;width:100%"><button class="btn sm ${cheat ? "bad" : "pri"}" data-act="act" data-k="date" data-partner="${x.id}" ${can ? "" : "disabled"}>${cheat ? "Date anyway (cheating!)" : "Take on a date"} · −${cost}</button>
       <button class="btn sm ghost" data-act="turnDown" data-id="${x.id}" title="Not interested. Turn someone down three times and they never show up again.">Not interested</button></div></div>`;
   }).join("");
-  return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Turn someone down 3 times and they are gone for good. Ten dates with one person and you can propose.</span></div><div class="datecards mt">${cards}</div></div>`;
+  return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Dates can go well or badly; good dates lead to going exclusive (see Relationships below).${ex ? ` <b style="color:var(--bad)">You are exclusive with ${esc(ex.name)}: dating anyone else is a cheating scandal.</b>` : ""}</span></div><div class="datecards mt">${cards}</div></div>`;
 }
 function prefRow(lf) {
   const info = st.cat.life.acts, ks = ["train", "date", "party", "rest", "balance"];
   return `<div class="prefrow mt"><span class="small mute">When you are away or run out of time, you mostly…</span><div class="row wrap" style="gap:6px">${ks.map((k) => `<button class="btn sm ${lf.pref === k ? "pri" : ""}" data-act="setPref" data-k="${k}" title="${esc(info[k].text)}">${info[k].icon} ${esc(info[k].name)}</button>`).join("")}</div></div>`;
 }
 // ---------- boot sponsors ----------
-const myInk = () => { const pm = st.S && st.S.pm; return pm && pm.team != null ? clubInk(team(pm.team)) : null; };
+const myInk = () => { const c = myClub(); return c && c.c1 ? clubInk(c) : null; };       // the club the footballer wears the colours of (a team record has no colours of its own)
 const brandMarkFor = (id, size, tier) => brandMark(id, size, { cols: myInk(), tex: myInk() ? null : ["silver", "silver", "gold", "ruby"][tier ?? 0] });
 function dealOfferCard(lf) {
   const o = lf.offer; if (!o) return "";

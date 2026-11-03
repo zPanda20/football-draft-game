@@ -58,7 +58,8 @@ function tabScreens() {
   const rows = [
     ["📋", "Team", "Formation, eleven, items and the substitution plan. Lite shows formation, a likely XI and hints."],
     ["🏆", "Standings", "League table, last matchday's results, leaders. Tap a team to see its likely line-up and schedule."],
-    ["🛒", "Store", "Rare items appear in limited numbers. Boots add attack for one player, an ice bath restores stamina."],
+    ["🛒", "Store", "Rare items appear in limited numbers. Boots add attack for one player, an ice bath restores stamina. Now and then a one-of-a-kind pair of top boots turns up: first come, first served."],
+    ["💞", "Relationships", "Footballers only: dates, asking other footballers out, going exclusive, thrupples, break-ups and weddings. Everything about the people you date is shared with every footballer in the lobby."],
     ["💰", "Finance", "Coins now, income to come, what every expiring player would cost, retirement risk."],
     ["📊", "Stats", "Every player's season: goals, assists, chances created, tackles, saves, ratings and awards."],
     ["🔁", "Transfers", "The in-season window: trade, drop and sign. Offers from others pop up as a window on any screen."],

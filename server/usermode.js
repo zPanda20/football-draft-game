@@ -4,7 +4,8 @@ import { withParams } from "../engine/params.js";
 import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, reviseUserPlayer, dealCard, answerCard, unsigned, signUser, signUserCpu, cpuOffers, cpuTakes, openItemPack, pickPackCard, autoPickPack, ALL_POS } from "../engine/playermode.js";
 import { findPlate } from "../engine/unlocks.js";
 import { feeFor, rosterRoom, maxLen } from "../engine/market.js";
-import { ensureLife, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, WEDDING_COST, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub } from "../engine/life.js";
+import { ensureLife, ensureRom, npcState, npcBlock, otherSuitors, isHuman, personOf, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub, thrMembers, leaveThr } from "../engine/life.js";
+import { sendRequest, replyRequest, cancelJoint, askExclusive, breakUp, revealLoyalty, loyaltyWord, exclusiveState, avgQ, goodDates, planWedding, cancelWedding, holdWeddings, replyBeef, newWeek, tierOf } from "../engine/romance.js";
 
 const P0 = withParams({});
 export const usermodeMethods = {
@@ -164,18 +165,65 @@ export const usermodeMethods = {
   userPlayers() { return [...this.players.values()].filter((p) => this.isPlayerMode(p) && p.pid != null); },
   // Someone who is here and has not picked this week's activity yet.
   lifeOpen() { return this.userPlayers().some((u) => u.connected && !u.auto && !ensureLife(this.game, this.game.players[u.pid]).act); },
-  chooseActivity(token, act, marry, partner) {
+  chooseActivity(token, act, partner) {
     const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || this.step !== "md.lineup") return;
     const g = this.game, p = g.players[u.pid], L = ensureLife(g, p);
+    if (L.act && L.act.joint) cancelJoint(g, p);                       // changing your mind frees the footballer you were going out with
     if (act == null) { L.act = null; return this.changed(); }
     partner = typeof partner === "string" && partner ? partner : null;
     if (act === "date" && !L.married) {
       const ids = ensureOptions(g, p, this.mdIdx);
-      if (!partner) partner = L.partner && ids.includes(L.partner.id) ? L.partner.id : ids[0] || null;
-    } else partner = null;
-    marry = !!marry && canMarry(g, p, partner);
-    if (blocked(g, p, act, { marry, partner })) return;
-    L.act = { act, marry, partner }; this.changed(); this.maybeGo();
+      if (!partner) partner = L.partner && !isHuman(L.partner.id) && (ids.includes(L.partner.id) || L.partner.excl) ? L.partner.id : ids[0] || null;
+    } else if (act === "date" && L.partner && !isHuman(L.partner.id)) partner = L.partner.id;
+    else partner = null;
+    if (isHuman(partner)) return;                                        // dates with another footballer go through a request
+    if (blocked(g, p, act, { partner })) return;
+    L.act = { act, partner }; this.changed(); this.maybeGo();
+  },
+  // ---------- relationships between footballers ----------
+  userByPid(pid) { return [...this.players.values()].find((q) => q.pid === pid) || null; },
+  privateNote(pid, text) { const q = this.userByPid(pid); if (q) this.notify(text, q.token); },
+  deliver(res) { for (const n of (res && res.notes) || []) this.privateNote(n.pid, n.text); },
+  romMe(token) { const u = this.players.get(token); return u && this.isPlayerMode(u) && u.pid != null && this.game ? { u, p: this.game.players[u.pid] } : null; },
+  loveOpen() { return ["season.intro", "md.lineup", "md.result"].includes(this.step); },
+  romAsk(token, to, kind) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    if (kind === "date" && this.step !== "md.lineup") return;
+    const res = sendRequest(this.game, me.p, to | 0, String(kind)); me.u.romNote = res.ok ? "Sent." : res.why;
+    this.deliver(res); this.changed();
+  },
+  romReply(token, id, yes) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const R = ensureRom(this.game), r = R.req.find((x) => x.id === id);
+    if (r && r.kind === "date" && this.step !== "md.lineup") { r.status = "lapsed"; return this.changed(); }
+    const res = replyRequest(this.game, me.p, id | 0, !!yes); me.u.romNote = res.ok ? (yes ? "Done." : "Declined.") : res.why;
+    this.deliver(res); this.changed(); if (res.ok && res.yes && r && r.kind === "date") this.maybeGo();
+  },
+  exclAsk(token) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = askExclusive(this.game, me.p); me.u.romNote = res.ok ? (res.yes ? "They said yes: you are exclusive." : "They said no. Give it a little time.") : res.why; this.changed();
+  },
+  endRelationship(token) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = breakUp(this.game, me.p); me.u.romNote = res.ok ? `You ended it with ${res.name}.` : res.why; this.deliver(res); this.changed();
+  },
+  leaveThrupple(token) { const me = this.romMe(token); if (!me || !me.p.life || !me.p.life.thr) return; leaveThr(this.game, me.p); this.changed(); },
+  revealLoyal(token, id) { const me = this.romMe(token); if (!me) return; revealLoyalty(this.game, me.p, String(id)); this.changed(); },
+  guestPool(exceptToken) { return [...this.players.values()].filter((q) => q.token !== exceptToken).map((q) => ({ pub: this.pubOf(q), name: q.name, kind: this.isPlayerMode(q) ? "player" : "manager", club: q.teamName || "" })); },
+  weddingPlan(token, tier, day, pubs) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const pool = new Map(this.guestPool(token).map((x) => [x.pub, x])), guests = (Array.isArray(pubs) ? pubs : []).map(String).filter((x) => pool.has(x)).map((x) => ({ pub: x, name: pool.get(x).name }));
+    const res = planWedding(this.game, me.p, { tier: String(tier), day, guests }, { next: this.mdIdx + 1, total: (this.days || []).length });
+    me.u.romNote = res.ok ? "Wedding booked." : res.why;
+    if (res.ok) for (const gst of guests) { const q = this.players.get([...this.players.values()].find((x) => this.pubOf(x) === gst.pub)?.token); if (q) this.notify(`${me.p.name} has invited you to their wedding on matchday ${(day | 0) + 1}.`, q.token); }
+    this.deliver(res); this.changed();
+  },
+  weddingCancel(token) { const me = this.romMe(token); if (!me) return; const res = cancelWedding(this.game, me.p); me.u.romNote = res.ok ? "Wedding called off." : res.why; this.deliver(res); this.changed(); },
+  beefReply(token, mode) {
+    const me = this.romMe(token); if (!me) return;
+    const res = replyBeef(this.game, me.p, String(mode)); if (!res.ok) return;
+    if (res.feud) { const mgr = this.playerOfTeam(res.team); if (mgr) this.notify(`${me.p.name} and ${this.game.teams[res.team].name} are now rivals after an online row.`, mgr.token); }
+    this.changed();
   },
   // "Not interested" in one of the three people on offer.
   turnDown(token, pid) {
@@ -218,28 +266,75 @@ export const usermodeMethods = {
   // Everyone's chosen week plays out just before the match: money, energy, love, followers, and whatever it makes the papers print.
   resolveLife() {
     const g = this.game; dropPending(g);
+    newWeek(g); for (const x of this.userPlayers()) x.romNote = null;
+    for (const w of holdWeddings(g, this.mdIdx)) {                      // today's weddings: the ceremony pops up for everybody
+      g.rom.lastCeremony = w.ev.id;
+      for (const pub of w.guests) { const q = [...this.players.values()].find((x) => this.pubOf(x) === pub); if (q) this.notify(`The wedding of ${w.ev.a.name} and ${w.ev.b.name} is happening now!`, q.token); }
+      this.pushFeed({ kind: "wedding", id: w.ev.id });
+    }
     const us = this.userPlayers(), k = us.length ? Math.max(0, this.mdIdx) % us.length : 0;   // one story a week for the league: take turns who is looked at first
     for (const u of [...us.slice(k), ...us.slice(0, k)]) {
       const p = g.players[u.pid]; if (!p || p.retired) continue;
-      const L = ensureLife(g, p), ch = L.act || weekChoice(g, p, this.mdIdx);
+      const L = ensureLife(g, p); let ch = L.act || weekChoice(g, p, this.mdIdx);
+      if (ch.joint) {                                                   // a date with another footballer only happens if they are still coming
+        const q = g.players[+String(ch.partner).slice(2)], QA = q && q.life && q.life.act;
+        if (!QA || !QA.joint || QA.partner !== "u:" + p.id) ch = { act: "balance", partner: null };
+      }
       if (p.team == null) p.stam = 100;
-      const res = runActivity(g, p, ch.act, { marry: ch.marry, partner: ch.partner || null, day: this.mdIdx });
-      u.lastLife = { act: res.act, cost: res.cost, stories: res.stories.map((n) => n.id), wada: res.wada, boost: res.boost, trained: res.trained };
+      const res = runActivity(g, p, ch.act, { partner: ch.partner || null, day: this.mdIdx, joint: ch.joint || null });
+      u.lastLife = { act: res.act, cost: res.cost, stories: res.stories.map((n) => n.id), wada: res.wada, boost: res.boost, trained: res.trained, date: res.date ? { name: res.date.name, good: res.date.good } : null };
       for (const n of res.stories) {
         if (n.status === "pending") { const mgr = this.playerOfTeam(n.approver); if (!mgr || !mgr.connected || mgr.auto) { n.status = "live"; n.approver = null; n.pub = ++g.pubSeq; } }
       }
+      if (res.cheat && isHuman(res.cheat.prev.id)) this.privateNote(+res.cheat.prev.id.slice(2), `${p.name} was seen on a date with ${res.cheat.now.name} while exclusive with you!${res.cheat.dumped ? " It's over." : ""}`);
+      if (res.pcheat && isHuman(res.pcheat.partner.id)) this.privateNote(+res.pcheat.partner.id.slice(2), "Rumours say your partner was seen with someone else.");
     }
   },
-  lifeView(p) {
+  lifeView(p, u) {
     const g = this.game, L = ensureLife(g, p);
     const shop = {}; for (const it of SHOP) shop[it.id] = { price: priceFor(g, p, it), own: owns(L, it), better: ownsBetter(L, it) };
     const costs = {}; for (const a of Object.keys(g.P.life.acts)) costs[a] = actCost(g, p, a);
     const inc = lifeIncome(g, p);
-    const opts = this.step === "md.lineup" || this.step === "md.result" ? (L.married ? [] : (L.opts ? L.opts.ids : []).map((id) => { const x = partnerById(id); return { id, name: x.name, g: x.g, dates: L.dated[id] || 0, rej: L.rej[id] || 0, last: !!(L.partner && L.partner.id === id), can: canMarry(g, p, id) }; })) : [];
+    const opts = this.step === "md.lineup" || this.step === "md.result" ? (L.married ? [] : (L.opts ? L.opts.ids : []).map((id) => { const x = partnerById(id); return { id, name: x.name, g: x.g, dates: L.dated[id] || 0, rej: L.rej[id] || 0, last: !!(L.partner && L.partner.id === id), block: npcBlock(g, id, p.id), rivals: otherSuitors(g, id, p.id).map((q) => (g.players[q] || {}).name).filter(Boolean), good: goodDates(L, id), known: !!(L.know && L.know[id]) ? npcState(g, id).loyalty : null }; })) : [];
     const boosts = {}; for (const it of g.items) if (it.life && (p.items[it.id] || 0) > 0) boosts[it.life] = { id: it.id, left: p.items[it.id] };
     const T = trainRec(g, L), tr = { gain: +T.gain.toFixed(2), cap: g.P.life.trainCap, sessions: T.sessions, per: g.P.life.trainGain };
     return { boosts, tr, opts, pref: L.pref, offer: L.offer ? { ...L.offer } : null, deal: L.deal, trophies: L.trophies, matchGain: L.matchGain || 0, lm: p.lastMatch ? { gf: p.lastMatch.gf, ga: p.lastMatch.ga, g: p.lastMatch.g, a: p.lastMatch.a, r: +p.lastMatch.r.toFixed(1), gain: p.lastMatch.gain } : null,
-      fol: L.fol, love: L.love, partner: L.partner, married: L.married, own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, canMarry: canMarry(g, p), costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, wedCost: WEDDING_COST(g) };
+      fol: L.fol, love: L.love, partner: L.partner, married: L.married, own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, rom: this.romView(u, p) };
+  },
+  // Everything the Relationships panel shows: your partner, the other footballers, requests, thrupple, wedding and online beef.
+  romView(u, p) {
+    const g = this.game, L = ensureLife(g, p), R = ensureRom(g), P = g.P.life.rom, lineup = this.step === "md.lineup", mine = "u:" + p.id;
+    const face = (q) => ({ pid: q.id, name: q.name, img: q.img, g: q.gender === "F" ? "F" : "M" });
+    const reqView = (r, side) => { const o = g.players[side === "in" ? r.from : r.to]; if (!o) return null; const mate = r.mate != null ? g.players[r.mate] : null;
+      return { id: r.id, kind: r.kind === "thr2" ? "thr" : r.kind, who: face(o), mate: mate ? mate.name : null, cost: r.kind === "date" ? actCost(g, o, "date") * P.dateMult : 0 }; };
+    const incoming = R.req.filter((r) => r.status === "open" && r.to === p.id).map((r) => reqView(r, "in")).filter(Boolean);
+    const outgoing = R.req.filter((r) => r.status === "open" && r.from === p.id).map((r) => reqView(r, "out")).filter(Boolean);
+    const q = L.partner; let partner = null;
+    if (q) {
+      const D = (L.dq || {})[q.id] || { n: 0, good: 0, sum: 0 }, human = isHuman(q.id), n = human ? null : npcState(g, q.id), ex = exclusiveState(g, p);
+      partner = { id: q.id, name: q.name, g: q.g, human: q.human != null ? q.human : null, img: human ? (g.players[+q.id.slice(2)] || {}).img : null, excl: !!q.excl, married: L.married, dates: L.dated[q.id] || 0, n: D.n, good: D.good, avg: D.n ? Math.round((D.sum / D.n) * 100) : 0, cheated: q.cheated || 0,
+        loyalty: n && L.know && L.know[q.id] ? { n: n.loyalty, word: loyaltyWord(n.loyalty) } : null, canReveal: !human && (L.dated[q.id] || 0) >= P.revealAt && !(L.know && L.know[q.id]),
+        revealAt: P.revealAt, canExcl: ex.can && !human, exclWhy: ex.can ? "" : ex.why, rivals: human ? [] : otherSuitors(g, q.id, p.id).map((x) => (g.players[x] || {}).name).filter(Boolean) };
+    }
+    const asked = new Set(R.req.filter((r) => r.status === "open" && r.from === p.id).map((r) => r.to + ":" + (r.kind === "thr2" ? "thr" : r.kind)));
+    const people = this.userPlayers().filter((x) => x.pid !== p.id).map((x) => {
+      const o = g.players[x.pid], OL = ensureLife(g, o), oq = OL.partner;
+      const rel = OL.married ? `Married to ${oq ? oq.name : "?"}` : oq && oq.excl ? `Exclusive with ${oq.name}` : oq ? `Seeing ${oq.name}` : "Single";
+      const them = q && q.id === "u:" + o.id, exs = exclusiveState(g, p), afford = (p.coins || 0) >= actCost(g, p, "date") * P.dateMult;
+      return { ...face(o), team: o.team != null ? g.teams[o.team].name : "Free agent", rel, thr: !!OL.thr, mine: !!them, exclWithMe: !!(them && q.excl),
+        can: { date: lineup && afford && !L.married && !OL.married && !asked.has(o.id + ":date") && !(L.partner && L.partner.excl && !them), excl: !!(them && !q.excl && !L.married && exs.can && OL.partner && OL.partner.id === mine && !asked.has(o.id + ":excl")),
+          thr: !L.thr && !OL.thr && !L.married && !(L.partner && L.partner.excl) && !!(OL.partner && (OL.partner.excl || OL.married)) && !asked.has(o.id + ":thr"),
+          wed: !!(them && q.excl && !L.married && !OL.married && !L.wed && !OL.wed && (L.dated[mine === q.id ? q.id : q.id] || 0) >= g.P.life.wedding.dates && OL.partner && OL.partner.excl && !asked.has(o.id + ":wed")) },
+        why: exs.can ? "" : exs.why };
+    });
+    const t = L.thr ? R.thr.find((x) => x.id === L.thr) : null;
+    const days = []; for (let d = this.mdIdx + 1; d < (this.days || []).length; d++) days.push(d);
+    const w = L.wed ? { ...L.wed, tierName: (tierOf(g, L.wed.tier) || {}).name || null } : null;
+    const planNpc = !!q && !isHuman(q.id) && canMarry(g, p, q.id), planHuman = !!(L.wed && L.wed.status === "planning" && L.wed.organiser);
+    const feuds = R.feuds.filter((f) => f.pid === p.id).map((f) => ({ team: f.team }));
+    const bf = L.beef ? { id: L.beef.id, team: L.beef.team, teamName: g.teams[L.beef.team].name, text: L.beef.text } : null;
+    return { open: this.loveOpen(), lineup, incoming, outgoing, partner, people, thr: t ? t.members.map((m) => (personOf(g, m) || { name: "?" }).name) : null, wed: w, canPlan: planNpc || planHuman, tiers: P.tiers, days, next: this.mdIdx + 1, total: (this.days || []).length,
+      guests: this.guestPool(u.token), note: u.romNote || null, beef: bf, beefLast: L.beefLast || null, feuds, dateMult: P.dateMult, wedDates: g.P.life.wedding.dates, exclDates: P.exclDates, exclGood: P.exclGood };
   },
   newsView(token) {
     const g = this.game, me = this.players.get(token); if (!g) return null;
@@ -256,7 +351,7 @@ export const usermodeMethods = {
       const offers = (this.offers || []).filter((o) => o.pid === p.id && (o.status === "open" || o.status === "accepted")).map((o) => ({ id: o.id, team: o.team, len: o.len, fee: o.fee, from: o.from, status: o.status }));
       let onPitch = false;
       if (this.step === "md.half" && this.live && p.team != null) { const m = this.live.find((x) => x.a === p.team || x.b === p.team); if (m) { const l = g.teams[p.team].htLineup || m.lineups[m.a === p.team ? 0 : 1]; onPitch = l.gk === p.id || l.out.includes(p.id); } }
-      return { packs: p.packs || 0, pack: p.pack ? p.pack.cards : null, packLog: (p.packLog || []).slice(-3), pid: p.id, team: p.team, contract: p.contract, pending: c.pending, log: c.log.slice(-8).reverse(), last: u.lastResult || null, offers, onPitch, effort: (this.efforts && this.efforts.get(p.id)) || null, gain: this.gain ? { seq: this.gain.seq, coins: (g.userGain && g.userGain[p.id] ? g.userGain[p.id].total : g.P.player.income), parts: g.userGain ? g.userGain[p.id] : null } : null, stam: Math.round(p.stam ?? 100), life: this.lifeView(p), lastLife: u.lastLife || null, coins: Math.round(p.coins || 0), items: p.items || {}, equip: p.equip || [], susp: p.susp || 0, canAnswer: true, market: this.step.startsWith("market."), unsigned: p.team == null, seasonCards: g.P.player.cards };
+      return { packs: p.packs || 0, pack: p.pack ? p.pack.cards : null, packLog: (p.packLog || []).slice(-3), pid: p.id, team: p.team, contract: p.contract, pending: c.pending, log: c.log.slice(-8).reverse(), last: u.lastResult || null, offers, onPitch, effort: (this.efforts && this.efforts.get(p.id)) || null, gain: this.gain ? { seq: this.gain.seq, coins: (g.userGain && g.userGain[p.id] ? g.userGain[p.id].total : g.P.player.income), parts: g.userGain ? g.userGain[p.id] : null } : null, stam: Math.round(p.stam ?? 100), life: this.lifeView(p, u), lastLife: u.lastLife || null, coins: Math.round(p.coins || 0), items: p.items || {}, equip: p.equip || [], susp: p.susp || 0, canAnswer: true, market: this.step.startsWith("market."), unsigned: p.team == null, seasonCards: g.P.player.cards };
     }
     return null;
   },

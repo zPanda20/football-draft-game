@@ -16,6 +16,7 @@ import { winHandlers, tradePopup } from "./transfers.js";
 import { phaseBanner } from "./skin.js";
 import { applyLook, lookPicker, lookHandlers } from "./look.js";
 import { rivalButton } from "./story.js";
+import { romHandlers, relPanel, ceremonyTick } from "./romance.js";
 import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
@@ -46,7 +47,7 @@ function connect(first) {
       { const g = m.s.me && m.s.me.gain ? m.s.me.gain : m.s.pm && m.s.pm.gain ? m.s.pm.gain : null;   // money paid after a match: show it once
         if (st.ui.gainSeen === undefined) st.ui.gainSeen = g ? g.seq : 0; else if (g && g.seq > st.ui.gainSeen) { st.ui.gainSeen = g.seq; showGain(g); } }
       { const ns = m.s.notices || [], top = ns.length ? ns[ns.length - 1].id : 0; if (st.ui.noticeSeen === undefined) st.ui.noticeSeen = top; else for (const n of ns) if (n.id > st.ui.noticeSeen) { toast(n.text); st.ui.noticeSeen = n.id; } }
-      newsTick(m.s); unlockSync(m.s); trophySync(m.s);
+      newsTick(m.s); ceremonyTick(m.s); unlockSync(m.s); trophySync(m.s);
       const nt = m.s.speed && m.s.speed.note;
       if (nt && nt.id !== st.ui.paceNoteId) { if (st.ui.paceNoteId !== undefined) toast(nt.text); st.ui.paceNoteId = nt.id; } else if (st.ui.paceNoteId === undefined) st.ui.paceNoteId = 0;
       render();
@@ -86,7 +87,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -337,7 +338,7 @@ function render() {
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);

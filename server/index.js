@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -155,7 +155,16 @@ function handle(ws, m) {
     case "effort": room.setEffort(t, m.mode); break;
     case "redeem": room.redeem(t, String(m.code || "").slice(0, 60)); break;
     case "unlocks": room.setUnlocks(t, Array.isArray(m.ids) ? m.ids.slice(0, 40).map(String) : []); break;
-    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), !!m.marry, m.partner); break;
+    case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), m.partner); break;
+    case "romAsk": room.romAsk(t, m.to | 0, String(m.kind || "")); break;
+    case "romReply": room.romReply(t, m.id | 0, !!m.yes); break;
+    case "exclAsk": room.exclAsk(t); break;
+    case "breakUp": room.endRelationship(t); break;
+    case "thrLeave": room.leaveThrupple(t); break;
+    case "revealLoyal": room.revealLoyal(t, String(m.id || "")); break;
+    case "wedPlan": room.weddingPlan(t, String(m.tier || ""), m.day | 0, Array.isArray(m.guests) ? m.guests.slice(0, 40) : []); break;
+    case "wedCancel": room.weddingCancel(t); break;
+    case "beefReply": room.beefReply(t, String(m.mode || "")); break;
     case "turnDown": room.turnDown(t, String(m.id || "")); break;
     case "pref": room.setPref(t, m.act == null ? null : String(m.act)); break;
     case "dealRespond": room.dealRespond(t, !!m.yes); break;
