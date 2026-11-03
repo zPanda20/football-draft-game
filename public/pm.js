@@ -74,18 +74,25 @@ function cardBox(c) {
     <div class="col" style="gap:6px">${c.opts.map((o, i) => `<button class="btn" data-act="cardPick" data-n="${c.n}" data-opt="${i}" style="justify-content:space-between;text-align:left">${esc(o.label)} <span class="small">${o.p >= 1 ? "safe" : `<span style="color:var(--good)">${pc(o.p)}% +${o.win}</span> · <span style="color:var(--bad)">${pc(1 - o.p)}% ${o.lose < 0 ? "" : "+"}${o.lose}</span>`}</span></button>`).join("")}</div></div>`;
 }
 // The footballer's header: who he is, where he plays, and the one-line news of the week.
-export function pmPanel(S) {
-  const pm = S.pm; if (!pm) return "";
-  const p = pl(pm.pid); if (!p) return "";
+// Split into parts so the career panel (draft, market, off-season) and the matchday screens (pmscreen.js) show the same pieces.
+export function pmBits(S) {
+  const pm = S.pm; if (!pm) return null;
+  const p = pl(pm.pid); if (!p) return null;
   const t = pm.team != null ? team(pm.team) : null;
   const status = t ? `<span class="playsfor">Plays for ${crest(t, 26)} <b>${esc(t.name)}</b></span> <span class="mute">· ${pm.contract} season${pm.contract === 1 ? "" : "s"} left</span>` : `<b>No team yet.</b> <span class="mute">${pm.market ? "Offers arrive while the market is open." : "You follow the league from the stands."}</span>`;
   const last = pm.last ? `<div class="pill ${pm.last.ok ? "good" : "bad"}" style="margin-top:6px">${pm.last.ok ? "✓" : "✗"} ${esc(pm.last.title)}: ${esc(pm.last.choice)}${pm.last.ovr ? ` (${pm.last.ovr > 0 ? "+" : ""}${pm.last.ovr} OVR)` : ""}</div>` : "";
   const open = pm.offers.filter((o) => o.status === "open" || o.status === "accepted");
   const ban = pm.susp ? `<span class="pill bad">Suspended: ${pm.susp} game${pm.susp > 1 ? "s" : ""} left</span>` : "";
   const eff = pm.onPitch ? `<div class="mt"><b>Half-time</b><div class="row mt" style="gap:8px"><button class="btn ${pm.effort === "push" ? "pri" : ""}" data-act="effort" data-mode="push">Push</button><button class="btn ${pm.effort === "conserve" ? "pri" : ""}" data-act="effort" data-mode="conserve">Conserve</button></div><p class="small mute mt">Push: a little sharper, tires you faster. Conserve: save your legs for later.</p></div>` : "";
-  return `<div class="card pmp"><div class="pmhead">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:5px;min-width:0"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${status}</div><div class="row wrap" style="gap:8px"><span class="pill">${coins(pm.coins)}</span>${ban}</div>${last}</div></div>
-    ${pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : ""}
-    ${open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "")}${eff}</div>`;
+  const pend = pm.pending.length ? `<div class="mt"><button class="btn pri" data-act="gambleShow">${pm.pending.length} career moment${pm.pending.length === 1 ? "" : "s"} waiting · decide</button></div>` : "";
+  const offers = open.length ? `<div class="mt"><b>Offers</b>${open.map(offerRow).join("")}</div>` : (pm.unsigned && pm.market ? `<p class="small mute mt">No offers yet. Managers can still make them this round.</p>` : "");
+  return { pm, p, status, last, ban, eff, pend, offers, extra: `${pend}${offers}${eff}` };
+}
+export function pmPanel(S) {
+  const b = pmBits(S); if (!b) return "";
+  const { pm, p } = b;
+  return `<div class="card pmp"><div class="pmhead">${card(pm.pid, { size: "sm" })}<div class="grow col" style="gap:5px;min-width:0"><h3 style="margin:0">${esc(p.name)} <span class="mute small">${esc(p.pos)} · ${p.age}y · OVR ${p.ovr}</span></h3><div class="small">${b.status}</div><div class="row wrap" style="gap:8px"><span class="pill">${coins(pm.coins)}</span>${b.ban}</div>${b.last}</div></div>
+    ${b.extra}</div>`;
 }
 
 // Your kit: match items you can wear (up to the cap), life items waiting for the right week, and item packs.

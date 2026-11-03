@@ -37,8 +37,9 @@ function chips(k) {
 
 const ico = (it, n = 22) => { const u = it && it.icon && st.cat.art && st.cat.art.items && st.cat.art.items[it.icon]; return u ? `<img src="${esc(u)}" alt="" width="${n}" height="${n}" style="vertical-align:middle">` : ""; };
 const SKILL = { pac: "pace", sho: "shooting", pas: "passing", dri: "dribbling", def: "defending", phy: "physical", div: "diving", han: "handling", kic: "kicking", ref: "reflexes", spe: "speed", pos: "positioning" };
-export function lifePanel(S) {
-  const pm = S.pm, lf = pm && pm.life; if (!lf) return "";
+// The pieces of the life panel: the status block (followers, love, recovery, income), a boot-deal offer, and the weekly activity picker.
+export function lifeParts(S) {
+  const pm = S.pm, lf = pm && pm.life; if (!lf) return null;
   const p = pl(pm.pid), info = st.cat.life.acts, coinsNow = pm.coins;
   const cur = lf.act ? lf.act.act : null;
   const partner = lf.partner ? `${esc(lf.partner.name)} · ${lf.married ? "married" : `${lf.partner.dates} date${lf.partner.dates === 1 ? "" : "s"}`}${lf.partner.partier ? " · loves a party" : ""}` : "Single";
@@ -60,7 +61,11 @@ export function lifePanel(S) {
   const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${ll && ll.date ? ` · date with ${esc(ll.date.name)} <span style="color:var(--${ll.date.good ? "good" : "bad"})">${ll.date.good ? "went well" : "went badly"}</span>` : ""}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
   const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.joint ? " with " + esc((lf.rom.people.find((x) => "u:" + x.pid === lf.act.partner) || {}).name || "a friend") : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
   week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${prefRow(lf)}${last}</div>`;
-  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${status}${dealOfferCard(lf)}${week}</div>`;
+  return { status, offer: dealOfferCard(lf), week };
+}
+export function lifePanel(S) {
+  const L = lifeParts(S); if (!L) return "";
+  return `<div class="card lifep"><h3 style="margin:0 0 8px">Life off the pitch</h3>${L.status}${L.offer}${L.week}</div>`;
 }
 
 // ---------- dating: three people to choose from each week ----------

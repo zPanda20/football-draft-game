@@ -168,12 +168,16 @@ const sendPlan = (plan) => send({ t: "plan", plan });
 const WHEN_L = { always: "always", tired: "if he is tired", losing: "if we are losing", drawing: "if it is level", winning: "if we are winning" };
 
 // ---------- league table ----------
-export function tablePanel(S, limit = 99, click = false) {
-  const rows = (S.table || []).slice(0, limit);
-  if (!rows.length) return "";
-  const me = S.me ? S.me.teamId : -1;
+export function tablePanel(S, limit = 99, click = false, around = null) {
+  const all = S.table || [];
+  if (!all.length) return "";
+  const me = S.me ? S.me.teamId : S.pm && S.pm.team != null ? S.pm.team : -1;
+  // A short table (limit rows) centred on one team: used on the footballer's matchday screens.
+  let from = 0;
+  if (around != null && all.length > limit) { const at = all.findIndex((r) => r.i === around); from = Math.max(0, Math.min(all.length - limit, (at < 0 ? 0 : at) - Math.floor(limit / 2))); }
+  const rows = all.slice(from, from + limit);
   return `<div class="card"><h3>League table</h3><table class="tb"><tr><th>#</th><th>Team</th><th class="n">P</th><th class="n">W</th><th class="n">D</th><th class="n">L</th><th class="n">GD</th><th class="n">Pts</th></tr>
-    ${rows.map((r, k) => `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""} ${click ? "clickable" : ""}" ${click ? `data-act="viewteam" data-i="${r.i}" title="See this team"` : ""}><td>${k + 1}</td><td>${chip(team(r.i), 18)}${userTags(team(r.i))}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`).join("")}</table></div>`;
+    ${rows.map((r, j) => { const k = from + j; return `<tr class="${r.i === me ? "me" : ""} ${k === 0 && r.p ? "leader" : ""} ${click ? "clickable" : ""}" ${click ? `data-act="viewteam" data-i="${r.i}" title="See this team"` : ""}><td>${k + 1}</td><td>${chip(team(r.i), 18)}${userTags(team(r.i))}</td><td class="n">${r.p}</td><td class="n">${r.w}</td><td class="n">${r.d}</td><td class="n">${r.l}</td><td class="n">${r.gd > 0 ? "+" : ""}${r.gd}</td><td class="n"><b>${r.pts}</b></td></tr>`; }).join("")}</table></div>`;
 }
 
 // ---------- line-up editor ----------
@@ -516,7 +520,7 @@ export function scoreTicker(S) {
   const myTi = S.me ? S.me.teamId : S.pm && S.pm.team != null ? S.pm.team : -1;
   const one = (m) => `<span class="tk ${m.a === myTi || m.b === myTi ? "mine" : ""}">${crest(team(m.a), 16)}<span class="tn">${esc(team(m.a).name)}</span><b>${m.score[0]}–${m.score[1]}</b><span class="tn">${esc(team(m.b).name)}</span>${crest(team(m.b), 16)}</span>`;
   const run = L.matches.map(one).join("");
-  return `<div class="ticker" aria-label="Last matchday's scores"><span class="tklab">MD ${L.day + 1}</span><div class="tkwin"><div class="tktrack" style="animation-duration:${Math.max(24, L.matches.length * 4.5)}s">${run}${run}</div></div></div>`;
+  return `<div class="scoresbar" aria-label="Last matchday's scores"><span class="tklab">MD ${L.day + 1}</span><div class="tkwin"><div class="tktrack" style="animation-duration:${Math.max(24, L.matches.length * 4.5)}s">${run}${run}</div></div></div>`;
 }
 
 // ---------- the menu between matches ----------

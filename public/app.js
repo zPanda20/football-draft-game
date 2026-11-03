@@ -17,6 +17,7 @@ import { phaseBanner } from "./skin.js";
 import { applyLook, lookPicker, lookHandlers } from "./look.js";
 import { rivalButton } from "./story.js";
 import { romHandlers, relPanel, ceremonyTick } from "./romance.js";
+import { pmScreen, pmScreenHandlers, pmLayoutOn, pmHubStep } from "./pmscreen.js";
 import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
@@ -87,7 +88,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers, pmScreenHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -211,7 +212,7 @@ function renderTop() {
   const sp = S.speed, lv = ["Relaxed", "Normal", "Fast", "Turbo"][sp.levels.indexOf(sp.pace)];
   el.top.innerHTML = `<div class="top"><span class="logo"><b></b> Football Draft</span><span class="code" title="Room code">${esc(S.room)}</span>${stepper(S)}<span class="phase">${esc(phaseLabel(S))}</span>${S.paused ? `<span class="paused">PAUSED</span>` : ""}<span class="grow"></span><button class="btn sm" data-act="lookNext" title="Change the theme: Auto, Synth or Glass">Theme</button>${helpButton()}
     ${S.step !== "lobby" && S.me ? `<span class="coin" title="Your coins">${Math.round(S.me.coins)}<i></i></span>` : ""}
-    ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}${scoreTicker(S)}`;
+    ${S.step !== "lobby" && !st.watch && S.me ? `<span class="row" style="gap:4px"><span class="tiny mute">${lv}</span><button class="btn sm" data-act="speed" data-dir="down" title="Vote slower">−</button><button class="btn sm" data-act="speed" data-dir="up" title="Vote faster">+</button></span>` : ""}</div>${hud}${pmLayoutOn(S) ? "" : scoreTicker(S)}`;
   tick();
 }
 function tick() {
@@ -337,8 +338,11 @@ function render() {
   else if (S.step.startsWith("draft.")) ({ main, side } = draftView(S, ctx));
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
+  else if (pmLayoutOn(S) && pmHubStep(S)) { main = ""; side = ""; }
   else ({ main, side } = matchView(S, ctx));
-  if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  const pmOn = pmLayoutOn(S);
+  if (S.step !== "lobby" && pmOn) { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + gambleOverlay(S) + packOverlay(S) + pmScreen(S, ctx, main); side = ""; }
+  else if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);
@@ -352,7 +356,7 @@ function render() {
   if (fo && $("#" + fo) && document.activeElement !== $("#" + fo)) $("#" + fo).focus();
   const log = $("#chatlog"); if (log) log.scrollTop = log.scrollHeight;
   if (st.ui.lastStep !== S.step) { st.ui.lastStep = S.step; window.scrollTo(0, 0); }
-  document.body.dataset.view = S.step === "lobby" ? "lobby" : S.step === "md.lineup" ? "hub" : /^md\./.test(S.step) ? "match" : "other";
+  document.body.dataset.pm = pmOn ? "1" : ""; document.body.dataset.view = S.step === "lobby" ? "lobby" : S.step === "md.lineup" ? "hub" : /^md\./.test(S.step) ? "match" : "other";
   playbackTick(); pcardSync(); phaseBanner(S); maybeFirstGuide(S);
 }
 st.render = render;
