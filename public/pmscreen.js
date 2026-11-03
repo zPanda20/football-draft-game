@@ -41,7 +41,7 @@ function cardTile(S, hub) {
     ${btn("table", "📊", "Table &amp; stats")}</div></div>`;
 }
 function tableTile(S) {
-  const t = tablePanel(S, 10, false, S.pm.team);
+  const h = typeof innerHeight === "number" ? innerHeight : 900, t = tablePanel(S, h < 760 ? 7 : h < 860 ? 8 : 10, false, S.pm.team);   // fewer rows on a short screen so the tile fits the first fold
   return t ? t : `<div class="card"><h3>League table</h3><p class="small mute">No matches played yet.</p></div>`;
 }
 function newsTile(S) {

@@ -161,6 +161,8 @@ export const DEFAULT_PARAMS = {
       dumpCheat: 0.6, dumpHeart: 3,                 // chance a cheated-on partner leaves; weeks a heartbroken partner is unavailable
       thrLove: 6, thrAsk: 0.15, thrOpen: 0.5,      // extra love from dates in a thrupple; base chance a partner is open to it and how much a low loyalty adds
       reqWeeks: 1,                                  // a request lapses after the matchday it was sent
+      propBase: 0.05, propQ: 0.45, propLove: 0.2, propLoyal: 0.2, propGood: 0.1, propCheat: 0.2,   // chance a proposal is accepted: base + how the dates went + love + loyalty + share of good dates - cheating
+      propDump: 0.35, propDumpLow: 0.25, propCool: 3,   // when she says no: chance she also ends it (more likely the worse the relationship was), and weeks before you can ask again
       tiers: [
         { id: "quiet", name: "Registry office", cost: 60, fol: 1500, love: 10, guests: 6, text: "A quiet signing and a sandwich." },
         { id: "classic", name: "Classic wedding", cost: 160, fol: 6000, love: 14, guests: 20, text: "Church, marquee, band." },

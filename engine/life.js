@@ -82,6 +82,8 @@ export function leave(game, p, id, { cool = false } = {}) {
     if (QL && QL.act && QL.act.partner === "u:" + p.id) QL.act = null;
   } else { const n = npcState(game, id); if (n.excl === p.id) n.excl = null; if (cool) n.cool = R.week + game.P.life.rom.dumpHeart; }
   if (L.act && L.act.partner === id) L.act = null;
+  if (L.wed && L.wed.partner === id) L.wed = null;
+  if (isHuman(id)) { const q = game.players[+id.slice(2)]; if (q && q.life && q.life.wed && q.life.wed.partner === "u:" + p.id) q.life.wed = null; }
   if (L.thr) leaveThr(game, p);
 }
 export function leaveThr(game, p) {
@@ -131,6 +133,7 @@ export const resetSeason = (game) => {
   for (const p of Object.values(game.players)) if (p.user && p.life) {
     const L = p.life; L.cnt = { train: 0, date: 0, party: 0, rest: 0, balance: 0 }; L.sCount = 0; L.flags = {}; L.act = null; L.opts = null; L.beef = null;
     if (L.wed && L.wed.status === "planned" && L.wed.season !== game.season) { p.coins = (p.coins || 0) + (L.wed.paid || 0); L.wed = null; }   // a wedding that never happened is refunded
+    if (L.wed && L.wed.status === "agreeing") { L.wed.status = "planning"; L.wed.plan = null; }   // a plan waiting for a yes was for last season's matchdays
   }
 };
 
@@ -345,14 +348,14 @@ function overwrite(game, n) {
   }
 }
 export function mk(game, p, s) {
-  const room = weekRoom(game, s.prio ?? 0); if (!room) return null;
+  const room = s.force ? { free: true } : weekRoom(game, s.prio ?? 0); if (!room) return null;
   if (room.replace) overwrite(game, room.replace);
   game.newsSeq = (game.newsSeq || 0) + 1; game.pubSeq = game.pubSeq || 0;
   const status = s.approval && p.team != null && game.teams[p.team].human ? "pending" : "live";
   const n = { id: game.newsSeq, season: game.season, day: s.day ?? game.weekDay ?? (game.md ? game.md.day : 0), kind: s.kind, icon: s.icon, pid: p.id, name: p.name, team: p.team, clubName: club(game, p), src: s.src || SOURCE_OF[s.kind] || null, head: s.head, sub: s.sub, status, approver: status === "pending" ? p.team : null, prio: s.prio ?? 0, abs: !!s.abs, fx: s.fx || null, flag: s.flag || null, gflag: s.gflag || null };
   if (status === "live") n.pub = ++game.pubSeq;
   (game.news = game.news || []).push(n); if (game.news.length > 60) game.news.shift();
-  weekSlot(game).ids.push(n.id);
+  if (!s.force) weekSlot(game).ids.push(n.id);
   if (s.fx) applyFx(game, p, s.fx);
   return n;
 }

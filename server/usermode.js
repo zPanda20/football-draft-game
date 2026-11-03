@@ -5,7 +5,7 @@ import { rollNumbers, cleanAssign, defaultAssign, createUserPlayer, reviseUserPl
 import { findPlate } from "../engine/unlocks.js";
 import { feeFor, rosterRoom, maxLen } from "../engine/market.js";
 import { ensureLife, ensureRom, npcState, npcBlock, otherSuitors, isHuman, personOf, trainRec, runActivity, blocked, canMarry, ensureOptions, declineDate, weekChoice, dealAnswer, partnerById, PARTNER_LIST, ACTS, actCost, buyLife, purchaseStory, decideStory, dropPending, lifeIncome, shopItem, SHOP, priceFor, owns, ownsBetter, nightclub, thrMembers, leaveThr } from "../engine/life.js";
-import { sendRequest, replyRequest, cancelJoint, askExclusive, breakUp, revealLoyalty, loyaltyWord, exclusiveState, avgQ, goodDates, planWedding, cancelWedding, holdWeddings, replyBeef, newWeek, tierOf } from "../engine/romance.js";
+import { sendRequest, replyRequest, cancelJoint, askExclusive, breakUp, revealLoyalty, loyaltyWord, exclusiveState, avgQ, goodDates, planWedding, cancelWedding, answerPlan, withdrawPlan, propose, proposalState, proposalChance, oddsWord, holdWeddings, replyBeef, newWeek, tierOf } from "../engine/romance.js";
 
 const P0 = withParams({});
 export const usermodeMethods = {
@@ -209,15 +209,35 @@ export const usermodeMethods = {
   },
   leaveThrupple(token) { const me = this.romMe(token); if (!me || !me.p.life || !me.p.life.thr) return; leaveThr(this.game, me.p); this.changed(); },
   revealLoyal(token, id) { const me = this.romMe(token); if (!me) return; revealLoyalty(this.game, me.p, String(id)); this.changed(); },
-  guestPool(exceptToken) { return [...this.players.values()].filter((q) => q.token !== exceptToken).map((q) => ({ pub: this.pubOf(q), name: q.name, kind: this.isPlayerMode(q) ? "player" : "manager", club: q.teamName || "" })); },
+  guestPool(exceptToken) { return [...this.players.values()].filter((q) => q.token !== exceptToken).map((q) => ({ pub: this.pubOf(q), name: q.name, kind: this.isPlayerMode(q) ? "player" : "manager", club: q.teamName || "", pid: this.isPlayerMode(q) ? q.pid : null })); },
+  // Guests: everybody except you and the person you are marrying.
+  guestsFor(token, p) { const mate = p.life && p.life.wed && String(p.life.wed.partner).startsWith("u:") ? +String(p.life.wed.partner).slice(2) : null; return this.guestPool(token).filter((x) => x.pid == null || x.pid !== mate); },
+  inviteGuests(p, guests, day) {
+    for (const gst of guests) { const q = [...this.players.values()].find((x) => this.pubOf(x) === gst.pub); if (q) this.notify(`${p.name} has invited you to their wedding on matchday ${(day | 0) + 1}.`, q.token); }
+  },
+  // Propose to a listed partner: yes, no and they leave, or no and they need more time.
+  propose(token) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = propose(this.game, me.p);
+    me.u.romNote = !res.ok ? res.why : res.yes ? "They said YES! Plan the wedding below." : res.dumped ? `${res.name} said no and ended it.` : `${res.name} needs more time. Try again in about ${res.weeks} weeks.`;
+    this.changed();
+  },
   weddingPlan(token, tier, day, pubs) {
     const me = this.romMe(token); if (!me || !this.loveOpen()) return;
-    const pool = new Map(this.guestPool(token).map((x) => [x.pub, x])), guests = (Array.isArray(pubs) ? pubs : []).map(String).filter((x) => pool.has(x)).map((x) => ({ pub: x, name: pool.get(x).name }));
+    const pool = new Map(this.guestsFor(token, me.p).map((x) => [x.pub, x])), guests = (Array.isArray(pubs) ? pubs : []).map(String).filter((x) => pool.has(x)).map((x) => ({ pub: x, name: pool.get(x).name }));
     const res = planWedding(this.game, me.p, { tier: String(tier), day, guests }, { next: this.mdIdx + 1, total: (this.days || []).length });
-    me.u.romNote = res.ok ? "Wedding booked." : res.why;
-    if (res.ok) for (const gst of guests) { const q = this.players.get([...this.players.values()].find((x) => this.pubOf(x) === gst.pub)?.token); if (q) this.notify(`${me.p.name} has invited you to their wedding on matchday ${(day | 0) + 1}.`, q.token); }
+    me.u.romNote = res.ok ? (res.sent ? "Sent. Waiting for them to agree." : "Wedding booked.") : res.why;
+    if (res.ok && res.booked) this.inviteGuests(me.p, guests, day);
     this.deliver(res); this.changed();
   },
+  weddingAgree(token, yes) {
+    const me = this.romMe(token); if (!me || !this.loveOpen()) return;
+    const res = answerPlan(this.game, me.p, !!yes, { next: this.mdIdx + 1, total: (this.days || []).length });
+    me.u.romNote = res.ok ? (res.yes ? "Agreed: the wedding is booked." : "You asked for changes.") : res.why;
+    if (res.ok && res.booked && res.plan) this.inviteGuests(this.game.players[me.p.id], res.plan.guests, res.plan.day);
+    this.deliver(res); this.changed();
+  },
+  weddingWithdraw(token) { const me = this.romMe(token); if (!me) return; const res = withdrawPlan(this.game, me.p); me.u.romNote = res.ok ? "Plan taken back." : res.why; this.changed(); },
   weddingCancel(token) { const me = this.romMe(token); if (!me) return; const res = cancelWedding(this.game, me.p); me.u.romNote = res.ok ? "Wedding called off." : res.why; this.deliver(res); this.changed(); },
   beefReply(token, mode) {
     const me = this.romMe(token); if (!me) return;
@@ -314,7 +334,7 @@ export const usermodeMethods = {
       const D = (L.dq || {})[q.id] || { n: 0, good: 0, sum: 0 }, human = isHuman(q.id), n = human ? null : npcState(g, q.id), ex = exclusiveState(g, p);
       partner = { id: q.id, name: q.name, g: q.g, human: q.human != null ? q.human : null, img: human ? (g.players[+q.id.slice(2)] || {}).img : null, excl: !!q.excl, married: L.married, dates: L.dated[q.id] || 0, n: D.n, good: D.good, avg: D.n ? Math.round((D.sum / D.n) * 100) : 0, cheated: q.cheated || 0,
         loyalty: n && L.know && L.know[q.id] ? { n: n.loyalty, word: loyaltyWord(n.loyalty) } : null, canReveal: !human && (L.dated[q.id] || 0) >= P.revealAt && !(L.know && L.know[q.id]),
-        revealAt: P.revealAt, canExcl: ex.can && !human, exclWhy: ex.can ? "" : ex.why, rivals: human ? [] : otherSuitors(g, q.id, p.id).map((x) => (g.players[x] || {}).name).filter(Boolean) };
+        revealAt: P.revealAt, canExcl: ex.can && !human, exclWhy: ex.can ? "" : ex.why, prop: !human && q.excl && !L.married ? (() => { const ps = proposalState(g, p); return { can: ps.can, why: ps.why || "", odds: ps.can ? oddsWord(proposalChance(g, p, q.id)) : null }; })() : null, rivals: human ? [] : otherSuitors(g, q.id, p.id).map((x) => (g.players[x] || {}).name).filter(Boolean) };
     }
     const asked = new Set(R.req.filter((r) => r.status === "open" && r.from === p.id).map((r) => r.to + ":" + (r.kind === "thr2" ? "thr" : r.kind)));
     const people = this.userPlayers().filter((x) => x.pid !== p.id).map((x) => {
@@ -324,17 +344,17 @@ export const usermodeMethods = {
       return { ...face(o), team: o.team != null ? g.teams[o.team].name : "Free agent", rel, thr: !!OL.thr, mine: !!them, exclWithMe: !!(them && q.excl),
         can: { date: lineup && afford && !L.married && !OL.married && !asked.has(o.id + ":date") && !(L.partner && L.partner.excl && !them), excl: !!(them && !q.excl && !L.married && exs.can && OL.partner && OL.partner.id === mine && !asked.has(o.id + ":excl")),
           thr: !L.thr && !OL.thr && !L.married && !(L.partner && L.partner.excl) && !!(OL.partner && (OL.partner.excl || OL.married)) && !asked.has(o.id + ":thr"),
-          wed: !!(them && q.excl && !L.married && !OL.married && !L.wed && !OL.wed && (L.dated[mine === q.id ? q.id : q.id] || 0) >= g.P.life.wedding.dates && OL.partner && OL.partner.excl && !asked.has(o.id + ":wed")) },
+          wed: !!(them && q.excl && !L.married && !OL.married && !OL.wed && OL.partner && OL.partner.excl && proposalState(g, p).can && !asked.has(o.id + ":wed")) },
         why: exs.can ? "" : exs.why };
     });
     const t = L.thr ? R.thr.find((x) => x.id === L.thr) : null;
     const days = []; for (let d = this.mdIdx + 1; d < (this.days || []).length; d++) days.push(d);
-    const w = L.wed ? { ...L.wed, tierName: (tierOf(g, L.wed.tier) || {}).name || null } : null;
-    const planNpc = !!q && !isHuman(q.id) && canMarry(g, p, q.id), planHuman = !!(L.wed && L.wed.status === "planning" && L.wed.organiser);
+    const tn = (id) => (tierOf(g, id) || {}).name || null, pl = L.wed && L.wed.plan ? L.wed.plan : null;
+    const w = L.wed ? { ...L.wed, tierName: tn(L.wed.tier), plan: pl ? { ...pl, tierName: tn(pl.tier), mine: pl.by === p.id, byName: (g.players[pl.by] || {}).name || "Your partner" } : null } : null;
     const feuds = R.feuds.filter((f) => f.pid === p.id).map((f) => ({ team: f.team }));
     const bf = L.beef ? { id: L.beef.id, team: L.beef.team, teamName: g.teams[L.beef.team].name, text: L.beef.text } : null;
-    return { open: this.loveOpen(), lineup, incoming, outgoing, partner, people, thr: t ? t.members.map((m) => (personOf(g, m) || { name: "?" }).name) : null, wed: w, canPlan: planNpc || planHuman, tiers: P.tiers, days, next: this.mdIdx + 1, total: (this.days || []).length,
-      guests: this.guestPool(u.token), note: u.romNote || null, beef: bf, beefLast: L.beefLast || null, feuds, dateMult: P.dateMult, wedDates: g.P.life.wedding.dates, exclDates: P.exclDates, exclGood: P.exclGood };
+    return { open: this.loveOpen(), lineup, incoming, outgoing, partner, people, thr: t ? t.members.map((m) => (personOf(g, m) || { name: "?" }).name) : null, wed: w, canPlan: !!(L.wed && L.wed.status === "planning"), tiers: P.tiers, days, next: this.mdIdx + 1, total: (this.days || []).length,
+      guests: this.guestsFor(u.token, p), note: u.romNote || null, beef: bf, beefLast: L.beefLast || null, feuds, dateMult: P.dateMult, wedDates: g.P.life.wedding.dates, exclDates: P.exclDates, exclGood: P.exclGood };
   },
   newsView(token) {
     const g = this.game, me = this.players.get(token); if (!g) return null;

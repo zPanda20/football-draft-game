@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedAgree", "wedWithdraw", "propose", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "newsDecide", "redeem", "unlocks"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -164,6 +164,9 @@ function handle(ws, m) {
     case "revealLoyal": room.revealLoyal(t, String(m.id || "")); break;
     case "wedPlan": room.weddingPlan(t, String(m.tier || ""), m.day | 0, Array.isArray(m.guests) ? m.guests.slice(0, 40) : []); break;
     case "wedCancel": room.weddingCancel(t); break;
+    case "wedAgree": room.weddingAgree(t, !!m.yes); break;
+    case "wedWithdraw": room.weddingWithdraw(t); break;
+    case "propose": room.propose(t); break;
     case "beefReply": room.beefReply(t, String(m.mode || "")); break;
     case "turnDown": room.turnDown(t, String(m.id || "")); break;
     case "pref": room.setPref(t, m.act == null ? null : String(m.act)); break;

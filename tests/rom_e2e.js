@@ -9,7 +9,7 @@ const PORT = 4800 + Math.floor(Math.random() * 400);
 const srv = spawn("node", ["server/index.js"], { env: { ...process.env, PORT, TEST_SPEED: "60", TEST_STEROIDS: "3", TEST_ELITE: "1", DATA_DIR: mkdtempSync(join(tmpdir(), "fdg-")) }, stdio: ["ignore", "pipe", "inherit"] });
 await new Promise((r) => srv.stdout.on("data", (d) => String(d).includes("http://localhost") && r()));
 
-const T = { requests: 0, accepted: 0, joint: 0, excl: 0, wedPlanned: 0, ceremony: null, ceremonySeenBy: new Set(), notices: [], gifted: 0, giftOk: 0, steroidBought: 0, mgrNotified: 0, elite: 0, eliteBought: 0, itemCap: null, wedAsk: 0 };
+const T = { requests: 0, accepted: 0, joint: 0, excl: 0, wedPlanned: 0, ceremony: null, ceremonySeenBy: new Set(), notices: [], gifted: 0, giftOk: 0, steroidBought: 0, mgrNotified: 0, elite: 0, eliteBought: 0, itemCap: null, wedAsk: 0, agreed: 0, waiting: 0, beefReplied: 0, beefNews: 0 };
 const sent = new Set();
 function client(name, host) {
   const token = "rom-" + name, ws = new WebSocket(`ws://localhost:${PORT}/ws`), c = { ws, token, s: null, name };
@@ -23,6 +23,7 @@ function client(name, host) {
     if (m.t !== "state") return;
     const s = (c.s = m.s);
     for (const n of s.notices || []) { T.notices.push(name + ": " + n.text); if (name !== "Pia" && name !== "Quin" && /used steroids/.test(n.text)) T.mgrNotified = 1; }
+    if (s.news && s.news.list.some((n) => n.kind === "troll" && /HITS BACK|ROASTS|PETTY|RISES ABOVE|PERSONAL/.test(n.head))) T.beefNews = 1;
     if (s.ceremony) { T.ceremony = s.ceremony; T.ceremonySeenBy.add(name); }
     if (name === "Pia" && s.step === "season.end" && s.reveal && s.reveal.kind === "season") { const pid = s.pm.pid, mt = s.teams.find((t) => t.players.includes(pid)); T.title = { champion: s.reveal.champion, myTeam: mt ? mt.id : null, pid, mode: s.players.find((p) => p.you).mode }; }
     if (s.pm && s.pm.life) {
@@ -34,13 +35,17 @@ function client(name, host) {
       }
       // Pia (first footballer) asks Quin out, then asks to go exclusive, proposes, plans; Quin always says yes
       for (const r of R.incoming) { if (c.once("reply" + r.id, { t: "romReply", id: r.id, yes: true })) T.accepted++; }
+      // the other footballer has to agree a plan sent to them (type, matchday, guests)
+      if (R.wed && R.wed.status === "agreeing" && R.wed.plan && !R.wed.plan.mine) { if (c.once("agree" + R.wed.plan.tier + R.wed.plan.day, { t: "wedAgree", yes: true })) T.agreed++; }
+      if (R.wed && R.wed.status === "agreeing" && R.wed.plan && R.wed.plan.mine) T.waiting++;
+      if (R.beef && c.once("beef" + R.beef.id, { t: "beefReply", mode: "funny" })) T.beefReplied++;
       if (name === "Pia") {
         const q = R.people[0];
         if (q && s.step === "md.lineup" && q.can.date && !lf.act && !R.partner) { if (c.once("ask", { t: "romAsk", to: q.pid, kind: "date" })) T.requests++; }
         if (lf.act && lf.act.joint) T.joint++;
         if (q && R.partner && R.partner.human != null && !R.partner.excl && q.can.excl && R.partner.dates >= 3) { if (c.once("excl", { t: "romAsk", to: q.pid, kind: "excl" })) T.excl++; }
         if (q && R.partner && R.partner.excl && q.can.wed) { if (c.once("wed", { t: "romAsk", to: q.pid, kind: "wed" })) T.wedAsk++; }
-        if (R.canPlan && !R.wed || (R.wed && R.wed.status === "planning" && R.wed.organiser)) { if (R.days.length && c.once("plan", { t: "wedPlan", tier: "quiet", day: R.days[0], guests: R.guests.map((g) => g.pub) })) T.wedPlanned++; }
+        if (R.canPlan) { if (R.days.length && c.once("plan", { t: "wedPlan", tier: "quiet", day: R.days[0], guests: R.guests.map((g) => g.pub) })) T.wedPlanned++; }
         // make sure a date happens every week with the partner once exclusive
         if (s.step === "md.lineup" && !lf.act && R.partner && R.partner.human != null && q && q.can.date) c.once("again", { t: "romAsk", to: q.pid, kind: "date" });
         if (s.store && s.store.open && (s.store.stock.steroids || 0) > 0 && pm.coins >= 30 && !(pm.items.steroids > 0)) { if (c.once("steroid", { t: "buy", id: "steroids" })) T.steroidBought++; }
@@ -99,7 +104,7 @@ console.log("pia partner:", JSON.stringify(partner && { name: partner.name, excl
 const qS = quin.s && quin.s.pm && quin.s.pm.life.rom.partner;
 const mine = (tag) => T.notices.some((n) => n.includes(tag));
 const checks = {
-  requestSent: T.requests > 0, accepted: T.accepted > 0, jointDate: T.joint > 0, exclusive: !!(partner && partner.human != null && partner.excl) && !!(qS && qS.excl),
+  requestSent: T.requests > 0, accepted: T.accepted > 0, jointDate: T.joint > 0, planAgreed: T.waiting > 0 && T.agreed > 0, beefBroadcast: T.beefReplied === 0 || T.beefNews === 1, exclusive: !!(partner && partner.human != null && partner.excl) && !!(qS && qS.excl),
   wedding: !!T.ceremony && T.ceremonySeenBy.size >= 4, elite: T.elite > 0, steroids: T.steroidBought > 0,
   giftSent: T.gifted > 0 && !!T.giftOk, steroidNotice: T.mgrNotified > 0, gotNotice: mine("asks you out"),
 };

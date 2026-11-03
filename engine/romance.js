@@ -45,8 +45,8 @@ export function sendRequest(game, p, toPid, kind) {
     if (!QL.partner || !(QL.partner.excl || QL.married)) return fail(`${q.name} is not in a relationship`);
   } else if (kind === "wed") {
     if (!L.partner || L.partner.id !== uid(q) || !QL.partner || QL.partner.id !== uid(p) || !L.partner.excl || !QL.partner.excl) return fail("You both need to be exclusive");
-    if (L.married || L.wed || QL.wed) return fail("A wedding is already on");
-    if ((L.dated[uid(q)] || 0) < game.P.life.wedding.dates) return fail(`${game.P.life.wedding.dates} dates first`);
+    if (QL.wed || QL.married) return fail("A wedding is already on");
+    const s = proposalState(game, p); if (!s.can) return fail(s.why);
   } else return fail("unknown");
   const r = { id: ++R.reqSeq, kind, from: p.id, to: q.id, status: "open", season: game.season, week: R.week };
   R.req.push(r); if (R.req.length > 60) R.req.splice(0, R.req.length - 60);
@@ -84,7 +84,9 @@ export function replyRequest(game, p, reqId, yes) {
   } else if (r.kind === "wed") {
     r.status = "accepted";
     AL.wed = { status: "planning", partner: uid(p), organiser: true }; L.wed = { status: "planning", partner: uid(a), organiser: false };
-    notes.push({ pid: a.id, text: `${p.name} said YES! Plan the wedding from your Relationships panel.` });
+    AL.love = clamp(AL.love + 8, 0, 100); L.love = clamp(L.love + 8, 0, 100);
+    mk(game, a, engagedStory(a, p));
+    notes.push({ pid: a.id, text: `${p.name} said YES! You are engaged. Agree the wedding together in your Relationships panel: type, date and guest list. You pay.` });
   } else if (r.kind === "thr") {
     // the footballer asked is in a relationship: his partner has a say too
     const q = L.partner, qid = q && q.id;
@@ -143,11 +145,55 @@ export function breakUp(game, p) {
   const L = ensureLife(game, p), q = L.partner;
   if (!q || !q.excl || L.married) return fail("Nothing to end");
   const id = q.id, name = q.name, notes = [];
+  if (L.wed) { const c = cancelWedding(game, p); notes.push(...(c.notes || [])); }
   leave(game, p, id, { cool: true });
   L.love = clamp(L.love - 8, 0, 100);
   if (isHuman(id)) notes.push({ pid: hid(id), text: `${p.name} ended it with you.` });
   mk(game, p, { prio: 2, abs: true, kind: "trouble", icon: "💔", head: `${p.name.toUpperCase()} AND ${name.toUpperCase()} CALL IT QUITS`, sub: `A short statement asking for "privacy at this difficult time". The long version is in the group chat.`, fx: { fol: 800 } });
   return { ok: true, name, notes };
+}
+
+// ---------- proposals ----------
+const engagedStory = (a, b) => ({ prio: 3, abs: true, kind: "wedding", icon: "💍", head: `${a.name.toUpperCase()} AND ${b.name.toUpperCase()} ARE ENGAGED`, sub: `The ring has been photographed from four angles. The group chat has been told first, then the agents, then, eventually, the families.`, fx: { fol: 2500 } });
+// Unlocked once you are exclusive and have been out often enough (P.life.wedding.dates). A listed person also needs time after a no.
+export function proposalState(game, p) {
+  const L = ensureLife(game, p), R = ensureRom(game), q = L.partner;
+  if (L.married) return { can: false, why: "Already married" };
+  if (!q) return { can: false, why: "Date someone first" };
+  if (L.wed) return { can: false, why: "Already engaged" };
+  if (!q.excl) return { can: false, why: "Go exclusive first" };
+  const need = game.P.life.wedding.dates, have = L.dated[q.id] || 0;
+  if (have < need) return { can: false, why: `${need - have} more date${need - have === 1 ? "" : "s"} together first` };
+  const wait = ((L.propNo || {})[q.id] || 0) - R.week;
+  if (!isHuman(q.id) && wait > 0) return { can: false, why: `${q.name} needs more time (about ${wait} more week${wait === 1 ? "" : "s"})`, wait };
+  return { can: true };
+}
+// How it has been going: the dates, love, loyalty and cheating all count.
+export function proposalChance(game, p, id) {
+  const L = ensureLife(game, p), P = game.P.life.rom, D = (L.dq || {})[id] || { n: 0, good: 0, sum: 0 }, n = isHuman(id) ? null : npcState(game, id);
+  const q = D.n ? D.sum / D.n : 0.4, goodShare = D.n ? D.good / D.n : 0, loyal = n ? n.loyalty / 100 : 0.6, cheated = ((L.partner && L.partner.id === id && L.partner.cheated) || 0) > 0 ? 1 : 0;
+  return clamp(P.propBase + P.propQ * q + P.propLove * (L.love / 100) + P.propLoyal * loyal + P.propGood * goodShare - P.propCheat * cheated, 0.05, 0.95);
+}
+export const oddsWord = (c) => (c >= 0.75 ? "very likely" : c >= 0.55 ? "a good chance" : c >= 0.35 ? "uncertain" : "unlikely");
+// Propose to a listed person. A yes means you are engaged and can plan the wedding. A no may end the relationship, otherwise they need more time.
+export function propose(game, p) {
+  const L = ensureLife(game, p), R = ensureRom(game), P = game.P.life.rom, q = L.partner;
+  if (q && isHuman(q.id)) return fail("Ask them with a request");
+  const s = proposalState(game, p); if (!s.can) return fail(s.why);
+  const chance = proposalChance(game, p, q.id), rng = makeRng(game.seed, "prop", p.id, q.id, R.week);
+  if (rng() < chance) {
+    L.wed = { status: "planning", partner: q.id, organiser: true }; L.love = clamp(L.love + 8, 0, 100);
+    const story = mk(game, p, engagedStory(p, q));
+    return { ok: true, yes: true, story };
+  }
+  const dumped = rng() < clamp(P.propDump + P.propDumpLow * (1 - chance), 0, 0.9), name = q.name;
+  if (dumped) {
+    leave(game, p, q.id, { cool: true }); L.love = clamp(L.love - 14, 0, 100);
+    const story = mk(game, p, { prio: 3, abs: true, kind: "trouble", icon: "💔", head: `${p.name.toUpperCase()} PROPOSES. ${name.toUpperCase()} LEAVES`, sub: `The ring stayed in its box. ${name} left the restaurant before the main course and the waiter has been asked not to talk about it.`, fx: { fol: 1200 } });
+    return { ok: true, yes: false, dumped: true, name, story };
+  }
+  (L.propNo = L.propNo || {})[q.id] = R.week + P.propCool; L.love = clamp(L.love - 4, 0, 100);
+  return { ok: true, yes: false, dumped: false, name, weeks: P.propCool };
 }
 
 // A listed person's hidden loyalty is something you can find out after a few dates.
@@ -160,29 +206,65 @@ export const loyaltyWord = (n) => (n >= 80 ? "devoted" : n >= 60 ? "loyal" : n >
 
 // ---------- weddings ----------
 export const tierOf = (game, id) => game.P.life.rom.tiers.find((t) => t.id === id) || null;
-// Start (NPC) or finish (footballer) the planning: tier, matchday, guests, paid up front.
+const cleanGuests = (guests) => (Array.isArray(guests) ? guests : []).slice(0, 40).map((g) => ({ pub: String(g.pub || "").slice(0, 12), name: String(g.name || "").slice(0, 24) }));
+// The person who proposed pays; with a listed partner the wedding is booked at once, with another footballer the plan must be agreed first.
+const payerOf = (game, p) => { const L = ensureLife(game, p), w = L.wed; if (!w) return null; return w.organiser ? p : user(game, hid(w.partner)); };
+function book(game, payer, plan) {
+  const L = ensureLife(game, payer), t = tierOf(game, plan.tier), q = L.partner, notes = [];
+  payer.coins -= t.cost;
+  L.wed = { status: "planned", partner: q.id, organiser: true, tier: t.id, day: plan.day, season: game.season, guests: plan.guests, paid: t.cost };
+  if (isHuman(q.id)) { const o = user(game, hid(q.id)); if (o) { ensureLife(game, o).wed = { status: "planned", partner: uid(payer), organiser: false, tier: t.id, day: plan.day, season: game.season, guests: plan.guests, paid: 0 }; notes.push({ pid: o.id, text: `Your wedding is booked: a ${t.name.toLowerCase()} on matchday ${plan.day + 1}, paid for by ${payer.name}.` }); } }
+  return notes;
+}
+// A footballer picks the type, matchday and guests. NPC partner: booked and paid. Footballer partner: sent to them to agree.
 export function planWedding(game, p, { tier, day, guests = [] }, { next = 0, total = 0 } = {}) {
   const L = ensureLife(game, p), t = tierOf(game, tier), q = L.partner;
   if (!t) return fail("Pick a ceremony");
   if (L.married) return fail("Already married");
-  const humanPlan = L.wed && L.wed.status === "planning" && L.wed.organiser;
-  if (L.wed && !humanPlan) return fail("A wedding is already planned");
+  if (!L.wed) return fail("Propose first");
+  if (L.wed.status === "planned") return fail("A wedding is already booked");
+  if (L.wed.status === "agreeing") return fail("A plan is already waiting for an answer");
   if (!q || !q.excl) return fail("You need to be exclusive first");
-  if (!humanPlan && !canMarry(game, p, q.id)) return fail(`${game.P.life.wedding.dates} dates first`);
-  if (!humanPlan && isHuman(q.id)) return fail("Propose first");
   day = day | 0; if (day < next || day >= total) return fail("Pick a matchday still to come");
-  if ((p.coins || 0) < t.cost) return fail("Not enough money");
-  const list = (Array.isArray(guests) ? guests : []).slice(0, 40).map((g) => ({ pub: String(g.pub || "").slice(0, 12), name: String(g.name || "").slice(0, 24) }));
-  p.coins -= t.cost;
-  L.wed = { status: "planned", partner: q.id, organiser: true, tier: t.id, day, season: game.season, guests: list, paid: t.cost };
-  const notes = [];
-  if (isHuman(q.id)) { const o = user(game, hid(q.id)); if (o) { ensureLife(game, o).wed = { status: "planned", partner: uid(p), organiser: false, tier: t.id, day, season: game.season, guests: list, paid: 0 }; notes.push({ pid: o.id, text: `${p.name} has planned your wedding: a ${t.name.toLowerCase()} on matchday ${day + 1}.` }); } }
-  return { ok: true, notes };
+  const list = cleanGuests(guests), payer = payerOf(game, p);
+  if (!payer || (payer.coins || 0) < t.cost) return fail(payer === p ? "Not enough money" : `${payer ? payer.name : "Your partner"} cannot afford that one`);
+  if (isHuman(q.id)) {
+    const o = user(game, hid(q.id)); if (!o) return fail("They are gone");
+    const plan = { tier: t.id, day, guests: list, by: p.id };
+    L.wed.status = "agreeing"; L.wed.plan = plan; const OL = ensureLife(game, o); OL.wed = OL.wed || { status: "planning", partner: uid(p), organiser: !L.wed.organiser }; OL.wed.status = "agreeing"; OL.wed.plan = plan;
+    return { ok: true, sent: true, notes: [{ pid: o.id, text: `${p.name} suggests a ${t.name.toLowerCase()} on matchday ${day + 1}${list.length ? ` with ${list.length} guest${list.length === 1 ? "" : "s"}` : ""}. Agree to it, or suggest changes, in your Relationships panel.` }] };
+  }
+  return { ok: true, notes: book(game, p, { tier: t.id, day, guests: list }), booked: true };
+}
+// The other footballer answers a plan: yes books and pays; no sends it back to planning.
+export function answerPlan(game, p, yes, { next = 0, total = 0 } = {}) {
+  const L = ensureLife(game, p), w = L.wed; if (!w || w.status !== "agreeing" || !w.plan) return fail("Nothing to agree");
+  if (w.plan.by === p.id) return fail("Wait for their answer");
+  const o = user(game, hid(w.partner)), pl = w.plan;
+  const reset = () => { for (const x of [p, o]) if (x && x.life && x.life.wed) { x.life.wed.status = "planning"; x.life.wed.plan = null; } };
+  if (!o) { L.wed = null; return fail("They are gone"); }
+  if (!yes) { reset(); return { ok: true, yes: false, notes: [{ pid: o.id, text: `${p.name} wants the wedding planned differently. Try again.` }] }; }
+  const t = tierOf(game, pl.tier), payer = payerOf(game, p);
+  if (pl.day < next || pl.day >= total) { reset(); return fail("That matchday has gone. Plan it again."); }
+  if (!t || !payer || (payer.coins || 0) < t.cost) { reset(); return fail(`${payer ? payer.name : "Nobody"} cannot afford it now. Plan it again.`); }
+  const notes = book(game, payer, { tier: t.id, day: pl.day, guests: pl.guests });
+  notes.push({ pid: o.id, text: `${p.name} agreed: your wedding is booked for matchday ${pl.day + 1}!` });
+  return { ok: true, yes: true, notes, booked: true, plan: pl };
+}
+// Take back a plan nobody has answered yet.
+export function withdrawPlan(game, p) {
+  const L = ensureLife(game, p), w = L.wed; if (!w || w.status !== "agreeing" || !w.plan || w.plan.by !== p.id) return fail("Nothing to take back");
+  const o = user(game, hid(w.partner));
+  for (const x of [p, o]) if (x && x.life && x.life.wed) { x.life.wed.status = "planning"; x.life.wed.plan = null; }
+  return { ok: true };
 }
 export function cancelWedding(game, p) {
   const L = ensureLife(game, p); if (!L.wed) return fail("Nothing planned");
   const w = L.wed, notes = [];
-  if (w.status === "planned" && w.organiser) p.coins = (p.coins || 0) + Math.round((w.paid || 0) * 0.5);   // half comes back
+  if (w.status === "planned") {                                  // half the money comes back to whoever paid
+    const payer = w.organiser ? p : user(game, hid(w.partner)), paid = w.organiser ? w.paid : payer && payer.life && payer.life.wed ? payer.life.wed.paid : 0;
+    if (payer) payer.coins = (payer.coins || 0) + Math.round((paid || 0) * 0.5);
+  }
   if (isHuman(w.partner)) { const o = user(game, hid(w.partner)); if (o && o.life) { o.life.wed = null; notes.push({ pid: o.id, text: `${p.name} called off the wedding.` }); } }
   L.wed = null; return { ok: true, notes };
 }
@@ -219,6 +301,13 @@ export function offerBeef(game, p, team, text) {
   L.beef = { id: (R.beefSeq = (R.beefSeq || 0) + 1), team, text: String(text || "").slice(0, 160), season: game.season };
   return L.beef;
 }
+const BEEF_STORY = {
+  high: { icon: "🕊️", head: (p, t) => `${p} RISES ABOVE IT: A CALM REPLY TO ${t}`, sub: (p, t) => `${t}'s social team asked for a reaction. ${p} sent a short, classy message and went back to training. The comments are calling it "painfully mature".` },
+  funny: { icon: "😂", head: (p, t) => `${p} HITS BACK AT ${t} WITH A JOKE`, sub: (p, t) => `${t}'s admin wanted a fight and got a gag. ${p}'s reply has more likes than ${t}'s original post, which has now been quietly deleted.` },
+  petty: { icon: "🙄", head: (p, t) => `${p} GETS PETTY WITH ${t} ONLINE`, sub: (p, t) => `A sarcastic reply, a screenshot of an old result and a very specific emoji. ${t}'s social team has "noted" it. Both dressing rooms have seen it.` },
+  rude: { icon: "🔥", head: (p, t) => `${p} ROASTS ${t}: THE INTERNET IS ON FIRE`, sub: (p, t) => `No emoji, no mercy. ${p}'s reply to ${t} was shared a million times before lunch. Somebody at ${t} has "gone for a walk".` },
+};
+// The footballer answers a club that trolled him. Any answer except ignoring it makes the news for the whole lobby.
 export function replyBeef(game, p, mode) {
   const L = ensureLife(game, p), R = ensureRom(game), b = L.beef, P = game.P.life.beef;
   if (!b || !BEEF_MODES.includes(mode)) return fail("Nothing to answer");
@@ -227,11 +316,14 @@ export function replyBeef(game, p, mode) {
   let feud = false;
   if (rep.feud && t && p.team !== b.team && !R.feuds.some((f) => f.pid === p.id && f.team === b.team) && makeRng(game.seed, "beef", p.id, b.id, mode)() < rep.feud) { R.feuds.push({ pid: p.id, team: b.team }); feud = true; }
   L.beefLast = { mode, team: b.team, feud };
-  const notes = [];
-  if (feud) {
-    mk(game, p, { prio: 3, abs: true, kind: "troll", icon: "🔥", head: `${p.name.toUpperCase()} V ${t.name.toUpperCase()}: IT'S PERSONAL NOW`, sub: `${p.name} answered ${t.name}'s social team with a ${mode === "rude" ? "very rude" : "very petty"} reply and the replies have not stopped. Both sides say they "don't care". Both sides have checked the fixture list.` });
+  let story = null;
+  if (mode !== "ignore" && t) {
+    const P_ = p.name.toUpperCase(), T_ = t.name.toUpperCase(), bs = BEEF_STORY[mode];
+    story = feud
+      ? mk(game, p, { force: true, prio: 3, abs: true, kind: "troll", icon: "🔥", head: `${P_} V ${T_}: IT'S PERSONAL NOW`, sub: `${p.name} answered ${t.name}'s social team with a ${mode === "rude" ? "very rude" : "very petty"} reply and the replies have not stopped. Both sides say they "don't care". Both sides have checked the fixture list.` })
+      : mk(game, p, { force: true, prio: 2, abs: true, kind: "troll", icon: bs.icon, head: bs.head(P_, T_), sub: bs.sub(p.name, t.name) });
   }
-  return { ok: true, feud, team: b.team, notes };
+  return { ok: true, feud, team: b.team, mode, story, notes: [] };
 }
 export const feudsOf = (game) => ensureRom(game).feuds;
 
