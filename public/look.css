@@ -124,3 +124,11 @@ select option,select optgroup{background-color:#17142b;color:#f4f4fa}
 body[data-look="glass"] select option,body[data-look="glass"] select optgroup{background-color:#222a48}
 select option:checked,select option:hover{background:#2f6bff linear-gradient(#2f6bff,#2f6bff);color:#fff}
 select:disabled{opacity:.6}
+
+/* "private build" mark: bottom right, one icon per theme */
+#panda{position:fixed;right:10px;bottom:8px;z-index:5;display:flex;align-items:center;gap:6px;pointer-events:none;font-size:10px;letter-spacing:.06em;color:rgba(255,255,255,.55);text-shadow:0 1px 3px rgba(0,0,0,.8);opacity:.8}
+#panda img{width:22px;height:22px;object-fit:contain;display:none}
+body[data-look="glass"] #panda .pd-glass,body:not([data-look="glass"]) #panda .pd-synth{display:block}
+body[data-look="synth"] #panda{font-family:var(--display,inherit);text-transform:uppercase;font-size:9px;letter-spacing:.12em}
+@media (max-width:640px){#panda{bottom:calc(76px + env(safe-area-inset-bottom));right:8px}}
+@media print{#panda{display:none}}
