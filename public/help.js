@@ -34,6 +34,9 @@ const HERE = {
   "md.half": ["Half-time", "Make changes: swap players, change formation. Your substitution plan may already have done some. Press Ready."],
   "md.half2": ["Second half", "The second half is playing."],
   "md.result": ["Full time", "Results, ratings and the table. Your coins arrive with a short animation."],
+  "gala.prep": ["Gala night: getting ready", "Footballers can invite one date. Everyone can ask to sit with someone (a request, not a promise: at most two are honoured for any guest). Press Ready, or the clock starts the dinner."],
+  "gala.live": ["Gala night: dinner", "You get one main interaction: a toast, a boast, clearing the air, a row, a professional argument, or (footballers only) a dance. When it needs the other person they decide. Doing nothing is fine."],
+  "gala.end": ["Gala roundup", "The morning-after story: public moments become news (at most three); private ones are only shown to the people in them."],
   "season.end": ["Season over", "Champions, awards, the final table, history of every past season and the Golden Boot."],
   "off.retire": ["Retirements", "Older players may retire. Some retire for sure."],
   "off.age": ["Development", "Everyone is a year older: young players tend to improve, older ones decline."],
@@ -63,6 +66,8 @@ function tabScreens() {
     ["💰", "Finance", "Coins now, income to come, what every expiring player would cost, retirement risk."],
     ["📊", "Stats", "Every player's season: goals, assists, chances created, tackles, saves, ratings and awards."],
     ["🔁", "Transfers", "The in-season window: trade, drop and sign. Offers from others pop up as a window on any screen."],
+    ["💬", "Social", "Managers only, in the Social bar above your line-up: your inbox (a player asks for minutes, objects to a signing, the dressing room hears about a night out), public comments, promises and squad mood. Nothing there ever stops a match from starting. Hosts can switch Social events and the Gala off in the lobby."],
+    ["🥂", "Gala", "Once a season, mid-way through, everyone is invited to a gala dinner. Footballers bring a date and can dance; managers toast, boast, make peace or argue shop. Managers are never part of dating."],
     ["📰", "News", "The Daily Whistle: stories about created footballers, with papers and magazines such as The Sun, The Athletic, The Telegraph, L'Équipe, GQ, Harper's Bazaar and Vogue."],
     ["⋯", "More", "Lite only: every hidden screen, the switches, and Graduate to Full."],
     ["📜", "History", "Between seasons: the all-time table and every past season's final table."],
@@ -96,6 +101,9 @@ function tabLite() {
     <p>Each person chooses for themselves, and anyone can flip a single switch, or press <b>Graduate to Full</b>, whenever they like. Lite and Full managers share a league.</p></div>`;
 }
 const FAQ = [
+  ["What is the gala?", "A once-a-season dinner for every connected manager and footballer, about two minutes long. You may ask for a seat beside someone, but it is only a request. Everyone gets one main interaction, and anything that needs another player waits for their answer. If nobody answers, nothing happens. The host can switch it off in the lobby."],
+  ["How does trust work?", "Each footballer has one trust meter with their manager: Bitter, Wary, Neutral, Trusting. Decisions (bench, fines, promises) move it, a manager's style bends how far, and a kept or broken promise matters most. Players are Calm, Proud, Loyal or Restless, which changes how they react."],
+  ["Who can see what?", "Private requests, quiet chats and refusals are only shown to the people involved. Public comments, headlines and gala scenes are news. Rumours are marked as rumours. Results are never mentioned in a story before full time."],
   ["Nothing is happening. What am I waiting for?", "The top bar says what is needed. The room waits for managers who still have a decision; idle managers (nobody clicking for a while) are skipped quickly."],
   ["What does Auto do?", "Auto hands your club to the computer: lineup, half-time and re-signing are decided the way a computer club decides. You can switch it off at any time."],
   ["Why is the Ready button flashing?", "You have not clicked anything for 10 seconds and the match cannot start until you are ready. It flashes harder in Lite mode."],

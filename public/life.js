@@ -1,5 +1,6 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
+import { tagChip } from "./social.js";
 import { TOGETHER_TXT } from "./romance.js";
 import { st, $, esc, send, store, coins, pl, initials, team, brandMark, clubInk, myClub } from "./core.js";
 
@@ -9,7 +10,7 @@ export const lifeHandlers = {
   act(a) {
     if (a.secret) { send({ t: "act", act: "date", partner: a.partner, secret: true }); ui().secretOpen = false; return; }
     if (a.k === "date" && !a.partner && st.S.pm && st.S.pm.life && !st.S.pm.life.married && (st.S.pm.life.opts || []).length) { ui().dateOpen = !ui().dateOpen; return st.render(); }
-    send({ t: "act", act: a.k, partner: a.partner || undefined }); ui().dateOpen = false;
+    send({ t: "act", act: a.k, partner: a.partner || undefined, dinner: a.dinner ? true : undefined }); ui().dateOpen = false;
   },
   turnDown(a) { send({ t: "turnDown", id: a.id }); },
   setPref(a) { const lf = st.S.pm && st.S.pm.life; send({ t: "pref", act: lf && lf.pref === a.k ? null : a.k }); },
@@ -91,6 +92,7 @@ function datePicker(lf, pm) {
       ${x.block ? `<span class="tiny dn">${esc(x.block)}</span>` : ""}
       ${x.rej ? `<span class="tiny ${x.rej >= 2 ? "dn" : "mute"}">Turned down ${x.rej}×${x.rej >= 2 ? " · one more and they are gone" : ""}</span>` : ""}
       <div class="col" style="gap:5px;width:100%"><button class="btn sm ${cheat ? "bad" : "pri"}" data-act="act" data-k="date" data-partner="${x.id}" ${can ? "" : "disabled"}>${cheat ? "Date anyway (cheating!)" : "Take on a date"} · −${cost}</button>
+      ${lf.rom && lf.rom.soc && !cheat ? `<button class="btn sm" data-act="act" data-k="date" data-dinner="1" data-partner="${x.id}" ${lf.open && coinsNow >= (lf.rom.dinnerCost || 0) && !x.block ? "" : "disabled"} title="A proper dinner: costs more, can go better, and they may have other offers. If they say no you are not charged.">🍽 Invite to dinner · −${lf.rom.dinnerCost}</button>` : ""}
       <button class="btn sm ghost" data-act="turnDown" data-id="${x.id}" title="Not interested. Turn someone down three times and they never show up again.">Not interested</button></div></div>`;
   }).join("");
   return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Dates can go well or badly; good dates lead to going exclusive (see Relationships below).${ex ? ` <b style="color:var(--bad)">You are exclusive with ${esc(ex.name)}: dating anyone else is a cheating scandal.</b>` : ""}</span></div><div class="datecards mt">${cards}</div></div>`;
@@ -173,14 +175,14 @@ export function frontPage(S, { cols = 6 } = {}) {
   const [lead, ...rest] = l, pic = art(lead.kind);
   const by = (n) => `${n.kind === "rumour" ? "" : esc(n.name) + " · "}${esc(n.club)}`;
   return `<div class="frontpage"><div class="fp-mast">${masthead}</div>${meta}
-    <div class="fp-lead"><div><div class="fp-head">${esc(lead.head)}</div><p class="fp-sub">${esc(lead.sub)}</p><div class="tiny" style="margin-top:6px;letter-spacing:.1em;text-transform:uppercase;color:#7a6f55">${by(lead)} · season ${lead.season}, matchday ${lead.day + 1}</div>${lead.src ? `<div class="fp-src">${srcMark(lead.src, 20)}</div>` : ""}</div>
+    <div class="fp-lead"><div><div class="fp-head">${esc(lead.head)}</div>${tagChip(lead)}<p class="fp-sub">${esc(lead.sub)}</p><div class="tiny" style="margin-top:6px;letter-spacing:.1em;text-transform:uppercase;color:#7a6f55">${by(lead)} · season ${lead.season}, matchday ${lead.day + 1}</div>${lead.src ? `<div class="fp-src">${srcMark(lead.src, 20)}</div>` : ""}</div>
       <div class="fp-pic" ${pic ? `style="background-image:url('${esc(pic)}')"` : ""}>${pic ? "" : esc(lead.kind === "steroids" ? "💉" : lead.icon)}<em>${esc(KIND[lead.kind] || "News")}</em></div></div>
-    ${rest.length ? `<div class="fp-cols">${rest.slice(0, cols).map((n) => `<div class="fp-col"><small>${esc(KIND[n.kind] || "News")} · S${n.season} MD${n.day + 1}</small>${n.src ? `<div class="fp-src">${srcMark(n.src, 14)}</div>` : ""}<b>${esc(n.head)}</b><span>${esc(n.sub.length > 120 ? n.sub.slice(0, 118) + "…" : n.sub)}</span></div>`).join("")}</div>` : ""}</div>`;
+    ${rest.length ? `<div class="fp-cols">${rest.slice(0, cols).map((n) => `<div class="fp-col"><small>${esc(KIND[n.kind] || "News")} · S${n.season} MD${n.day + 1}</small>${n.src ? `<div class="fp-src">${srcMark(n.src, 14)}</div>` : ""}<b>${esc(n.head)}</b>${tagChip(n)}<span>${esc(n.sub.length > 120 ? n.sub.slice(0, 118) + "…" : n.sub)}</span></div>`).join("")}</div>` : ""}</div>`;
 }
 export function newsCard(S) {
   const l = S.news && S.news.list; if (!l || !l.length) return "";
   if (["md.result", "season.end", "season.intro"].includes(S.step)) return frontPage(S, { cols: 3 });
-  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b><div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div>${n.src ? srcMark(n.src, 16) : ""}</div>`).join("")}</div></div>`;
+  return `<div class="card"><h3>Headlines</h3><div class="col" style="gap:8px">${l.slice(-5).reverse().map((n) => `<div class="hl nk-${n.kind}"><span class="hi">${n.kind === "steroids" ? WADA_MARK : esc(n.icon)}</span><div><b>${esc(n.head)}</b> ${tagChip(n)}<div class="tiny mute">${esc(n.club)} · season ${n.season}, matchday ${n.day + 1}</div></div>${n.src ? srcMark(n.src, 16) : ""}</div>`).join("")}</div></div>`;
 }
 
 // ---------- the banner ----------

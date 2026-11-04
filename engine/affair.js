@@ -131,7 +131,7 @@ export function loveWeek(game, p, { act, date, secret, together, r }) {
   if (q) {
     bondOf(game, L);
     const comm = committed(L); let gain = 0, touched = false;
-    if (act === "date" && date && !date.secret && date.id === q.id) { gain = date.good ? U.date.good : date.q >= 0.4 ? U.date.ok : U.date.bad; touched = true; }
+    if (act === "date" && date && !date.secret && date.id === q.id) { gain = (date.good ? U.date.good : date.q >= 0.4 ? U.date.ok : U.date.bad) + (date.dinner ? game.P.social.invite.bond : 0); touched = true; }
     else if (together) { gain = game.P.life.rom.together.bond; touched = true; }
     else if (!isHuman(q.id) && act === likeOf(game, q.id)) { gain = U.like; touched = true; }
     if (touched) { q.bond = Math.min(100, q.bond + gain); q.cold = 0; }

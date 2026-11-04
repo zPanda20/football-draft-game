@@ -191,6 +191,23 @@ export const DEFAULT_PARAMS = {
   },
   // ---- season awards (Ballon d'Or weights add to 1; each part is measured against the best in the league) ----
   awards: { minShare: 0.5, gloveShare: 0.4, base: 6.0, ovrFloor: 60, weights: { rating: 0.30, contrib: 0.25, potm: 0.17, wins: 0.20, star: 0.08 } },
+  // ---- social layer: manager situations, story threads, invitations, gifts and the mid-season gala. Every cost is small and capped on purpose. ----
+  social: {
+    trust: { min: -2, max: 2 },                    // one meter per player and manager: Bitter -2, Wary -1, Neutral 0, Trusting 1+
+    gap: 2, maxOpen: 3, expireDays: 3,             // matchdays between two new situations for one manager; how many may wait at once; how long one waits before it lapses (counts as no answer)
+    bench: { after: 3, cooldown: 6, ovrGap: 9, promiseDays: [2, 3, 4], warmAt: 2 },       // matchdays on the bench before he asks; matchdays before the same player asks again; how close to the XI he must be; days you may promise; a callback story when this many days are left
+    signing: { gap: 2, topN: 6, cooldown: 8 },     // a signing is a threat when he is this close to (or above) a top-N player in the same position
+    party: { chance: 0.3, cooldown: 8, fine: 15, fineShare: 0.1, benchGames: 1 },   // a squad player seen partying before a big match (per team, per 8 matchdays); fine for a footballer is capped at a share of his wallet and goes to charity, not the manager
+    comment: { cooldown: 2, perSeason: 4, perTarget: 1, lines: 4 },   // public comments: gap between two, season cap, per target manager per season
+    desk: { perWeek: 1, queue: 4, queueLife: 3 }, // league stories get their own slot; extra ones wait in a short queue instead of being overwritten
+    threads: { keep: 40, hist: 8 },
+    react: { fol: 600 },                           // a footballer going public about a manager's decision
+    // the footballers' market: invitations, gifts and memory
+    invite: { dinnerMult: 1.5, bond: 4, fol: 600, maxOpen: 2, memory: 12 },   // a dinner costs this many dates; extra bond on top of a date; followers when it is a public night out
+    gift: { tiers: { flowers: { price: 12, like: 5 }, watch: { price: 45, like: 11 }, jewel: { price: 120, like: 18 } }, perTarget: 3, perWeek: 2, fade: 0.5, cap: 30, fondQ: 300, accept: 0.3, noticeChance: 0.35, publicFol: 900, jealous: 14 },
+    // the gala
+    gala: { prepSec: 40, liveSec: 55, endSec: 14, tableSize: 6, seatPerTarget: 2, dramaSeat: 0.7, boastFol: 800, maxStories: 3, toastTrust: 1, minUsers: 1, toastFol: 400, jokeHit: 300, sceneFol: 700, danceLove: 6, danceBond: 3 },
+  },
   steroids: { chance: 0.22, stock: 1, price: 30, catchChance: 0.51, ban: 10, rumourAfter: 3 },   // cheap on purpose: the risk is the price. More than rumourAfter uncaught uses by one club in a season starts a rumour story
 };
 

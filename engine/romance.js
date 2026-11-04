@@ -3,6 +3,7 @@
 // Every function returns { ok, why?, notes? }. `notes` are messages for other footballers: [{ pid, text }].
 import { makeRng } from "./rng.js";
 import { beefRel } from "./clubrel.js";
+import { remember } from "./social.js";
 import { ensureLife, ensureRom, npcState, otherSuitors, isHuman, personOf, leave, leaveThr, thrMembers, canMarry, actCost, mk, applyFx } from "./life.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -74,13 +75,27 @@ export function cancelJoint(game, p) {
   if (other && other.life && other.life.act && other.life.act.joint && other.life.act.partner === uid(p)) other.life.act = null;
 }
 
+// Competing invitations: one yes counts. Everybody else who asked p for a date this week is told, and a date p had already
+// agreed to with somebody else is off (that person is told too). The league remembers who turned down whom.
+function competing(game, R, r, a, p, notes) {
+  const lose = (o, why) => {
+    const oa = user(game, o.from); if (!oa) return;
+    notes.push({ pid: oa.id, text: `${p.name} ${why}.` });
+    remember(game, oa.id, "rej", { id: uid(p), name: p.name, what: "date", by: a.name });
+    remember(game, oa.id, "rival", { id: uid(p), name: a.name, over: p.name, pid: a.id }); remember(game, a.id, "rival", { id: uid(p), name: oa.name, over: p.name, pid: oa.id });
+  };
+  for (const o of R.req) if (o !== r && o.status === "open" && o.to === p.id && o.kind === "date") { o.status = "closed"; lose(o, `accepted another invitation instead of yours`); }
+  const L = ensureLife(game, p), prior = L.act && L.act.joint && L.act.partner !== uid(a) ? game.players[hid(L.act.partner)] : null;
+  if (prior) lose({ from: prior.id }, `accepted ${a.name}'s invitation and cancelled your date`);
+}
 export function replyRequest(game, p, reqId, yes) {
   const R = ensureRom(game), r = R.req.find((x) => x.id === reqId && x.to === p.id && x.status === "open"); if (!r) return fail("Gone");
   const a = user(game, r.from), L = ensureLife(game, p); if (!a) { r.status = "lapsed"; return fail("Gone"); }
   const AL = ensureLife(game, a), P = game.P.life.rom, notes = [];
-  if (!yes) { r.status = "declined"; return { ok: true, kind: r.kind, yes: false, notes: [{ pid: a.id, text: `${p.name} said no.` }] }; }
+  if (!yes) { r.status = "declined"; if (r.kind === "date" || (r.kind === "act" && r.act === "date")) remember(game, a.id, "rej", { id: uid(p), name: p.name, what: "date" }); return { ok: true, kind: r.kind, yes: false, notes: [{ pid: a.id, text: `${p.name} said no.` }] }; }
   if (r.kind === "date") {
     if ((a.coins || 0) < actCost(game, a, "date") * P.dateMult) { r.status = "lapsed"; return fail(`${a.name} can no longer afford it`); }
+    competing(game, R, r, a, p, notes);                                    // other invitations to p are closed, and a date already booked is cancelled
     setJoint(game, a, p); r.status = "accepted";
     notes.push({ pid: a.id, text: `${p.name} said yes. You pay, they come. See you at kick-off!` });
   } else if (r.kind === "act") {

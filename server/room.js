@@ -16,11 +16,14 @@ import { cleanPlan, applyPlan } from "../engine/subplan.js";
 import { expiring, availableRookies, scoutBuy } from "../engine/offseason.js";
 import { offseasonMethods } from "./offseason.js";
 import { usermodeMethods } from "./usermode.js";
+import { socialMethods, seasonEndSocial } from "./social.js";
+import { galaMethods } from "./gala.js";
+import { mk, checkBoasts } from "../engine/gala.js";
 import { liteMethods, liteOf, isLite } from "./lite.js";
 import { unsigned, buyForUser, setEquip, giftItem } from "../engine/playermode.js";
 
 export const PACES = [1.4, 1, 0.7, 0.5]; // seconds-multiplier per speed level: Relaxed, Normal, Fast, Turbo
-const DEFAULTS = { pool: "all", minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 35, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120 };
+const DEFAULTS = { pool: "all", minTeams: 10, pace: 1, draftSec: 30, marketSec: 30, lineupSec: 35, halfSec: 15, seasons: 4, resignSec: 40, rookieSec: 25, tradeSec: 120, gala: true, social: true };
 const KEEP_FEED = 40;
 const IDLE_MS = 6000;   // how long the room waits for idle players once nobody else is left to act
 const MARKET_ROUNDS = 8;
@@ -88,6 +91,7 @@ export class Room {
         case "md.lineup": case "md.half": if (!this.ready.has(t.id) && !p.auto) add(p); break;
         case "off.resign": if (expiring(this.game, t.id).length && !this.ready.has(t.id)) add(p); break;
         case "off.trade": if (!this.ready.has(t.id)) add(p); break;
+        case "gala.prep": case "gala.live": if (this.galaNeeds(mk(t.id), p.auto)) add(p); break;
         case "off.rookie.turn": if (this.worstFirst[this.rIdx] === t.id && !p.auto) add(p); break;
       }
     }
@@ -168,6 +172,7 @@ export class Room {
       this.settings.pool = s.pool; this.fitCharsToPool();
     }
     num("minTeams", 10, 30); num("draftSec", 10, 120); num("marketSec", 10, 120); num("lineupSec", 8, 90); num("halfSec", 8, 60); num("resignSec", 10, 120); num("rookieSec", 10, 90); num("tradeSec", 30, 600);
+    if (s.gala != null) this.settings.gala = !!+s.gala; if (s.social != null) this.settings.social = !!+s.social;
     if (s.seasons != null) this.settings.seasons = Math.max(1, Math.min(8, this.D.rookies.length + 1, Math.round(+s.seasons) || 4));
   }
   nearestPace(v) { return PACES.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b), PACES[1]); }
@@ -243,7 +248,7 @@ export class Room {
     });
     for (const t of game.teams) if (!t.human) { t.club = free.shift(); t.name = this.clubBySlug.get(t.club).name; }
     this.game = game; this.seed = seed;
-    this.createUserPlayers();
+    this.createUserPlayers(); this.wireSocial(); this.applyStyles();
     this.startDraft();
   }
 
@@ -442,6 +447,7 @@ export class Room {
     g.md = { day: this.mdIdx, total: this.days.length }; g.weekDay = this.mdIdx;
     this.ready = new Set(); this.live = null; this.efforts = new Map();
     for (const t of g.teams) { t.htLineup = null; t.htPlan = null; }
+    this.socialDay();
     this.step = "md.lineup"; this.openWindow();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
     for (const u of this.userPlayers()) { const pp = this.game.players[u.pid]; ensureOptions(this.game, pp, this.mdIdx); if (u.auto) ensureLife(this.game, pp).act = null; }
@@ -452,7 +458,8 @@ export class Room {
   }
   // Lineup for a team: a human's saved choice (unless on auto), otherwise the CPU's best.
   lineupHook(team, recs) {
-    const p = this.playerOfTeam(team.id);
+    const p = this.playerOfTeam(team.id), rr = this.benchBan(team, recs);
+    if (rr) return team.human && team.lineup && !(p && p.auto) && !(p && !liteOf(p).xi) ? sanitizeLineup(team.lineup, rr, this.game.P) : this.cpuXI(team, rr);      // a manager has ordered someone out of the XI
     if (team.human && p && !p.auto && !liteOf(p).xi) return this.cpuXI(team, recs);        // Lite: the formation is theirs, the eleven are picked the way a CPU club picks
     if (team.human && team.lineup && !p?.auto) return sanitizeLineup(team.lineup, recs, this.game.P);
     return null;
@@ -541,7 +548,7 @@ export class Room {
     this.resolveLife();
     const hooks = { lineup: (t, recs) => this.lineupHook(t, recs) };
     this.live = day.map(([a, b], k) => beginMatch(g, a, b, `${this.mdIdx}-${a}-${b}`, hooks));
-    this.ready = new Set(); this.openWindow();
+    this.ready = new Set(); this.openWindow(); this.socialStarts();
     const lead = this.lead(), len = this.p(HALF_MS);
     this.setReveal({ kind: "half1", lead: lead / (len + lead), day: this.mdIdx, matches: this.live.map((m) => ({ a: m.a, b: m.b, all: m.ht.events, lineups: m.lineups.map((l) => ({ formation: l.formation, gk: l.gk, out: l.out, grp: groupsOf(l) })), score: m.ht.score, events: m.ht.events, flow: m.ht.flow })) });
     this.step = "md.half1";
@@ -592,9 +599,9 @@ export class Room {
     this.hold = null;
     this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
-    this.dealCareerCards(); this.rollStore();
+    this.dealCareerCards(); this.rollStore(); this.socialAfter();
     this.step = "md.result"; if (!this.windowInfo().open) this.expireOffers();
-    this.after(this.p(8000), () => this.nextMatchday());
+    this.after(this.p(8000), () => this.afterResult());
     this.changed();
   }
   endSeason() {
@@ -609,6 +616,7 @@ export class Room {
       for (const k of ["ballon", "boot", "playmaker", "glove"]) if (awards[k] && awards[k][0] && awards[k][0].id === p.id) trophyWon(g, p, k, day);
       seasonEndLife(g, p);
     }
+    seasonEndSocial(g); checkBoasts(g, table);
     this.final = g.season >= this.settings.seasons;
     this.setReveal({ kind: "season", season: g.season, champion: table[0].i, table, final: this.final, awards });
     this.save("seasonEnd");
@@ -628,14 +636,14 @@ export class Room {
     const snap = {
       code: this.code, hostToken: this.hostToken, seed: this.seed, settings: this.settings, kind, created: this.created,
       game: serializeGame(this.game),
-      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid, late: p.late })),
+      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid, late: p.late, style: p.style })),
       results: this.results, days: this.days,
     };
     this.onSave(this, snap);
   }
   static restore(snap, { D, onChange, onSave }) {
     const room = new Room({ code: snap.code, D, hostToken: snap.hostToken, onChange, onSave });
-    room.created = snap.created; room.seed = snap.seed; room.settings = { ...DEFAULTS, ...snap.settings };
+    room.created = snap.created; room.seed = snap.seed; room.settings = { ...DEFAULTS, ...("gala" in (snap.settings || {}) ? {} : { gala: false, social: false }), ...snap.settings };   // a save from before the social layer plays the way it always did
     room.game = restoreGame(D, snap.game);
     for (const sp of snap.players) room.players.set(sp.token, { ...sp, connected: false });
     room.results = snap.results || []; room.days = snap.days || [];
@@ -644,7 +652,7 @@ export class Room {
     else { room.phase = "market"; room.step = "market.done"; room.setReveal({ kind: "squads" }); }
     for (const id of room.game.userPool || []) room.baseOf.set(id, room.game.players[id]);
     for (const sp of snap.players) if (sp.pid != null) room.baseOf.set(sp.pid, room.game.players[sp.pid]);
-    room.restored = true;
+    room.restored = true; room.wireSocial();
     return room;
   }
 
@@ -672,7 +680,7 @@ export class Room {
       room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
       players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", late: !!p.late, pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
-      news: this.game ? this.newsView(token) : null,
+      news: this.game ? this.newsView(token) : null, social: this.game ? this.socialView(token) : null, gala: this.game ? this.galaView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chatFor(token), reveal: this.reveal, feed: this.feed,
@@ -753,5 +761,5 @@ export class Room {
   }
 }
 
-Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods, liteMethods);
+Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods, liteMethods, socialMethods, galaMethods);
 Room.prototype.userWaiting = function () { return !!this.game && [...this.players.values()].some((p) => p.mode === "player" && p.connected && p.pid != null && this.game.players[p.pid].team == null && (this.offers || []).some((o) => o.pid === p.pid && o.status === "open")); };

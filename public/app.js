@@ -18,6 +18,7 @@ import { applyLook, lookPicker, lookHandlers } from "./look.js";
 import { rivalButton } from "./story.js";
 import { romHandlers, relPanel, ceremonyTick } from "./romance.js";
 import { pmScreen, pmScreenHandlers, pmLayoutOn, pmHubStep } from "./pmscreen.js";
+import { socialHandlers, socialPanel, playerSocial, styleCard, galaScreen } from "./social.js";
 import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
@@ -90,7 +91,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers, pmScreenHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers, pmScreenHandlers, socialHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -127,6 +128,9 @@ function phaseLabel(S) {
     case "market.reveal": return `${S.phase === "offseason" ? "Free agency" : "Market"} · round ${S.market.round + 1} results`;
     case "market.done": return "Squads set";
     case "season.intro": return `Season ${S.seasonNo}`;
+    case "gala.prep": return `Season ${S.seasonNo} · gala night · getting ready`;
+    case "gala.live": return `Season ${S.seasonNo} · gala night`;
+    case "gala.end": return `Season ${S.seasonNo} · gala roundup`;
     case "season.end": return S.final ? "Final table" : `Season ${S.seasonNo} complete`;
     case "off.retire": return "Off-season · retirements";
     case "off.age": return "Off-season · development";
@@ -177,6 +181,9 @@ function nowLine(S) {
     case "md.half": return me ? (S.teams[me.teamId].ready || me.auto ? { kind: "wait", text: "Half-time changes in. Waiting for the others." } : { kind: "you", text: "Half-time: swap tired players, change formation, then press Ready." }) : { kind: "info", text: "Half-time." };
     case "md.half2": return { kind: "info", text: "Second half." };
     case "md.result": return { kind: "info", text: "Full time." };
+    case "gala.prep": return S.gala && S.gala.attending ? (S.gala.ready ? { kind: "wait", text: "Ready for the gala. Waiting for the others." } : { kind: "you", text: "Gala night: invite a date, ask to share a table, then press Ready." }) : { kind: "info", text: "The mid-season gala is about to start." };
+    case "gala.live": return S.gala && S.gala.attending ? (S.gala.pick ? { kind: "wait", text: "You have made your move. Waiting for the rest of the room." } : { kind: "you", text: "Dinner is served. Pick one thing to do tonight." }) : { kind: "info", text: "The gala is under way." };
+    case "gala.end": return { kind: "info", text: "The gala is over. Here is the roundup." };
     case "season.end": return { kind: "info", text: S.final ? "That was the final season." : S.host ? "Season over. Press Continue when everyone has had a look." : "Season over. The host moves the room on to the off-season." };
     case "off.retire": return { kind: "info", text: "Retirements: players in their late thirties may hang up their boots." };
     case "off.age": return { kind: "info", text: "Everyone gets a year older. Young players tend to improve, veterans to fade." };
@@ -196,7 +203,7 @@ function nowLine(S) {
   }
   return null;
 }
-const CLOCK_STEPS = ["draft.pick", "market.bid", "md.lineup", "md.half", "off.resign", "off.rookie.turn", "off.trade"];
+const CLOCK_STEPS = ["gala.prep", "gala.live", "draft.pick", "market.bid", "md.lineup", "md.half", "off.resign", "off.rookie.turn", "off.trade"];
 // A short stack of chips under the money line: what was just paid and why.
 function showGain(g) {
   const box = $("#gains"); if (!box) return;
@@ -254,6 +261,10 @@ function clubPreview(you) {
   const kits = [["kitHome", "Home"], ["kitAway", "Away"], ["kitThird", "Third"]].map(([k, l]) => kitImg(c, k, 84) ? `<figure class="kitf">${kitImg(c, k, 84)}<figcaption>${l}</figcaption></figure>` : "").join("");
   return `<div class="clubprev mt"><span class="swatch" style="background:${c.c1}"></span><span class="swatch" style="background:${c.c2}"></span>${crestOfClub(c, 56)}<div class="grow"><b>${esc(c.name)}</b>${c.kind !== "main" ? ` <span class="pill tiny">${c.kind}</span>` : ""}</div>${kits}</div>`;
 }
+const extrasCard = (S) => { const s = S.settings, dis = S.host ? "" : "disabled", on = (k) => s[k] !== false;
+  const sw = (k, label, text) => `<div class="row wrap" style="gap:8px;justify-content:space-between;align-items:center"><div class="grow"><b>${label}</b><div class="tiny mute">${text}</div></div><select data-set="${k}" ${dis}><option value="1" ${on(k) ? "selected" : ""}>On</option><option value="0" ${on(k) ? "" : "selected"}>Off</option></select></div>`;
+  return `<div class="card"><h3>Social extras ${S.host ? "" : `<span class="tiny">(host only)</span>`}</h3><div class="col" style="gap:10px">${sw("gala", "Mid-season gala", "One dinner a season for everyone: dates, seating requests and one moment each. Takes about two minutes.")}${sw("social", "Social events", "Manager situations (bench requests, signing objections, parties), public comments, and deeper dating (dinners, gifts).")}</div></div>`;
+};
 function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
@@ -301,7 +312,7 @@ function lobby(S) {
   const startBtn = S.host ? `<button class="btn pri big" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute">Waiting for the host to start.</p>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    ${modeCard(S)}${liteChooser(S)}<div class="card"><h3>Theme</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
+    ${modeCard(S)}${extrasCard(S)}${styleCard(S)}${liteChooser(S)}<div class="card"><h3>Theme</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
     <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div>${clubPreview(you)}${clubBar}<div class="clubgrid mt">${clubs}</div>${clubMore}${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     <div class="card"><div class="row"><div class="grow"><b>More options</b><div class="small mute">Game settings, trophy cabinet and codes</div></div><button class="btn sm" data-act="lobbyMore">${moreOpen ? "Hide" : "Show"}</button></div></div>
     ${moreOpen ? enterCode(you) : ""}`;
@@ -344,6 +355,7 @@ function render() {
   const meY = S.players.find((p) => p.you), lateMe = !!(meY && meY.late && meY.pid == null && S.step !== "lobby");
   if (lateMe) { main = lateCard(S); side = chatCard(S); }
   else if (S.step === "lobby") ({ main, side } = lobby(S));
+  else if (S.step.startsWith("gala.")) ({ main, side } = galaScreen(S));
   else if (S.step.startsWith("draft.")) ({ main, side } = draftView(S, ctx));
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
@@ -352,7 +364,7 @@ function render() {
   const pmOn = !lateMe && pmLayoutOn(S);
   if (lateMe) { /* the late-join card stands alone */ }
   else if (S.step !== "lobby" && pmOn) { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + gambleOverlay(S) + packOverlay(S) + pmScreen(S, ctx, main); side = ""; }
-  else if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
+  else if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + (S.me && /^(md\.lineup|md\.result|season\.intro)$/.test(S.step) ? socialPanel(S) : "") + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;
   const mw = $("#mainwrap"), sw = $("#sidewrap");
   const keep = $$("[data-keep]").map((n) => [n.dataset.keep, n.scrollTop, n.scrollLeft]);

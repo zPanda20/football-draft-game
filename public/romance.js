@@ -16,6 +16,9 @@ export const romHandlers = {
   romAsk(a) { send({ t: "romAsk", to: +a.to, kind: a.kind, act: a.what || undefined }); },
   romYes(a) { send({ t: "romReply", id: +a.id, yes: true }); },
   romNo(a) { send({ t: "romReply", id: +a.id, yes: false }); },
+  giftTo(a) { ui().giftTo = a.value; },
+  giftPubSet(a, el) { ui().giftPub = !!(el && el.checked); },
+  giftSend(a) { const lf = lfOf(), R = lf && lf.rom; if (!R) return; const to = ui().giftTo || (R.partner ? R.partner.id : (lf.opts[0] || {}).id); if (to) send({ t: "romGift", to, tier: a.tier, pub: !!ui().giftPub }); },
   exclAsk() { send({ t: "exclAsk" }); },
   breakUp() { if (!ui().confirmBreak) { ui().confirmBreak = true; return st.render(); } ui().confirmBreak = false; send({ t: "breakUp" }); },
   breakKeep() { ui().confirmBreak = false; st.render(); },
@@ -50,7 +53,7 @@ export const romHandlers = {
 
 const BEEF = [["high", "🕊️", "High road", "Calm and classy. A few new fans."], ["funny", "😂", "Funny comeback", "Good for followers. Small chance of a grudge."], ["petty", "🙄", "Petty reply", "Lots of likes. They may hold a grudge."], ["rude", "🔥", "Roast them", "Huge reach. They will not forget it."], ["ignore", "🙈", "Ignore it", "Say nothing. Nothing happens."]];
 export const TOGETHER_TXT = { party: "go partying together", train: "train together", rest: "spend a quiet night in together", date: "go on a date together" };
-const KIND_TXT = { date: "asks you out on a date", excl: "asks you to go exclusive", thr: "asks to be in a thrupple", wed: "asks you to marry them" };
+const KIND_TXT = { gift: "wants to send you a gift", date: "asks you out on a date", excl: "asks you to go exclusive", thr: "asks to be in a thrupple", wed: "asks you to marry them" };
 
 function beefCard(R) {
   const b = R.beef; if (!b) return R.beefLast && R.beefLast.feud ? "" : "";
@@ -65,8 +68,33 @@ function feudLine(R, S) {
 }
 function requestsIn(R) {
   if (!R.incoming.length) return "";
-  return R.incoming.map((r) => `<div class="relbox req">${face(r.who, 40)}<div class="grow"><b>${esc(r.who.name)}</b> ${r.kind === "act" ? "asks you to " + (TOGETHER_TXT[r.act] || "do something together") : KIND_TXT[r.kind] || "asks you something"}${r.kind === "thr" && r.mate ? ` with ${esc(r.mate)}` : ""}.${r.kind === "date" || (r.kind === "act" && r.act === "date") ? `<div class="tiny mute">They pay${r.cost ? ` ${r.cost} coins` : ""}. You go for free.</div>` : ""}</div>
+  return R.incoming.map((r) => `<div class="relbox req">${face(r.who, 40)}<div class="grow"><b>${esc(r.who.name)}</b> ${r.kind === "act" ? "asks you to " + (TOGETHER_TXT[r.act] || "do something together") : r.kind === "gift" ? `wants to send you a ${esc(r.tier || "gift")}${r.pub ? " (and make it public)" : ""}` : KIND_TXT[r.kind] || "asks you something"}${r.kind === "thr" && r.mate ? ` with ${esc(r.mate)}` : ""}.${r.kind === "date" || (r.kind === "act" && r.act === "date") ? `<div class="tiny mute">They pay${r.cost ? ` ${r.cost} coins` : ""}. You go for free.</div>` : ""}</div>
     <button class="btn sm pri" data-act="romYes" data-id="${r.id}">Yes</button><button class="btn sm" data-act="romNo" data-id="${r.id}">No</button></div>`).join("");
+}
+
+// Gifts and what the league remembers: small, capped, and sometimes noticed.
+function giftBox(R, lf) {
+  if (!R.soc || !R.gifts) return "";
+  const targets = [];
+  if (R.partner) targets.push({ id: R.partner.id, name: R.partner.name + " (partner)" });
+  for (const o of lf.opts || []) if (!targets.some((t) => t.id === o.id)) targets.push({ id: o.id, name: o.name });
+  for (const o of R.people || []) targets.push({ id: "u:" + o.pid, name: o.name + " (footballer)" });
+  if (!targets.length) return "";
+  const to = ui().giftTo && targets.some((t) => t.id === ui().giftTo) ? ui().giftTo : targets[0].id, pub = !!ui().giftPub;
+  return `<div class="relbox mt"><b>🎁 Send a gift</b><div class="row wrap mt" style="gap:6px"><select data-change="giftTo">${targets.map((t) => `<option value="${esc(t.id)}" ${t.id === to ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</select>
+    ${R.gifts.map((g) => `<button class="btn sm" data-act="giftSend" data-tier="${g.id}" ${R.open && g.can ? "" : "disabled"}>${esc(g.name)} · −${g.price}</button>`).join("")}
+    <label class="small"><input type="checkbox" data-change="giftPubSet" ${pub ? "checked" : ""}> Make it public</label></div>
+    <div class="tiny mute mt">A gift is private by default. People can still find out. A public gift is a story and brings followers, but not if you are seeing someone else. Gifts fade, and there are limits each week and season. A gift to another footballer needs their yes.</div></div>`;
+}
+function memBox(R) {
+  const m = R.mem; if (!R.soc || !m) return "";
+  const rows = [];
+  if (m.exes.length) rows.push(`Exes: ${m.exes.map(esc).join(", ")}`);
+  if (m.rejected.length) rows.push(`Turned you down: ${m.rejected.map((x) => esc(x.name) + (x.by ? ` (chose ${esc(x.by)})` : "")).join(", ")}`);
+  if (m.rivals.length) rows.push(`Rival suitors: ${m.rivals.map(esc).join(", ")}`);
+  if (m.gifts.length) rows.push(`Gifts: ${m.gifts.map((x) => `${esc(x.tier)} to ${esc(x.name)}${x.pub ? " (public)" : ""}${x.got ? " (noticed)" : ""}`).join(", ")}`);
+  if (m.known.length) rows.push(`What came out: ${m.known.map(esc).join("; ")}`);
+  return rows.length ? `<div class="relbox mt"><b>What people remember</b>${rows.map((x) => `<div class="small mute">${x}</div>`).join("")}</div>` : "";
 }
 function partnerBox(R, lf) {
   const q = R.partner;
@@ -156,7 +184,7 @@ export function relPanel(S) {
   return `<div class="card relp"><div class="row wrap" style="gap:8px"><h3 style="margin:0">Relationships</h3>${mine ? `<span class="pill bad">${mine} request${mine === 1 ? "" : "s"}</span>` : ""}<div class="grow"></div>${R.note ? `<span class="small" style="color:var(--acc)">${esc(R.note)}</span>` : ""}</div>
     ${beefCard(R)}${requestsIn(R)}
     <div class="mt">${partnerBox(R, lf)}</div>${affairBox(R, lf)}${thr}${weddingBox(R, lf, pm)}${outs}
-    <h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${clubsBox(lf)}
+    ${giftBox(R, lf)}${memBox(R)}<h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${clubsBox(lf)}
     <p class="tiny mute mt">Dating a listed person is shared: if another footballer is exclusive with them, they are off everyone else's list. Going out with someone else while exclusive is a cheating scandal.</p></div>`;
 }
 

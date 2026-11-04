@@ -6,6 +6,7 @@ import { st, esc, team, card, coins, chip, crest } from "./core.js";
 import { pmBits, pmKit } from "./pm.js";
 import { lifeParts, newsCard, frontPage } from "./life.js";
 import { relPanel } from "./romance.js";
+import { playerSocial } from "./social.js";
 import { storeCard } from "./store.js";
 import { tablePanel, bootPanel, leadersPanel, scoreTicker } from "./match.js";
 
@@ -78,10 +79,10 @@ export function pmScreen(S, ctx, right) {
   let L, R;
   if (hub) {
     L = `${cardTile(S, true)}<div class="pmL2"><div class="col" style="gap:14px">${newsTile(S)}${shopTile(S)}</div>${tableTile(S)}</div>`;
-    R = `${topTile(S)}${relPanel(S)}`;
+    R = `${topTile(S)}${playerSocial(S)}${relPanel(S)}`;
   } else {
     L = `${cardTile(S, false)}${tableTile(S)}${bootPanel(S, 5)}`;
-    R = `${b && b.extra ? `<div class="card pmp pmalerts">${b.extra}</div>` : ""}${right}${S.step === "md.result" ? newsCard(S) : ""}`;
+    R = `${b && b.extra ? `<div class="card pmp pmalerts">${b.extra}</div>` : ""}${playerSocial(S)}${right}${S.step === "md.result" ? newsCard(S) : ""}`;
   }
   const below = `${hub ? bootPanel(S, 5) : ""}${ctx.teamsList(S)}${ctx.chatCard(S)}`;
   return `<div class="pmgrid"><div class="pmL">${L}</div><div class="pmR">${R}</div></div><div class="pmbelow">${below}</div><div class="pmtkbar">${hub ? scoreTicker(S) : ""}</div>${overlay(S)}`;

@@ -21,6 +21,9 @@ Open the page, create a game, share the 4-letter code. `/screen?room=CODE` is th
 - **Off-season**: retirements, ageing, re-signing, the rookie pack draft (worst team first: open a pack of three and keep one, take a leftover, or abstain; unopened rookies wait a year without ageing), a trade window, then free agency. The History card holds the all-time table and every past season.
 - **Lite mode** (per person): the club plays like a CPU club for whatever is switched off (XI, half-time changes, re-signing, trades, stats). No bonus, no softer economy; `npm run lite` prints the numbers. A "?" button opens the start guide on every screen.
 - **Player mode**: a person creates a footballer (rolled numbers, 81 to 86 overall), grows him with career cards, takes offers from managers and computer clubs, and chooses push or conserve at half-time.
+- **Social layer** (lobby switch "Social events"): managers pick an optional style (Straight talker, Diplomat, Showman) and carry one trust meter per player (Bitter / Wary / Neutral / Trusting; players are Calm, Proud, Loyal or Restless). Situations arrive in an inbox that never blocks a match: a benched player asks for minutes, a player objects to a signing, a night out before a big match, a rival's public jab. Every option shows its consequence first. Promises are tracked (kept, broken, void) and enforced in the line-up. Public comments (predict, jab, praise) use fixed lines with cooldowns and a season cap. News carries a tag (confirmed / rumour / statement), follow-up stories hang on a thread, and results are never mentioned before full time. League stories have their own weekly slot and a short queue, so scandals and league news do not overwrite each other. Code: `engine/social.js`, `engine/situations.js`, `server/social.js`.
+- **Deeper dating** (same switch, footballers only): dinner invitations to listed people (they pick at most one invitation per matchday, losers are not charged and are told), competing date requests between footballers, gifts (flowers, watch, jewel; private by default, can be noticed, can be made public, limited per week and per season), and relationship memory (exes, turned-down invitations, rival suitors). Managers are never part of dating. Code: `engine/market2.js`, `engine/life.js`, `engine/romance.js`.
+- **Mid-season gala** (lobby switch "Gala dinner", on by default; old saves default to off): one dinner per season for every connected manager and footballer after the first half of the fixtures. A preparation window (footballers invite one date, everyone can ask for a seat beside someone: at most two requests per guest are honoured and the organisers seat people with real history together), then one main interaction each (toast, boast, make peace, confront, talk shop, and for footballers only a dance), then a roundup (at most three stories). Anything that needs another person waits for their answer; unanswered means nothing happens. Idle, disconnected and Auto players never block it. Code: `engine/gala.js`, `server/gala.js`, `public/social.js`.
 - Idle and disconnected managers are handled (the room stops waiting for them), pace voting, pause and skip for the host, checkpoints saved to `DATA_DIR` and restored on restart.
 
 ## Layout
@@ -48,8 +51,8 @@ All tunable numbers live in `engine/params.js`. Balance tests change those, neve
 ## Tests and balance checks
 
 ```
-npm test                         # fast invariant tests
-npm run e2e                      # real server, WebSocket clients, two seasons incl. off-season and player mode
+npm test                         # fast invariant tests, social layer (tests/social_unit.js) and gala (tests/gala_unit.js)
+npm run e2e                      # real server, WebSocket clients, two seasons incl. off-season, player mode, late join and the gala in five room shapes (tests/gala_e2e.js)
 node tests/t1_titles.js 300 20   # title odds by roster strength (targets: strongest ~30%, top third ~70% in a 20-team league)
 node tests/tank.js 100 10 3      # does losing season 1 on purpose pay?
 node tests/seasons.js            # multi-season supply and strength drift

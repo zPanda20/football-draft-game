@@ -4,6 +4,7 @@ import { makeRng, clamp } from "./rng.js";
 import { rate } from "./roster.js";
 import { noteScandal } from "./clubrel.js";
 import { loveWeek, secretDate, committed, likeOf } from "./affair.js";
+import { remember, fondOf } from "./social.js";
 
 export const ACTS = ["train", "date", "party", "rest", "balance"];
 export const ACT_INFO = {
@@ -75,7 +76,10 @@ export function thrMembers(game, p) {
 // One footballer's relationship with `id` ends. The ex's side is cleared too; a broken heart makes a listed person unavailable for a while.
 export function leave(game, p, id, { cool = false } = {}) {
   const L = ensureLife(game, p), R = ensureRom(game);
-  if (L.partner && L.partner.id === id) L.partner = null;
+  if (L.partner && L.partner.id === id) {
+    if (L.partner.excl || L.married) { const o = personOf(game, id); remember(game, p.id, "ex", { id, name: o ? o.name : "an ex" }); if (isHuman(id)) remember(game, +id.slice(2), "ex", { id: "u:" + p.id, name: p.name }); }
+    L.partner = null;
+  }
   L.dated[id] = Math.floor((L.dated[id] || 0) / 2);
   if (L.dq && L.dq[id]) { L.dq[id].n = Math.floor(L.dq[id].n / 2); L.dq[id].good = Math.floor(L.dq[id].good / 2); L.dq[id].sum /= 2; }
   if (isHuman(id)) {
@@ -153,7 +157,7 @@ export function canMarry(game, p, pid) {
   return (L.dated[q.id] || 0) >= game.P.life.wedding.dates;
 }
 // Why this choice cannot be made right now (or null).
-export function blocked(game, p, act, { partner = null, joint = null, secret = false } = {}) {
+export function blocked(game, p, act, { partner = null, joint = null, secret = false, dinner = false } = {}) {
   if (!ACTS.includes(act)) return "unknown";
   if (secret) {                                                            // a secret date (an affair): only while committed, with someone from this week's list
     const SL = ensureLife(game, p); if (act !== "date" || !partner) return "unknown";
@@ -164,7 +168,7 @@ export function blocked(game, p, act, { partner = null, joint = null, secret = f
     if ((p.coins || 0) < actCost(game, p, "date")) return "Not enough money";
     return null;
   }
-  const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay && !joint.together ? 0 : 1);
+  const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay && !joint.together ? 0 : 1) * (dinner && act === "date" ? game.P.social.invite.dinnerMult : 1);
   if (act === "party" && p.susp > 0) return "You are suspended";
   if (act === "date" && partner && isHuman(partner)) { if (!joint) return "Ask them first"; }
   else if (act === "date" && partner) {
@@ -451,14 +455,15 @@ export function decideStory(game, id, yes) {
 export const dropPending = (game) => { for (const n of game.news || []) if (n.status === "pending") { n.status = "blocked"; n.approver = null; } };
 
 // Resolve one matchday's choice for one user player. Returns { act, cost, stories, wada }.
-export function runActivity(game, p, act, { day = 0, partner = null, joint = null, secret = false } = {}) {
+export function runActivity(game, p, act, { day = 0, partner = null, joint = null, secret = false, dinner = false } = {}) {
   const P = game.P.life, L = ensureLife(game, p), R = ensureRom(game);
   game.weekDay = day;
-  if (blocked(game, p, act, { partner, joint, secret })) { act = "balance"; partner = null; joint = null; secret = false; }
+  if (blocked(game, p, act, { partner, joint, secret, dinner })) { act = "balance"; partner = null; joint = null; secret = false; dinner = false; }
+  if (act !== "date" || secret || joint) dinner = false;
   const a = { ...P.acts[act] }, r = makeRng(game.seed, "life", p.id, game.season, day);
   const boost = lifeBoost(game, p, act);                                    // Flowers, Ziplock baggie or Pre-workout: one is used up this week
   if (boost) { p.items[boost.id]--; if (p.items[boost.id] <= 0) delete p.items[boost.id]; if (boost.fx.stam) a.stam += boost.fx.stam; if (boost.fx.love) a.love += boost.fx.love; if (boost.fx.fol) a.fol = Math.round(a.fol * boost.fx.fol); }
-  const cost = act === "date" && joint ? (joint.pay ? actCost(game, p, act) * P.rom.dateMult : 0) : actCost(game, p, act);
+  const cost = act === "date" && joint ? (joint.pay ? actCost(game, p, act) * P.rom.dateMult : 0) : actCost(game, p, act) * (dinner ? game.P.social.invite.dinnerMult : 1);
   p.coins = Math.max(0, (p.coins || 0) - cost);
   L.cnt[act]++;
   // stamina is "recovery": it moves the player's starting energy for this match
@@ -483,10 +488,12 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
     const rivals = isHuman(id) ? 0 : otherSuitors(game, id, p.id).length;
     const qs = isHuman(id) ? [p.id, +id.slice(2)].sort().join("-") : p.id;
     let q = 0.4 + makeRng(game.seed, "dq", qs, id.startsWith("u:") ? "" : id, R.week)() * 0.45 + (boost && boost.fx.love ? 0.15 : 0) + (isHuman(id) ? 0 : (L.love - 50) / 250) - P.rom.rivalQ * rivals + (thr ? 0.05 : 0);
+    if (!isHuman(id)) q += Math.min(0.12, fondOf(game, p, id) / game.P.social.gift.fondQ) + (dinner ? 0.08 : 0);
     q = clamp(q, 0.05, 1); const good = q >= P.rom.goodAt;
     const D = (L.dq = L.dq || {})[id] = (L.dq || {})[id] || { n: 0, good: 0, sum: 0 };
     D.n++; D.sum += q; if (good) D.good++;
-    date = { id, name: info.name, q: +q.toFixed(2), good, rivals };
+    date = { id, name: info.name, q: +q.toFixed(2), good, rivals, ...(dinner ? { dinner: true } : {}) };
+    if (dinner) a.fol += game.P.social.invite.fol;
     if (!isHuman(id)) { const n = npcState(game, id); n.seen.push({ pid: p.id, week: R.week }); if (n.seen.length > 12) n.seen.shift(); }
     if (!prev || prev.id !== id) {
       if (prev && prev.excl && !L.married) {                               // going out with someone else while exclusive: a cheating scandal
