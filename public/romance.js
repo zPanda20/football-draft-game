@@ -13,7 +13,7 @@ function face(x, size = 48) {
 const lfOf = () => st.S && st.S.pm && st.S.pm.life;
 
 export const romHandlers = {
-  romAsk(a) { send({ t: "romAsk", to: +a.to, kind: a.kind }); },
+  romAsk(a) { send({ t: "romAsk", to: +a.to, kind: a.kind, act: a.what || undefined }); },
   romYes(a) { send({ t: "romReply", id: +a.id, yes: true }); },
   romNo(a) { send({ t: "romReply", id: +a.id, yes: false }); },
   exclAsk() { send({ t: "exclAsk" }); },
@@ -49,6 +49,7 @@ export const romHandlers = {
 };
 
 const BEEF = [["high", "🕊️", "High road", "Calm and classy. A few new fans."], ["funny", "😂", "Funny comeback", "Good for followers. Small chance of a grudge."], ["petty", "🙄", "Petty reply", "Lots of likes. They may hold a grudge."], ["rude", "🔥", "Roast them", "Huge reach. They will not forget it."], ["ignore", "🙈", "Ignore it", "Say nothing. Nothing happens."]];
+export const TOGETHER_TXT = { party: "go partying together", train: "train together", rest: "spend a quiet night in together", date: "go on a date together" };
 const KIND_TXT = { date: "asks you out on a date", excl: "asks you to go exclusive", thr: "asks to be in a thrupple", wed: "asks you to marry them" };
 
 function beefCard(R) {
@@ -64,7 +65,7 @@ function feudLine(R, S) {
 }
 function requestsIn(R) {
   if (!R.incoming.length) return "";
-  return R.incoming.map((r) => `<div class="relbox req">${face(r.who, 40)}<div class="grow"><b>${esc(r.who.name)}</b> ${KIND_TXT[r.kind] || "asks you something"}${r.kind === "thr" && r.mate ? ` with ${esc(r.mate)}` : ""}.${r.kind === "date" ? `<div class="tiny mute">They pay${r.cost ? ` ${r.cost} coins` : ""}. You go for free.</div>` : ""}</div>
+  return R.incoming.map((r) => `<div class="relbox req">${face(r.who, 40)}<div class="grow"><b>${esc(r.who.name)}</b> ${r.kind === "act" ? "asks you to " + (TOGETHER_TXT[r.act] || "do something together") : KIND_TXT[r.kind] || "asks you something"}${r.kind === "thr" && r.mate ? ` with ${esc(r.mate)}` : ""}.${r.kind === "date" || (r.kind === "act" && r.act === "date") ? `<div class="tiny mute">They pay${r.cost ? ` ${r.cost} coins` : ""}. You go for free.</div>` : ""}</div>
     <button class="btn sm pri" data-act="romYes" data-id="${r.id}">Yes</button><button class="btn sm" data-act="romNo" data-id="${r.id}">No</button></div>`).join("");
 }
 function partnerBox(R, lf) {
@@ -139,6 +140,14 @@ function weddingBox(R, lf, pm) {
   return `<div class="relbox wed"><b>💍 ${human ? "Plan the wedding together" : "Plan the wedding"}</b> <span class="small mute">with ${name}</span>${planner(R, pm, human)}</div>`;
 }
 
+// How clubs feel about you: smack talk and scandals push it down, a season of service lifts it. Too low and they will not sign you; too many scandals and your club may sack you when the off-season opens.
+function clubsBox(lf) {
+  const C = lf.clubs; if (!C || !C.list.length) return "";
+  const rows = C.list.map((c) => { const pct = Math.round((c.level + 100) / 2), tone = c.level >= 25 ? "good" : c.level <= -25 ? "bad" : "";
+    return `<div class="clubrel"><span class="grow"><b>${esc(c.name)}</b>${c.current ? ` <span class="pill">Your club</span>` : ""}${c.feud ? ` <span class="pill bad">🔥 Rivalry</span>` : ""}</span><span class="cbar"><i class="${tone}" style="width:${pct}%"></i></span><span class="tiny ${tone === "bad" ? "dn" : "mute"}" style="min-width:130px;text-align:right">${esc(c.word)}${c.refuses ? " · won't sign you" : ""}</span></div>`; }).join("");
+  const sc = C.scandals ? `<div class="tiny ${C.scandals >= C.fireAt ? "dn" : "mute"} mt">Scandals at your club this season: <b>${C.scandals}</b>. From ${C.fireAt}, they may tear up your contract when the off-season opens.</div>` : `<div class="tiny mute mt">Scandals at your club this season: 0. Keep it clean: from ${C.fireAt} of them, a club may tear up your contract when the off-season opens.</div>`;
+  return `<h4 class="shh mt">Clubs</h4><div class="small mute">Trash-talking a club makes it cold towards you and can start a rivalry; at the bottom it will not sign you.</div><div class="clubrels mt">${rows}</div>${sc}`;
+}
 export function relPanel(S) {
   const pm = S.pm, lf = pm && pm.life, R = lf && lf.rom; if (!R) return "";
   const mine = (R.incoming || []).length, out = (R.outgoing || []).length;
@@ -147,7 +156,7 @@ export function relPanel(S) {
   return `<div class="card relp"><div class="row wrap" style="gap:8px"><h3 style="margin:0">Relationships</h3>${mine ? `<span class="pill bad">${mine} request${mine === 1 ? "" : "s"}</span>` : ""}<div class="grow"></div>${R.note ? `<span class="small" style="color:var(--acc)">${esc(R.note)}</span>` : ""}</div>
     ${beefCard(R)}${requestsIn(R)}
     <div class="mt">${partnerBox(R, lf)}</div>${affairBox(R, lf)}${thr}${weddingBox(R, lf, pm)}${outs}
-    <h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${feudLine(R, S)}
+    <h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${clubsBox(lf)}
     <p class="tiny mute mt">Dating a listed person is shared: if another footballer is exclusive with them, they are off everyone else's list. Going out with someone else while exclusive is a cheating scandal.</p></div>`;
 }
 

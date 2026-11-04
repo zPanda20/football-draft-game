@@ -1,4 +1,5 @@
 // Player mode: a human-owned footballer. Created from rolled numbers, grown by career cards, offered to teams in the market.
+import { offerFactor, refuses } from "./clubrel.js";
 import { makeRng, gauss, shuffle, clamp } from "./rng.js";
 import { rate } from "./roster.js";
 import { marketValue, feeFor, rosterRoom, maxLen } from "./market.js";
@@ -182,7 +183,7 @@ export function cpuOffers(game, p, tag) {
   const P = game.P, r = makeRng(game.seed, "pmoffer", p.id, game.season, tag), out = [];
   const cands = game.teams.filter((t) => !t.human && rosterRoom(t, P) > 0).map((t) => {
     const len = Math.min(maxLen(game, !!game.marketAhead), p.age >= 33 ? 1 : 1 + Math.floor(r() * 3)), fee = feeFor(p, len, P);
-    return { t, len, fee, w: t.coins >= fee ? 0.3 + r() + (1 - t.players.length / P.money.rosterMax) : 0 };
+    return { t, len, fee, w: t.coins >= fee ? (0.3 + r() + (1 - t.players.length / P.money.rosterMax)) * offerFactor(game, p, t.id) : 0 };
   }).filter((c) => c.w > 0).sort((a, b) => b.w - a.w);
   for (const c of cands.slice(0, P.player.offersPerMarket)) out.push({ team: c.t.id, len: c.len, fee: c.fee });
   return out;
@@ -190,7 +191,7 @@ export function cpuOffers(game, p, tag) {
 // Nobody signed him: a CPU team takes him on a free contract (the weakest roster with room), else any team with room, else a CPU team makes room.
 export function cpuTakes(game, p) {
   const P = game.P, by = (a, b) => a.players.length - b.players.length || a.coins - b.coins;
-  const t = game.teams.filter((x) => !x.human && rosterRoom(x, P) > 0).sort(by)[0] || game.teams.filter((x) => rosterRoom(x, P) > 0).sort(by)[0];
+  const ok = (x) => !refuses(game, p, x.id), t = game.teams.filter((x) => !x.human && rosterRoom(x, P) > 0 && ok(x)).sort(by)[0] || game.teams.filter((x) => rosterRoom(x, P) > 0 && ok(x)).sort(by)[0] || game.teams.filter((x) => !x.human && rosterRoom(x, P) > 0).sort(by)[0] || game.teams.filter((x) => rosterRoom(x, P) > 0).sort(by)[0];
   if (t) return signUser(game, p, t.id, P.player.cpuContract, true) !== false;
   const cpu = game.teams.filter((x) => !x.human).sort((a, b) => a.players.length - b.players.length || a.coins - b.coins)[0] || game.teams[0];
   return makeRoom(game, cpu.id) && signUser(game, p, cpu.id, P.player.cpuContract, true) !== false;

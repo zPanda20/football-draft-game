@@ -665,3 +665,9 @@ body[data-pm="1"] .page{grid-template-columns:minmax(0,1fr)}body[data-pm="1"] .s
 .secretrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.datec.secret{border-color:rgba(255,93,93,.5)}
 .dmline{background:rgba(120,80,200,.14);border-left:3px solid #9b7bff;padding:3px 6px;border-radius:4px;margin:2px 0}.dmline .dmtag{font-size:10px;letter-spacing:.08em;color:#b9a3ff}.dmsel{max-width:150px}.leakbtn{padding:0 8px;margin-left:4px}
 .pl-por{display:inline-flex;gap:4px}.pl-por img{border-radius:50%;border:1px solid rgba(255,255,255,.35)}
+.togrow{border:1px solid rgba(255,120,170,.35);background:rgba(255,120,170,.07);border-radius:10px;padding:10px 12px}
+.clubrels{display:flex;flex-direction:column;gap:6px}
+.clubrel{display:flex;align-items:center;gap:10px;font-size:13px}
+.clubrel .cbar{flex:0 0 110px;height:6px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden}
+.clubrel .cbar i{display:block;height:100%;background:#8b93a7}
+.clubrel .cbar i.good{background:var(--good,#4ade80)}.clubrel .cbar i.bad{background:var(--bad,#f87171)}

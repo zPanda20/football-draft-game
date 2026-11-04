@@ -5,6 +5,7 @@ import { runRetirements, ageAll, botResign, resign, releaseExpired, expiring, in
 import { validateOffer, executeOffer, botVerdict } from "../engine/trade.js";
 import { feeFor } from "../engine/market.js";
 import { applyCaps } from "../engine/game.js";
+import { scandalExits } from "../engine/clubrel.js";
 
 export const offseasonMethods = {
   // ---------- entering ----------
@@ -13,6 +14,7 @@ export const offseasonMethods = {
     this.phase = "offseason"; g.marketAhead = true; this.trade = null; this.ready = new Set(); applyCaps(g, g.season + 1);
     this.worstFirst = standingsOf(this.results, N).map((r) => r.i).reverse();
     this.retired = runRetirements(g);
+    for (const x of scandalExits(g)) { const p = g.players[x.pid], u = this.userByPid(p.id); this.notify(`${g.teams[x.team].name} have terminated ${p.name}'s contract. He is a free agent.`); if (u) this.notify(x.scandals >= g.P.life.club.fireAt ? `${g.teams[x.team].name} tore up your contract: ${x.scandals} scandals in one season.` : `${g.teams[x.team].name} tore up your contract. The relationship had broken down.`, u.token); }
     this.setReveal({ kind: "retire", season: g.season, list: this.retired });
     this.step = "off.retire";
     this.after(this.p(18000), () => this.develop());

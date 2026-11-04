@@ -145,6 +145,7 @@ function handle(ws, m) {
   switch (m.t) {
     case "active": break; // sent by the browser on any click while idle; the wake-up above is all that is needed
     case "club": room.setClub(t, m.slug); break;
+    case "lateJoin": room.lateJoin(t); break;
     case "mode": room.setMode(t, m.mode === "player" ? "player" : "manager"); break;
     case "roll": room.rollChar(t); break;
     case "char": room.setChar(t, m.c || {}); break;
@@ -156,7 +157,7 @@ function handle(ws, m) {
     case "redeem": room.redeem(t, String(m.code || "").slice(0, 60)); break;
     case "unlocks": room.setUnlocks(t, Array.isArray(m.ids) ? m.ids.slice(0, 40).map(String) : []); break;
     case "act": room.chooseActivity(t, m.act == null ? null : String(m.act), m.partner, !!m.secret); break;
-    case "romAsk": room.romAsk(t, m.to | 0, String(m.kind || "")); break;
+    case "romAsk": room.romAsk(t, m.to | 0, String(m.kind || ""), m.act ? String(m.act) : undefined); break;
     case "romReply": room.romReply(t, m.id | 0, !!m.yes); break;
     case "exclAsk": room.exclAsk(t); break;
     case "breakUp": room.endRelationship(t); break;

@@ -2,6 +2,7 @@
 // Pure and seeded: the same choices with the same seed always give the same stories. Everything numeric lives in params.life.
 import { makeRng, clamp } from "./rng.js";
 import { rate } from "./roster.js";
+import { noteScandal } from "./clubrel.js";
 import { loveWeek, secretDate, committed, likeOf } from "./affair.js";
 
 export const ACTS = ["train", "date", "party", "rest", "balance"];
@@ -163,7 +164,7 @@ export function blocked(game, p, act, { partner = null, joint = null, secret = f
     if ((p.coins || 0) < actCost(game, p, "date")) return "Not enough money";
     return null;
   }
-  const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay ? 0 : 1);
+  const L = ensureLife(game, p), cost = actCost(game, p, act) * (act === "date" && joint && joint.pay ? game.P.life.rom.dateMult : joint && !joint.pay && !joint.together ? 0 : 1);
   if (act === "party" && p.susp > 0) return "You are suspended";
   if (act === "date" && partner && isHuman(partner)) { if (!joint) return "Ask them first"; }
   else if (act === "date" && partner) {
@@ -284,6 +285,14 @@ const STORIES = [
     build: (c) => ({ head: `${c.p.name.toUpperCase()} HOSTS THE MONACO GP YACHT PARTY`, sub: `The paddock turns up, a driver DJs, and nobody remembers who won the race. Champagne bill: "undisclosed, and large".`, fx: { fol: 5000, coins: -80 }, gflag: "monaco" }) },
   { id: "trouble", prio: 1, chance: (c) => c.P.chance.trouble, kind: "trouble", icon: "💔", when: (c) => c.act === "party" && c.married,
     build: (c) => ({ head: `TROUBLE IN PARADISE FOR ${c.p.name.toUpperCase()} AND ${partnerOf(c.L).toUpperCase()}`, sub: `Another late night out and a very quiet breakfast. Friends say "they are working through it". The dog has picked a side.`, fx: { fol: 700, love: -30 } }) },
+  { id: "together", prio: 1, chance: () => 0.45, kind: "fun", icon: "👫", when: (c) => c.together && !!c.L.partner,
+    build: (c, r) => {
+      const A = c.p.name.toUpperCase(), B = c.L.partner.name.toUpperCase(), act = c.act;
+      const heads = act === "party" ? [`POWER COUPLE: ${A} AND ${B} TAKE OVER THE VIP SECTION`, `${A} AND ${B} SEEN DANCING ON A TABLE. BOTH DENY THE TABLE`, `LAST ONES OUT: ${A} AND ${B} CLOSE DOWN THE CLUB`]
+        : act === "train" ? [`COUPLE GOALS: ${A} AND ${B} SPOTTED TRAINING AT DAWN`, `THE COUPLE THAT SPRINTS TOGETHER: ${A} AND ${B} HIT THE TRACK`, `${A} AND ${B} DO LEG DAY TOGETHER. INSTAGRAM IS INSUFFERABLE`]
+        : [`NETFLIX AND CHILL? ${A} AND ${B} SPOTTED BUYING FOUR PIZZAS`, `${A} AND ${B}: A QUIET NIGHT IN, A LOUD SOFA`, `NOTHING TO SEE HERE: ${A} AND ${B} DO ABSOLUTELY NOTHING, TOGETHER`];
+      return { head: pick(r, heads), sub: `Fans are calling it the best thing either of them has done this season.`, fx: { fol: 600 } };
+    } },
   { id: "jet", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "✈️", when: (c) => c.act === "train" && c.L.own.plane && !c.L.flags.jet,
     build: (c) => ({ head: `${c.p.name.toUpperCase()} LANDS PRIVATE JET AT TRAINING GROUND`, sub: `Groundstaff were "mildly concerned" as the plane taxied past the cones. The gaffer is not amused. The fans are.`, fx: { fol: 1800 }, flag: "jet" }) },
   { id: "yachtdate", prio: 0, chance: (c) => c.P.chance.fun, kind: "fun", icon: "🛥️", when: (c) => c.act === "date" && !(c.date && c.date.secret) && !!c.L.own.yacht && c.L.partner && c.L.partner.dates >= 3 && !c.L.flags.yachtdate,
@@ -410,6 +419,7 @@ export function mk(game, p, s) {
   (game.news = game.news || []).push(n); if (game.news.length > 60) game.news.shift();
   if (!s.force) weekSlot(game).ids.push(n.id);
   if (s.fx) applyFx(game, p, s.fx);
+  noteScandal(game, p, n);
   return n;
 }
 export function applyFx(game, p, fx) {
@@ -456,6 +466,8 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
   p.stam = clamp((p.stam ?? 100) + a.stam + home, 0, 100);
   // love life
   let love = a.love;
+  const together = !!(joint && joint.together && act !== "date");
+  if (together) { love = (act === "party" ? 0 : love) + P.rom.together.love; a.fol = Math.round(a.fol * P.rom.together.fol); }
   if (act === "party" && L.partner && L.partner.partier) love = P.partyLoveWithPartier;
   let wrong = null, cheat = null, date = null;
   if (act === "date" && secret) {                                           // a secret date: nobody but you knows (yet)
@@ -517,7 +529,7 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
   }
   let wada = false;
   if (act === "party" && r() < (boost && boost.fx.wada ? boost.fx.wada : P.wada)) { wada = true; p.susp = Math.max(p.susp || 0, P.wadaBan); }
-  const c = { game, p, act, L, P, r, married: L.married, wedding: false, wada, wrong, cheat, pcheat, date, day, leakLeft: L.hit.wedLeft || 0 };
+  const c = { game, p, act, L, P, r, together, married: L.married, wedding: false, wada, wrong, cheat, pcheat, date, day, leakLeft: L.hit.wedLeft || 0 };
   const out = [];
   // Everything that qualifies this week; the biggest story is the one printed (see the story table).
   const cands = [];
@@ -541,7 +553,7 @@ export function runActivity(game, p, act, { day = 0, partner = null, joint = nul
   // a flagged test at a party is a gift to the tabloids: the very next headline after the WADA announcement is theirs
   if (wada) { const f = wadaParty(game, p, r); if (f) out.push(f); }
   if (secret && date) secretDate(game, p, date, makeRng(game.seed, "heat", p.id, R.week));
-  const lov = loveWeek(game, p, { act, date, secret: !!(secret && date), r });
+  const lov = loveWeek(game, p, { act, date, secret: !!(secret && date), together, r });
   L.last = { act, cost, day, boost: boost ? boost.id : null, trained, date: date ? { name: date.name, good: date.good, q: date.q, rivals: date.rivals, secret: !!date.secret } : null };
   L.act = null;
   boots(game, p, day, r);

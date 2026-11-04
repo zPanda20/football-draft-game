@@ -132,7 +132,12 @@ export class Room {
   addPlayer(token, name) {
     let p = this.players.get(token);
     if (p) { p.connected = true; if (name && this.phase === "lobby") p.name = name; return p; }
-    if (this.phase !== "lobby") return null;
+    if (this.phase !== "lobby") {
+      if (!this.game || this.phase === "end" || this.players.size >= this.maxPeople()) return null;
+      p = { token, name: String(name || "Footballer").slice(0, 24), teamName: "", club: null, teamId: null, connected: true, auto: false, mode: "manager", late: true };
+      this.players.set(token, p); this.setMode(token, "player", true);
+      return p;
+    }
     if (this.players.size >= this.maxPeople()) return null;
     p = { token, name: String(name || "Manager").slice(0, 24), teamName: "", club: null, teamId: null, connected: true, auto: false, mode: "manager" };
     this.players.set(token, p);
@@ -177,12 +182,14 @@ export class Room {
     this.paceNote = { id: (this.paceNote ? this.paceNote.id : 0) + 1, text: `${who}: speed is now ${names[pace]}` };
     this.changed();
   }
+  // Managers and footballers (once they are in the game) all have a say in the speed.
+  canVoteSpeed(p) { return p.teamId != null || (this.isPlayerMode(p) && p.pid != null); }
   voteSpeed(token, dir) {
-    const p = this.players.get(token); if (!p || p.teamId == null || this.phase === "lobby") return;
+    const p = this.players.get(token); if (!p || !this.canVoteSpeed(p) || this.phase === "lobby") return;
     if (dir !== "up" && dir !== "down") return;
     if (!this.speedVotes) this.speedVotes = new Map();
     if (this.speedVotes.get(token) === dir) this.speedVotes.delete(token); else this.speedVotes.set(token, dir);
-    const humans = [...this.players.values()].filter((q) => q.teamId != null && q.connected);
+    const humans = [...this.players.values()].filter((q) => this.canVoteSpeed(q) && q.connected);
     const need = Math.floor(humans.length / 2) + 1, tally = { up: 0, down: 0 };
     for (const [tk, d] of this.speedVotes) { const q = this.players.get(tk); if (q && q.connected) tally[d]++; }
     const i = PACES.indexOf(this.settings.pace);
@@ -621,7 +628,7 @@ export class Room {
     const snap = {
       code: this.code, hostToken: this.hostToken, seed: this.seed, settings: this.settings, kind, created: this.created,
       game: serializeGame(this.game),
-      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid })),
+      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid, late: p.late })),
       results: this.results, days: this.days,
     };
     this.onSave(this, snap);
@@ -664,7 +671,7 @@ export class Room {
     const v = {
       room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
-      players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", late: !!p.late, pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
       news: this.game ? this.newsView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
@@ -672,7 +679,7 @@ export class Room {
       clubsTaken: this.phase === "lobby" ? [...this.players.values()].filter((p) => p.club).map((p) => p.club) : [],
     };
     v.rivalPairs = this.rivalPairs();
-    { const humans = [...this.players.values()].filter((q) => q.teamId != null && q.connected), votes = { up: 0, down: 0 };
+    { const humans = [...this.players.values()].filter((q) => this.canVoteSpeed(q) && q.connected), votes = { up: 0, down: 0 };
       for (const [tk, d] of this.speedVotes || []) { const q = this.players.get(tk); if (q && q.connected) votes[d]++; }
       v.speed = { pace: this.settings.pace, levels: PACES, votes, need: Math.floor(humans.length / 2) + 1, mine: (this.speedVotes && this.speedVotes.get(token)) || null, note: this.paceNote || null }; }
     if (!g) return v;

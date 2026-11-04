@@ -1,5 +1,6 @@
 // Player-mode life screens: the week's activity, status bars, the shop, headlines, the manager's "may we print this?" card
 // and the big news banner every user sees when a story breaks.
+import { TOGETHER_TXT } from "./romance.js";
 import { st, $, esc, send, store, coins, pl, initials, team, brandMark, clubInk, myClub } from "./core.js";
 
 const ui = () => st.ui;
@@ -64,7 +65,7 @@ export function lifeParts(S) {
   const ll = pm.lastLife, tdone = ll && ll.trained && ll.trained.gain > 0 ? ` · <span style="color:var(--good)">${ll.trained.ovr ? `+${ll.trained.ovr} OVR` : "progress"}${ll.trained.stat ? `, ${SKILL[ll.trained.stat] || ll.trained.stat} +1` : ""}</span>` : "";
   const last = pm.lastLife ? `<div class="small mute mt">Last week: <b>${esc(info[pm.lastLife.act].name)}</b>${pm.lastLife.boost && st.items[pm.lastLife.boost] ? ` with ${ico(st.items[pm.lastLife.boost], 16)} ${esc(st.items[pm.lastLife.boost].name)}` : ""}${tdone}${ll && ll.date ? ` · ${ll.date.secret ? "secret " : ""}date with ${esc(ll.date.name)} <span style="color:var(--${ll.date.good ? "good" : "bad"})">${ll.date.good ? "went well" : "went badly"}</span>` : ""}${pm.lastLife.cost ? ` (−${pm.lastLife.cost})` : ""}${pm.lastLife.wada ? ` · <span style="color:var(--bad)">flagged by WADA: 2-match ban</span>` : ""}</div>` : "";
   const note = lf.open ? (cur ? `Locked in: <b>${esc(info[cur].name)}</b>${lf.act.joint ? " with " + esc((lf.rom.people.find((x) => "u:" + x.pid === lf.act.partner) || {}).name || "a friend") : ""}. The match starts when everyone is ready. <a href="#" data-act="actClear">change</a>` : "Pick your week before kick-off. If you do nothing, it is a Balance week.") : "You pick your week before the next match.";
-  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${datePicker(lf, pm)}${secretRow(lf, pm)}${prefRow(lf)}${last}</div>`;
+  week = `<div class="mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Your week</b><span class="small">${note}</span></div><div class="acts mt">${acts}${marry}</div>${trainLine}${togetherRow(lf, pm)}${datePicker(lf, pm)}${secretRow(lf, pm)}${prefRow(lf)}${last}</div>`;
   return { status, offer: dealOfferCard(lf), week };
 }
 export function lifePanel(S) {
@@ -93,6 +94,21 @@ function datePicker(lf, pm) {
       <button class="btn sm ghost" data-act="turnDown" data-id="${x.id}" title="Not interested. Turn someone down three times and they never show up again.">Not interested</button></div></div>`;
   }).join("");
   return `<div class="datepick mt"><div class="row wrap" style="gap:8px;justify-content:space-between"><b>Who do you take out?</b><span class="tiny mute">Three people each week. Your last date is always here. Dates can go well or badly; good dates lead to going exclusive (see Relationships below).${ex ? ` <b style="color:var(--bad)">You are exclusive with ${esc(ex.name)}: dating anyone else is a cheating scandal.</b>` : ""}</span></div><div class="datecards mt">${cards}</div></div>`;
+}
+// Partners who are both footballers can spend the week together: they ask, the other has to say yes.
+function togetherRow(lf, pm) {
+  const q = lf.partner; if (!q || q.human == null || !lf.rom) return "";
+  const o = (lf.rom.people || []).find((x) => x.pid === q.human); if (!o || !o.mutual) return "";
+  const cur = lf.act ? lf.act.act : null, locked = !!(lf.act && lf.act.joint && lf.act.partner === "u:" + q.human);
+  const asked = new Set((lf.rom.outgoing || []).filter((r) => r.kind === "act" && r.who.pid === q.human).map((r) => r.act));
+  const inc = (lf.rom.incoming || []).filter((r) => r.kind === "act" && r.who.pid === q.human);
+  const dm = lf.rom.dateMult || 2, names = { party: "🎉 Party", train: "🏋️ Train", rest: "🛌 Quiet night in", date: "💘 Date" };
+  const btns = ["party", "train", "rest", "date"].map((k) => {
+    const cost = (lf.costs[k] || 0) * (k === "date" ? dm : 1), can = lf.open && pm.coins >= cost && !(k === "party" && pm.susp > 0) && !asked.has(k);
+    return `<button class="btn sm ${cur === k && !locked ? "pri" : ""}" data-act="romAsk" data-to="${q.human}" data-kind="act" data-what="${k}" ${can ? "" : "disabled"} title="${asked.has(k) ? "Waiting for an answer" : `${esc(q.name)} has to say yes.${k === "date" ? " You pay, they come free." : " You both pay for your own."}`}">${asked.has(k) ? "Asked…" : names[k]}${cost ? ` · −${cost}` : ""}</button>`;
+  }).join("");
+  const got = inc.map((r) => `<div class="row wrap" style="gap:8px;align-items:center"><span class="small"><b>${esc(r.who.name)}</b> asks you to ${esc(TOGETHER_TXT[r.act] || "do something together")}.</span><button class="btn sm pri" data-act="romYes" data-id="${r.id}">Yes</button><button class="btn sm" data-act="romNo" data-id="${r.id}">No</button></div>`).join("");
+  return `<div class="togrow mt"><div class="small"><b>👫 Together with ${esc(q.name)}</b> <span class="tiny mute">${locked ? `Locked in: ${esc(TOGETHER_TXT[cur] || "")}. It brings you closer.` : "Pick something to do and ask them along. They have to say yes. Love and the bond between you both go up."}</span></div><div class="row wrap mt" style="gap:6px">${btns}</div>${got}</div>`;
 }
 // A secret date: only for someone in a relationship. Same three people as the week's list, minus your partner.
 function secretRow(lf, pm) {

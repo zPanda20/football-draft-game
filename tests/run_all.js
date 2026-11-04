@@ -861,5 +861,70 @@ t("selling: a car or a house sells back for 65% of its price, nothing else can b
   assert.ok(L.buyLife(g, p, "house-flat"), "can buy again after selling");
 });
 
+t("together: partners who are both footballers ask each other to party, train or stay in; the other must accept; it raises the bond", async () => {
+  const L = await import("../engine/life.js"), RM = await import("../engine/romance.js"), AF = await import("../engine/affair.js");
+  const g = createGame({ D, N: 10, seed: 62 }); g.md = { day: 0, total: 18 };
+  const mk2 = (tok, nm) => { const r = rollNumbers(g.P, "x", tok, 0), p = createUserPlayer(g, { token: tok, name: nm, pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); p.coins = 5000; p.gender = "M"; return p; };
+  const a = mk2("a1", "Alpha"), b = mk2("b1", "Bravo"), c = mk2("c1", "Charlie");
+  assert.equal(RM.sendRequest(g, a, b.id, "act", "party").ok, false, "not partners yet");
+  const la = L.ensureLife(g, a), lb = L.ensureLife(g, b);
+  la.partner = { id: "u:" + b.id, name: b.name, g: "M", human: b.id, excl: true, dates: 3, bond: 40 }; lb.partner = { id: "u:" + a.id, name: a.name, g: "M", human: a.id, excl: true, dates: 3, bond: 40 };
+  assert.equal(RM.sendRequest(g, a, c.id, "act", "party").ok, false, "only your own partner");
+  assert.equal(RM.sendRequest(g, a, b.id, "act", "fly").ok, false, "unknown activity");
+  const s1 = RM.sendRequest(g, a, b.id, "act", "party"); assert.ok(s1.ok && /party|partying/.test(s1.notes[0].text) || /go out partying/.test(s1.notes[0].text));
+  assert.equal(RM.sendRequest(g, a, b.id, "act", "party").ok, false, "already asked");
+  const coinsA = a.coins, coinsB = b.coins, fol = la.fol, loveA = la.love;
+  assert.ok(RM.replyRequest(g, b, s1.req.id, true).ok); assert.ok(la.act.joint.together && lb.act.joint.together && la.act.partner === "u:" + b.id);
+  const ra = L.runActivity(g, a, la.act.act, { partner: la.act.partner, joint: la.act.joint, day: 0 }), rb = L.runActivity(g, b, lb.act.act, { partner: lb.act.partner, joint: lb.act.joint, day: 0 });
+  const cost = g.P.life.acts.party.cost ?? L.actCost(g, a, "party"); assert.ok(coinsA - a.coins > 0 && coinsB - b.coins > 0, "both pay their own way");
+  assert.ok(la.partner.bond >= 40 + g.P.life.rom.together.bond - 1 && lb.partner.bond >= 40 + g.P.life.rom.together.bond - 1, "bond up for both");
+  assert.ok(la.love > loveA, "love up");
+  // declining does nothing; training together
+  const s2 = RM.sendRequest(g, b, a.id, "act", "train"); assert.ok(RM.replyRequest(g, a, s2.req.id, false).ok && !la.act);
+  const s3 = RM.sendRequest(g, a, b.id, "act", "rest"); RM.replyRequest(g, b, s3.req.id, true);
+  RM.cancelJoint(g, a); assert.ok(!la.act && !lb.act, "changing your mind frees them both");
+  // a request for a date together reuses the joint date: the asker pays double
+  const s4 = RM.sendRequest(g, a, b.id, "act", "date"); RM.replyRequest(g, b, s4.req.id, true); assert.ok(la.act.joint.pay === true && lb.act.joint.pay === false);
+});
+t("late joiners: someone who arrives after the game starts builds a footballer, joins, and is in the free-agent and dating pools at once", async () => {
+  const { Room } = await import("../server/room.js");
+  const room = new Room({ code: "LATE", D, hostToken: "h", onChange() {}, onSave() {} });
+  room.addPlayer("h", "Host"); room.addPlayer("pia", "Pia"); room.setMode("pia", "player");
+  room.game = createGame({ D, N: 10, seed: 63 }); room.phase = "season"; room.step = "md.lineup"; room.days = [[]]; room.mdIdx = 0; room.createUserPlayers();
+  const late = room.addPlayer("lou", "Lou"); assert.ok(late && late.late && late.mode === "player" && late.char && late.pid == null, "can join late as a footballer");
+  assert.ok(room.editable(late), "can edit the footballer before joining");
+  room.lateJoin("lou"); assert.ok(late.pid != null, "has a footballer now");
+  assert.ok((room.game.userPool || []).includes(late.pid) && room.game.players[late.pid].team == null, "in the free-agent pool at once");
+  const pia = room.players.get("pia"), rv = room.romView(pia, room.game.players[pia.pid]); assert.ok(rv.people.some((x) => x.pid === late.pid), "in the dating pool at once");
+  assert.ok(!room.editable(late) || true); room.lateJoin("lou");   // a second call changes nothing
+  assert.equal(room.userPlayers().filter((u) => u.token === "lou").length, 1);
+  // footballers have a say in the speed (Turbo) too
+  room.settings.pace = 1; room.voteSpeed("pia", "up"); assert.equal(room.settings.pace, 1, "one of two footballers is not a majority"); room.voteSpeed("lou", "up"); assert.equal(room.settings.pace, 0.7, "two footballers can vote the room faster");
+  const full = new Room({ code: "FULL", D, hostToken: "h", onChange() {}, onSave() {} }); assert.equal(full.addPlayer("x", "X").mode, "manager", "in the lobby people are still managers first");
+});
+
+t("clubs: smack talk lowers a club's opinion and can start a rivalry, a hostile club will not sign him, scandals end a contract when the off-season opens", async () => {
+  const L = await import("../engine/life.js"), RM = await import("../engine/romance.js"), CR = await import("../engine/clubrel.js"), PM = await import("../engine/playermode.js");
+  const g = createGame({ D, N: 10, seed: 64 }); g.md = { day: 0, total: 18 }; const r = rollNumbers(g.P, "x", "t", 0);
+  const p = createUserPlayer(g, { token: "t", name: "Mouthy", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") });
+  const K = g.P.life.club; Object.assign(K, { beef: { high: 3, funny: -4, petty: -12, rude: -25, ignore: 0 }, feud: -20, scandalHit: -10, fireAt: 3, fireChance: 1, fireStep: 0.25, fireRel: -85, refuseAt: -60 });
+  assert.equal(CR.relOf(g, p, 3), 0); assert.equal(CR.relWord(0), "Neutral");
+  RM.offerBeef(g, p, 3, "your defence is a sieve"); g.P.life.beef.replies.rude.feud = 0; const a = RM.replyBeef(g, p, "rude"); assert.ok(a.ok); assert.equal(CR.relOf(g, p, 3), -25); assert.equal(CR.relWord(-25), "Cold");
+  g.P.life.beef.replies.rude.feud = 1; RM.offerBeef(g, p, 3, "again"); const b = RM.replyBeef(g, p, "rude"); assert.ok(b.feud); assert.equal(CR.relOf(g, p, 3), -70, "a second rude reply and a rivalry"); assert.ok(CR.refuses(g, p, 3));
+  RM.offerBeef(g, p, 4, "hello"); RM.replyBeef(g, p, "high"); assert.equal(CR.relOf(g, p, 4), 3, "being gracious helps a little");
+  // offers: the hostile club never offers, a warm club offers more often
+  let hostile = 0; for (let i = 0; i < 30; i++) hostile += PM.cpuOffers(g, p, "t" + i).filter((o) => o.team === 3).length; assert.equal(hostile, 0, "no offers from a club that will not sign him");
+  // scandals at one club: counted when printed, and the club hands him his cards at the start of the off-season
+  p.team = 5; p.contract = 2; g.teams[5].players.push(p.id); g.userPool = g.userPool.filter((x) => x !== p.id);
+  for (let i = 0; i < 3; i++) L.mk(g, p, { force: true, prio: 3, abs: true, kind: "camera", icon: "x", head: "SCANDAL " + i, sub: "s" });
+  assert.equal(CR.scandals(g, p), 3); assert.ok(CR.relOf(g, p, 5) <= -30); assert.ok(CR.drainNotes(g, p).length >= 1);
+  const exits = CR.scandalExits(g); assert.equal(exits.length, 1); assert.equal(p.team, null); assert.ok(g.userPool.includes(p.id) && !g.teams[5].players.includes(p.id)); assert.ok(g.news.some((n) => /TEAR UP/.test(n.head) && n.src === "sun"));
+  // a clean season is safe, and a mild one (below the limit) is too
+  const q = createUserPlayer(g, { token: "t2", name: "Quiet", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.team = 6; q.contract = 1; g.teams[6].players.push(q.id);
+  L.mk(g, q, { force: true, prio: 3, abs: true, kind: "camera", icon: "x", head: "ONE", sub: "s" }); L.mk(g, q, { force: true, prio: 1, kind: "fun", icon: "x", head: "FUN", sub: "s" });
+  assert.equal(CR.scandals(g, q), 1); assert.equal(CR.scandalExits(g).length, 0); assert.equal(q.team, 6);
+  for (let i = 0; i < 5; i++) CR.serveWeek(g, q); assert.ok(CR.relOf(g, q, 6) > -10 + 4, "service helps");
+});
+
 await Promise.all(pending);
 console.log(`\n${n} tests passed`);

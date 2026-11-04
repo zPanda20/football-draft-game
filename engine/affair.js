@@ -126,12 +126,13 @@ export function leaveForAffair(game, p) {
 // ---------- the week ----------
 // Runs after every user player's week: the bond with the partner, the affair's danger and its cooling off.
 // Returns { notes: [{ pid, text }], events: [{ kind, name }] }.
-export function loveWeek(game, p, { act, date, secret, r }) {
+export function loveWeek(game, p, { act, date, secret, together, r }) {
   const L = ensureLife(game, p), R = ensureRom(game), P = game.P.life, U = P.upkeep, A = P.affair, out = { notes: [], events: [] }, q = L.partner;
   if (q) {
     bondOf(game, L);
     const comm = committed(L); let gain = 0, touched = false;
     if (act === "date" && date && !date.secret && date.id === q.id) { gain = date.good ? U.date.good : date.q >= 0.4 ? U.date.ok : U.date.bad; touched = true; }
+    else if (together) { gain = game.P.life.rom.together.bond; touched = true; }
     else if (!isHuman(q.id) && act === likeOf(game, q.id)) { gain = U.like; touched = true; }
     if (touched) { q.bond = Math.min(100, q.bond + gain); q.cold = 0; }
     else { q.cold = (q.cold || 0) + 1; if (comm && q.cold > U.grace) q.bond = Math.max(0, q.bond - (L.married ? U.decayMarried : U.decayExcl)); }

@@ -2,6 +2,7 @@
 // asking another footballer out, going exclusive, thrupples, breaking up, weddings as events, and answering online beef.
 // Every function returns { ok, why?, notes? }. `notes` are messages for other footballers: [{ pid, text }].
 import { makeRng } from "./rng.js";
+import { beefRel } from "./clubrel.js";
 import { ensureLife, ensureRom, npcState, otherSuitors, isHuman, personOf, leave, leaveThr, thrMembers, canMarry, actCost, mk, applyFx } from "./life.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -26,11 +27,12 @@ export function exclusiveState(game, p) {
 
 // ---------- requests between footballers ----------
 const open = (R) => R.req.filter((r) => r.status === "open");
-export function sendRequest(game, p, toPid, kind) {
+export const TOGETHER = { party: "go out partying", train: "train", rest: "have a quiet night in", date: "go on a date" };
+export function sendRequest(game, p, toPid, kind, act) {
   const R = ensureRom(game), P = game.P.life.rom, L = ensureLife(game, p), q = user(game, toPid);
   if (!q || q.id === p.id) return fail("Not a player");
   const QL = ensureLife(game, q);
-  if (open(R).some((r) => r.from === p.id && r.to === q.id && r.kind === kind)) return fail("Already asked");
+  if (open(R).some((r) => r.from === p.id && r.to === q.id && r.kind === kind && (kind !== "act" || r.act === act))) return fail("Already asked");
   if (kind === "date") {
     if (L.married || QL.married) return fail("Married footballers go on dates with their spouses");
     if (L.partner && L.partner.excl && L.partner.id !== uid(q)) return fail("You are exclusive with someone else");
@@ -47,10 +49,15 @@ export function sendRequest(game, p, toPid, kind) {
     if (!L.partner || L.partner.id !== uid(q) || !QL.partner || QL.partner.id !== uid(p) || !L.partner.excl || !QL.partner.excl) return fail("You both need to be exclusive");
     if (QL.wed || QL.married) return fail("A wedding is already on");
     const s = proposalState(game, p); if (!s.can) return fail(s.why);
+  } else if (kind === "act") {                                              // an activity together: only partners who are both footballers
+    if (!TOGETHER[act]) return fail("unknown");
+    if (!L.partner || L.partner.id !== uid(q) || !QL.partner || QL.partner.id !== uid(p)) return fail("You can only do this with your partner");
+    if (act === "party" && (p.susp > 0 || q.susp > 0)) return fail("Someone is suspended");
+    if ((p.coins || 0) < actCost(game, p, act) * (act === "date" ? P.dateMult : 1)) return fail("You cannot afford it");
   } else return fail("unknown");
-  const r = { id: ++R.reqSeq, kind, from: p.id, to: q.id, status: "open", season: game.season, week: R.week };
+  const r = { id: ++R.reqSeq, kind, from: p.id, to: q.id, status: "open", season: game.season, week: R.week, ...(kind === "act" ? { act } : {}) };
   R.req.push(r); if (R.req.length > 60) R.req.splice(0, R.req.length - 60);
-  return { ok: true, req: r, notes: [{ pid: q.id, text: `${p.name} ${{ date: "asks you out on a date", excl: "asks you to go exclusive", thr: "asks to be in a thrupple with you", wed: "asks you to marry them" }[kind]}.` }] };
+  return { ok: true, req: r, notes: [{ pid: q.id, text: `${p.name} ${kind === "act" ? `asks you to ${TOGETHER[act]} together` : { date: "asks you out on a date", excl: "asks you to go exclusive", thr: "asks to be in a thrupple with you", wed: "asks you to marry them" }[kind]}.` }] };
 }
 
 // Two footballers' joint date: the one who asked pays (double), the other comes along for free.
@@ -76,6 +83,22 @@ export function replyRequest(game, p, reqId, yes) {
     if ((a.coins || 0) < actCost(game, a, "date") * P.dateMult) { r.status = "lapsed"; return fail(`${a.name} can no longer afford it`); }
     setJoint(game, a, p); r.status = "accepted";
     notes.push({ pid: a.id, text: `${p.name} said yes. You pay, they come. See you at kick-off!` });
+  } else if (r.kind === "act") {
+    const q = L.partner, QA = AL.partner;
+    if (!q || q.id !== uid(a) || !QA || QA.id !== uid(p)) { r.status = "lapsed"; return fail("You are not together any more"); }
+    if (r.act === "party" && (p.susp > 0 || a.susp > 0)) { r.status = "lapsed"; return fail("Someone is suspended"); }
+    if (r.act === "date") {
+      if ((a.coins || 0) < actCost(game, a, "date") * P.dateMult) { r.status = "lapsed"; return fail(`${a.name} can no longer afford it`); }
+      setJoint(game, a, p);
+    } else {
+      if ((a.coins || 0) < actCost(game, a, r.act)) { r.status = "lapsed"; return fail(`${a.name} can no longer afford it`); }
+      if ((p.coins || 0) < actCost(game, p, r.act)) return fail("You cannot afford it");
+      cancelJoint(game, a); cancelJoint(game, p);
+      L.act = { act: r.act, partner: uid(a), joint: { together: true } };
+      AL.act = { act: r.act, partner: uid(p), joint: { together: true } };
+    }
+    r.status = "accepted";
+    notes.push({ pid: a.id, text: `${p.name} said yes: you ${TOGETHER[r.act]} together this week.` });
   } else if (r.kind === "excl") {
     r.status = "accepted";
     for (const [x, y] of [[a, p], [p, a]]) { const XL = ensureLife(game, x); XL.partner = { ...(XL.partner || { id: uid(y), name: y.name, g: y.gender === "F" ? "F" : "M", human: y.id, partier: false }), excl: true }; XL.love = clamp(XL.love + 10, 0, 100); }
@@ -332,7 +355,7 @@ export function replyBeef(game, p, mode) {
   applyFx(game, p, { fol: rep.fol, love: rep.love });
   let feud = false;
   if (rep.feud && t && p.team !== b.team && !R.feuds.some((f) => f.pid === p.id && f.team === b.team) && makeRng(game.seed, "beef", p.id, b.id, mode)() < rep.feud) { R.feuds.push({ pid: p.id, team: b.team }); feud = true; }
-  L.beefLast = { mode, team: b.team, feud };
+  L.beefLast = { mode, team: b.team, feud, rel: t ? beefRel(game, p, b.team, mode, feud) : 0 };
   let story = null;
   if (mode !== "ignore" && t) {
     const P_ = p.name.toUpperCase(), T_ = t.name.toUpperCase(), list = BEEF_STORY[mode], bs = list[Math.floor(makeRng(game.seed, "beefq", p.id, b.id, mode)() * list.length)];

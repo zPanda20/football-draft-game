@@ -153,6 +153,7 @@ export const DEFAULT_PARAMS = {
     trophy: { title: { fol: 120000, coins: 150 }, ballon: { fol: 300000, coins: 300 }, boot: { fol: 100000, coins: 100 }, playmaker: { fol: 100000, coins: 100 }, glove: { fol: 100000, coins: 100 } },
     deals: [{ fol: 15000, pay: 6, seasons: 2 }, { fol: 60000, pay: 12, seasons: 2 }, { fol: 250000, pay: 22, seasons: 3 }, { fol: 1000000, pay: 36, seasons: 3 }], // boot-maker offers by followers
     rom: {
+      together: { love: 4, bond: 8, fol: 1.25 },   // doing a party, a training session or a quiet night with your partner (both footballers): love, bond, follower boost
       dateMult: 2,                                  // a date with another user player: the one who asks pays this many times a normal date
       goodAt: 0.55,                                 // a date this good counts as a success
       exclDates: 3, exclGood: 2,                    // dates, and good dates, needed before you can ask for exclusive
@@ -173,6 +174,11 @@ export const DEFAULT_PARAMS = {
       ],
     },
     // Relationships need looking after (engine/affair.js): a bond with the partner that decays when ignored, secret dates (an affair) that build a risk of being caught, and divorce.
+    club: {                                      // how clubs feel about a footballer (-100..100)
+      beef: { high: 3, funny: -4, petty: -12, rude: -25, ignore: 0 }, feud: -20,   // answering a club that trolled him
+      scandalHit: -10, fireAt: 3, fireChance: 0.5, fireStep: 0.25, fireRel: -85, fireHit: -15,   // scandals at one club in a season: from fireAt on, the club may end his contract when the off-season opens
+      refuseAt: -60, weekly: 1,                // a club at or below refuseAt will not sign him; a matchday with the club adds weekly
+    },
     upkeep: { start: 60, grace: 2, decayExcl: 4, decayMarried: 3, date: { good: 10, ok: 6, bad: 1 }, like: 6, warnAt: 40, leaveAt: 22, leaveExcl: 0.4, leaveMarried: 0.3 },   // bond gains from a date (good/ok/bad) or a thing they enjoy; weeks you can ignore them for free; yearly decay; the partner may walk out under leaveAt
     affair: { heatDate: 14, heatRand: 8, heatFame: 10, cool: 7, rumourAt: 45, catchFrom: 20, catchK: 1.0, catchMax: 0.85, leaveExcl: 0.7, leaveMarried: 0.55, bondHit: 35, publicDates: 3, publicLove: 40, love: 12 },   // secret dates: risk of being caught climbs with each one and cools off slowly; what happens when caught
     divorce: { share: 0.2, cool: 3 },                // the one at fault pays this share of their wallet in the settlement
