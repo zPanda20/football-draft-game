@@ -110,7 +110,7 @@ function attach(ws, room, token, watch) {
   room.changed();
 }
 
-const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedAgree", "wedWithdraw", "propose", "affairEnd", "affairPublic", "divorce", "leakDM", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "lifeSell", "newsDecide", "redeem", "unlocks", "socAnswer", "socComment", "socStyle", "romGift", "gInvite", "gAnswer", "gWithdraw", "gSeat", "gReady", "gPick", "gRespond"]);
+const CHOICES = new Set(["pick", "lock", "bid", "bidLock", "bidUnlock", "pass", "buy", "lineup", "lineupAuto", "plan", "planSkip", "items", "resign", "rookie", "rookiePack", "rookiePass", "itemPack", "packPick", "tradeOffer", "tradeRespond", "tradeCancel", "windowSign", "windowDrop", "ready", "auto", "lite", "continue", "offer", "offerWithdraw", "offerRespond", "card", "effort", "gift", "equipSelf", "act", "turnDown", "romAsk", "romReply", "exclAsk", "breakUp", "thrLeave", "revealLoyal", "wedPlan", "wedAgree", "wedWithdraw", "propose", "affairEnd", "affairPublic", "divorce", "leakDM", "wedCancel", "beefReply", "pref", "dealRespond", "lifeBuy", "lifeSell", "newsDecide", "redeem", "unlocks", "socAnswer", "socComment", "socStyle", "romGift", "gInvite", "gAnswer", "gWithdraw", "gSeat", "gReady", "gPick", "gRespond", "wChar", "wAct", "wClear", "wAsk", "wAnswer", "wGift"]);
 function handle(ws, m) {
   const tok = typeof m.token === "string" ? m.token.slice(0, 64) : null;
   switch (m.t) {
@@ -146,7 +146,13 @@ function handle(ws, m) {
     case "active": break; // sent by the browser on any click while idle; the wake-up above is all that is needed
     case "club": room.setClub(t, m.slug); break;
     case "lateJoin": room.lateJoin(t); break;
-    case "mode": room.setMode(t, m.mode === "player" ? "player" : "manager"); break;
+    case "mode": room.setMode(t, m.mode === "player" ? "player" : m.mode === "wag" ? "wag" : "manager"); break;
+    case "wChar": room.setWagChar(t, m.c || {}); break;
+    case "wAct": room.wagAct(t, m.c || {}); break;
+    case "wClear": room.wagClear(t); break;
+    case "wAsk": room.wagAsk(t, String(m.to || ""), String(m.kind || ""), m.tier, !!m.pub); break;
+    case "wAnswer": room.wagAnswer(t, m.id | 0, !!m.yes); break;
+    case "wGift": room.wagGift(t, String(m.to || ""), String(m.tier || ""), !!m.pub); break;
     case "roll": room.rollChar(t); break;
     case "char": room.setChar(t, m.c || {}); break;
     case "offer": room.makeOffer(t, m.pid | 0, m.len | 0); break;

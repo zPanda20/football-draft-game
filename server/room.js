@@ -18,6 +18,8 @@ import { offseasonMethods } from "./offseason.js";
 import { usermodeMethods } from "./usermode.js";
 import { socialMethods, seasonEndSocial } from "./social.js";
 import { galaMethods } from "./gala.js";
+import { wagMethods } from "./wag.js";
+import * as W from "../engine/wag.js";
 import { mk, checkBoasts } from "../engine/gala.js";
 import { liteMethods, liteOf, isLite } from "./lite.js";
 import { unsigned, buyForUser, setEquip, giftItem } from "../engine/playermode.js";
@@ -96,6 +98,7 @@ export class Room {
       }
     }
     for (const u of this.userPlayers()) if (this.userNeeds(u)) add(u);       // footballers: this week's choice, a half-time effort, an offer to answer
+    for (const u of this.wagUsers()) if (this.wagNeeds(u)) add(u);           // WAGs: this week's choice, and the gala
     return out;
   }
   openWindow() { for (const p of this.players.values()) p.acted = false; this.skipping = false; }
@@ -188,7 +191,7 @@ export class Room {
     this.changed();
   }
   // Managers and footballers (once they are in the game) all have a say in the speed.
-  canVoteSpeed(p) { return p.teamId != null || (this.isPlayerMode(p) && p.pid != null); }
+  canVoteSpeed(p) { return p.teamId != null || (this.isPlayerMode(p) && p.pid != null) || (this.isWagMode(p) && p.wid != null); }
   voteSpeed(token, dir) {
     const p = this.players.get(token); if (!p || !this.canVoteSpeed(p) || this.phase === "lobby") return;
     if (dir !== "up" && dir !== "down") return;
@@ -218,8 +221,8 @@ export class Room {
   // Rivals are cosmetic: either manager can mark another one, and their matches get extra hype and louder animations.
   pubOf(p) { return createHash("sha1").update(String(p.token)).digest("hex").slice(0, 8); }
   setRival(token, pub, on) {
-    const me = this.players.get(token); if (!me || me.mode === "player") return;
-    const other = [...this.players.values()].find((q) => q !== me && q.mode !== "player" && this.pubOf(q) === pub); if (!other) return;
+    const me = this.players.get(token); if (!me || me.mode === "player" || me.mode === "wag") return;
+    const other = [...this.players.values()].find((q) => q !== me && q.mode !== "player" && q.mode !== "wag" && this.pubOf(q) === pub); if (!other) return;
     const set = new Set(me.rivals || []); if (on) set.add(pub); else set.delete(pub); me.rivals = [...set]; this.changed();
   }
   rivalPairs() {
@@ -232,7 +235,7 @@ export class Room {
   // ---------- start ----------
   start(token, seed = Math.floor(Math.random() * 1e9)) {
     if (!this.isHost(token) || this.phase !== "lobby" || !this.players.size) return;
-    const humans = [...this.players.values()].filter((q) => q.mode !== "player");
+    const humans = [...this.players.values()].filter((q) => q.mode !== "player" && q.mode !== "wag");       // WAGs do not count towards the number of clubs
     const cap = this.maxPeople(), N = Math.min(cap - (cap % 2), teamsFor(Math.max(this.settings.minTeams, humans.length)));
     const rr = makeRng(seed, "room");
     const game = createGame({ D: this.D, N, seed, gender: this.settings.pool || "all", params: process.env.TEST_PARAMS ? JSON.parse(process.env.TEST_PARAMS) : {} });
@@ -248,7 +251,7 @@ export class Room {
     });
     for (const t of game.teams) if (!t.human) { t.club = free.shift(); t.name = this.clubBySlug.get(t.club).name; }
     this.game = game; this.seed = seed;
-    this.createUserPlayers(); this.wireSocial(); this.applyStyles();
+    this.createUserPlayers(); this.createWags(); this.wireSocial(); this.applyStyles();
     this.startDraft();
   }
 
@@ -451,7 +454,7 @@ export class Room {
     this.step = "md.lineup"; this.openWindow();
     for (const p of this.players.values()) if (p.auto && p.teamId != null) this.ready.add(p.teamId);
     for (const u of this.userPlayers()) { const pp = this.game.players[u.pid]; ensureOptions(this.game, pp, this.mdIdx); if (u.auto) ensureLife(this.game, pp).act = null; }
-    const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected);
+    const anyone = this.humanTeams().some((t) => this.humanFor(t.id)) || this.userPlayers().some((u) => u.connected) || this.wagUsers().some((u) => u.connected);
     const extra = (this.windowInfo().open && anyone ? g.P.transfer.extraSec : 0) + (this.mdIdx < (g.P.lineup?.earlyDays ?? 2) ? (g.P.lineup?.earlySec ?? 20) : 0);
     this.after(anyone ? (this.settings.lineupSec + extra) * 1000 : this.p(2500), () => this.firstHalf());
     this.changed();
@@ -545,6 +548,7 @@ export class Room {
   firstHalf() {
     this.closeWindow();
     const g = this.game, day = this.days[this.mdIdx];
+    this.wagKickoff();                                                  // WAG choices first (they may book a footballer's week), then every footballer's week
     this.resolveLife();
     const hooks = { lineup: (t, recs) => this.lineupHook(t, recs) };
     this.live = day.map(([a, b], k) => beginMatch(g, a, b, `${this.mdIdx}-${a}-${b}`, hooks));
@@ -599,7 +603,7 @@ export class Room {
     this.hold = null;
     this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
-    this.dealCareerCards(); this.rollStore(); this.socialAfter();
+    this.dealCareerCards(); this.rollStore(); this.socialAfter(); this.wagAfter();
     this.step = "md.result"; if (!this.windowInfo().open) this.expireOffers();
     this.after(this.p(8000), () => this.afterResult());
     this.changed();
@@ -636,7 +640,7 @@ export class Room {
     const snap = {
       code: this.code, hostToken: this.hostToken, seed: this.seed, settings: this.settings, kind, created: this.created,
       game: serializeGame(this.game),
-      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid, late: p.late, style: p.style })),
+      players: [...this.players.values()].map((p) => ({ token: p.token, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, auto: p.auto, lite: p.lite, path: p.path, over: p.over, stage: p.stage, rivals: p.rivals, mode: p.mode, char: p.char, pid: p.pid, late: p.late, style: p.style, wid: p.wid, wchar: p.wchar })),
       results: this.results, days: this.days,
     };
     this.onSave(this, snap);
@@ -679,8 +683,8 @@ export class Room {
     const v = {
       room: this.code, gid: this.seed, phase: this.phase, step: this.step, paused: this.paused,
       deadline: this.deadline, dur: this.dur, now: Date.now(), settings: this.settings, host: this.isHost(token),
-      players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", late: !!p.late, pid: p.pid ?? null, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
-      news: this.game ? this.newsView(token) : null, social: this.game ? this.socialView(token) : null, gala: this.game ? this.galaView(token) : null,
+      players: [...this.players.values()].map((p) => ({ pub: this.pubOf(p), you: p.token === token, unlocks: p.token === token ? [...(p.unlocks || [])] : undefined, liteSet: p.token === token ? { ...liteOf(p) } : undefined, name: p.name, teamName: p.teamName, club: p.club, teamId: p.teamId, connected: p.connected, host: p.token === this.hostToken, auto: p.auto, lite: isLite(p), idle: !!p.idle, mode: p.mode || "manager", late: !!p.late, pid: p.pid ?? null, wag: this.isWagMode(p) ? this.wagPub(p, token) : undefined, char: p.token === token ? p.char || null : (p.char ? { name: p.char.name, pos: p.char.pos } : null) })),
+      wag: this.game ? this.wagView(token) : null, news: this.game ? this.newsView(token) : null, social: this.game ? this.socialView(token) : null, gala: this.game ? this.galaView(token) : null,
       unlockNote: this.phase === "lobby" && this.unlockNote && this.unlockNote.token === token ? this.unlockNote : undefined,
       pools: this.phase === "lobby" ? this.poolInfo() : undefined,
       chat: this.chatFor(token), reveal: this.reveal, feed: this.feed,
@@ -761,5 +765,5 @@ export class Room {
   }
 }
 
-Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods, liteMethods, socialMethods, galaMethods);
+Object.assign(Room.prototype, offseasonMethods, usermodeMethods, windowMethods, liteMethods, socialMethods, galaMethods, wagMethods);
 Room.prototype.userWaiting = function () { return !!this.game && [...this.players.values()].some((p) => p.mode === "player" && p.connected && p.pid != null && this.game.players[p.pid].team == null && (this.offers || []).some((o) => o.pid === p.pid && o.status === "open")); };

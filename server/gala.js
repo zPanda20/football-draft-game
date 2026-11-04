@@ -11,15 +11,16 @@ export const galaMethods = {
   galaPeople() {
     const g = this.game, managers = this.humanTeams().filter((t) => this.humanFor(t.id)).map((t) => t.id);
     const players = this.userPlayers().filter((u) => u.connected && g.players[u.pid] && !g.players[u.pid].retired).map((u) => u.pid);
-    return { managers, players };
+    const wags = this.wagUsers().filter((u) => u.connected && this.game.wag && this.game.wag.list[u.wid]).map((u) => u.wid);
+    return { managers, players, wags };
   },
-  galaKey(token) { const u = this.players.get(token); if (!u) return null; if (this.isPlayerMode(u)) return u.pid != null ? fk(u.pid) : null; return u.teamId != null ? mk(u.teamId) : null; },
+  galaKey(token) { const u = this.players.get(token); if (!u) return null; if (this.isWagMode(u)) return u.wid != null ? u.wid : null; if (this.isPlayerMode(u)) return u.pid != null ? fk(u.pid) : null; return u.teamId != null ? mk(u.teamId) : null; },
   galaUserOf(key) { return [...this.players.values()].find((u) => this.galaKey(u.token) === key) || null; },
   galaDue() {
     const g = this.game; if (!this.galaEnabled() || this.step !== "md.result") return false;
     const S = ensureSoc(g), total = this.days.length, day = galaDay(total);
     if (day < 0 || S.galaDone[g.season] || this.mdIdx < day || this.mdIdx > total - 3) return false;
-    const p = this.galaPeople(); return p.managers.length + p.players.length >= g.P.social.gala.minUsers;
+    const p = this.galaPeople(); return p.managers.length + p.players.length + p.wags.length >= g.P.social.gala.minUsers;
   },
   // called when the full-time screen has been shown: the gala, or on to the next matchday
   afterResult() { if (this.galaDue()) this.startGala(); else this.nextMatchday(); },
@@ -48,7 +49,7 @@ export const galaMethods = {
     this.changed();
   },
   galaFinish() { if (this.step !== "gala.end") return; this.nextMatchday(); },
-  deliverGala(notes) { for (const n of notes || []) { if (n.team != null) { const m = this.playerOfTeam(n.team); if (m) this.notify(n.text, m.token); } else if (n.pid != null) this.privateNote(n.pid, n.text); } },
+  deliverGala(notes) { for (const n of notes || []) { if (n.team != null) { const m = this.playerOfTeam(n.team); if (m) this.notify(n.text, m.token); } else if (n.wag != null) this.wagNote(n.wag, n.text); else if (n.pid != null) this.privateNote(n.pid, n.text); } },
   // Who the room is still waiting for: not ready yet (prepare), or no interaction chosen / an open question to answer (live).
   galaNeeds(key, auto) {
     const G = galaOf(this.game); if (!G || !G.att[key]) return false;

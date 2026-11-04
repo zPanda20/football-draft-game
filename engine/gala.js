@@ -1,10 +1,11 @@
 // The mid-season gala: one dinner a season for every user. A short preparation window (footballers invite a date, anyone may ask to sit
 // with someone), a seating plan built from requests and from the league's real history, one main interaction each, and a roundup.
-// People are keys: "m<team>" a manager, "f<pid>" a footballer, "g<pid>" the guest a footballer brought. Rules only; the room runs the clock.
+// People are keys: "m<team>" a manager, "f<pid>" a footballer, "g<pid>" the guest a footballer brought, "w<n>" a WAG (never a guest, never a footballer). Rules only; the room runs the clock.
 import { makeRng, shuffle } from "./rng.js";
 import { ensureSoc, mgrOf, bump, styleOf, bossName, teamName, trustOf, addTrust, mrel, setMrel, stepRel, openThread, addHist, closeThread, deskStory, variant, memOf, remember, nid } from "./social.js";
 import { ensureLife, ensureRom, npcState, isHuman, partnerById, applyFx } from "./life.js";
 import { dinnerScore } from "./market2.js";
+import { wagOf, pairOf, ensureWag, isHumanFb } from "./wag.js";
 
 const up = (s) => String(s).toUpperCase();
 const fail = (why) => ({ ok: false, why });
@@ -15,13 +16,14 @@ export const galaOn = (game) => game.galaOn !== false;
 export const galaOf = (game) => ensureSoc(game).gala || null;
 
 // ---------- opening it ----------
-// people = { managers: [teamId], players: [pid] }. Marks the season done straight away, so it can never start twice.
+// people = { managers: [teamId], players: [pid], wags: [wagId] }. Marks the season done straight away, so it can never start twice.
 export function galaBegin(game, people, day) {
   const S = ensureSoc(game); if (S.galaDone[game.season]) return null;
   S.galaDone[game.season] = true;
   const G = S.gala = { season: game.season, day, status: "prep", att: {}, order: [], invites: [], dates: {}, seatReq: {}, tables: [], tags: [], picks: {}, prompts: [], ready: [], roundup: null, notes: [] };
   for (const t of people.managers) { G.att[mk(t)] = { key: mk(t), kind: "manager", team: t, name: bossName(game, t) }; G.order.push(mk(t)); }
   for (const pid of people.players) { const p = game.players[pid]; if (!p) continue; G.att[fk(pid)] = { key: fk(pid), kind: "player", pid, team: p.team, name: p.name }; G.order.push(fk(pid)); }
+  for (const id of people.wags || []) { const w = wagOf(game, id); if (!w) continue; G.att[id] = { key: id, kind: "wag", wag: id, team: null, name: w.name }; G.order.push(id); }
   return G;
 }
 const att = (G, key) => (G ? G.att[key] : null);
@@ -161,6 +163,9 @@ export function optionsFor(game, key) {
   if (me.kind === "manager") {
     out.push({ id: "toast:gracious", label: "Raise a gracious toast", kind: "toast", preview: `A kind word for the room. It can soften a sour relationship with a manager at your table. Costs nothing.` });
     out.push({ id: "toast:boast", label: "Make a bold boast", kind: "toast", preview: `"We will finish in the top three." The newspaper writes it down and checks at the end of the season: it either looks great or it is thrown back at you.` });
+  } else if (me.kind === "wag") {
+    out.push({ id: "toast:gracious", label: "Say a few kind words", kind: "toast", preview: `Safe and warm: +${K.toastFol / 2} followers.` });
+    out.push({ id: "toast:joke", label: "Tell a joke in the speech", kind: "toast", preview: `A coin toss: it lands (+${K.toastFol} followers) or it does not (−${K.jokeHit}).` });
   } else {
     out.push({ id: "toast:gracious", label: "Say a few kind words", kind: "toast", preview: `Safe and warm: +${K.toastFol / 2} followers.` });
     out.push({ id: "toast:joke", label: "Tell a joke in the speech", kind: "toast", preview: `A coin toss: it lands (+${K.toastFol} followers) or it does not (−${K.jokeHit}).` });
@@ -180,6 +185,10 @@ export function optionsFor(game, key) {
       const tr = trustOf(game, o.team, me.pid);
       if (tr <= -1) out.push({ id: "reconcile:" + o.key, with: o.key, kind: "reconcile", needs: true, label: `Clear the air with ${nm(o)}`, preview: `You and your manager have fallen out. If they agree, trust is back to neutral.` });
       out.push({ id: "dispute:" + o.key, with: o.key, kind: "dispute", needs: true, label: `Raise something with ${nm(o)}`, preview: `Talk about your role at the club. If ${nm(o)} engages, trust +1.` });
+    }
+    if ((me.kind === "wag" && o.kind === "player") || (me.kind === "player" && o.kind === "wag")) {
+      const pl = me.kind === "player" ? me : o, L = ensureLife(game, game.players[pl.pid]);
+      if (!L.married && !(L.partner && L.partner.excl)) out.push({ id: "romance:" + o.key, with: o.key, kind: "romance", needs: true, label: `Ask ${nm(o)} to dance`, preview: `Both of you must agree. It can get noticed, and it grows a bond if you are already seeing each other.` });
     }
     if (me.kind === "player" && o.kind === "player") {
       const m = memOf(game, me.pid), ex = m.ex.some((e) => e.id === "u:" + o.pid), riv = m.rival.some((e) => e.pid === o.pid) || memOf(game, o.pid).rival.some((e) => e.pid === me.pid);
@@ -204,7 +213,7 @@ export function pick(game, key, optId) {
   const notes = [];
   if (o.needs && o.with) {
     const t = att(G, o.with);
-    if (t && t.kind !== "guest") { G.prompts.push({ id: nid(game), from: key, to: o.with, kind: o.kind, status: "open" }); const me = att(G, key); notes.push(t.kind === "manager" ? { team: t.team, text: `${me.name} would like to ${PROMPT[o.kind]} (Gala).` } : { pid: t.pid, text: `${me.name} would like to ${PROMPT[o.kind]} (Gala).` }); }
+    if (t && t.kind !== "guest") { G.prompts.push({ id: nid(game), from: key, to: o.with, kind: o.kind, status: "open" }); const me = att(G, key); const tx = `${me.name} would like to ${PROMPT[o.kind]} (Gala).`; notes.push(t.kind === "manager" ? { team: t.team, text: tx } : t.kind === "wag" ? { wag: t.wag, text: tx } : { pid: t.pid, text: tx }); }
   }
   return { ok: true, notes, opt: o };
 }
@@ -229,8 +238,8 @@ export function galaResolve(game) {
   const S = ensureSoc(game), notes = [], lines = [], r = makeRng(game.seed, "galaR", game.season);
   const who = (k) => G.att[k], N = (k) => who(k).name, T = (k) => (who(k).kind === "manager" ? who(k).team : who(k).kind === "player" ? who(k).team : null);
   const say = (text, w = 1, o = {}) => lines.push({ text, w, vis: o.priv ? "private" : "public", keys: o.keys || [], tag: o.tag || "confirmed", ...(o.story ? { story: o.story } : {}) });
-  const noteTo = (k, text) => { const x = who(k); if (!x) return; if (x.kind === "manager") notes.push({ team: x.team, text }); else if (x.kind === "player") notes.push({ pid: x.pid, text }); };
-  const fol = (k, d) => { const x = who(k); if (x && x.kind === "player") applyFx(game, game.players[x.pid], { fol: d }); };
+  const noteTo = (k, text) => { const x = who(k); if (!x) return; if (x.kind === "manager") notes.push({ team: x.team, text }); else if (x.kind === "player") notes.push({ pid: x.pid, text }); else if (x.kind === "wag") notes.push({ wag: x.wag, text }); };
+  const fol = (k, d) => { const x = who(k); if (x && x.kind === "player") applyFx(game, game.players[x.pid], { fol: d }); else if (x && x.kind === "wag") { const w = wagOf(game, x.wag); if (w) w.fol = Math.max(0, Math.round(w.fol + d)); } };
   const resp = (a, b, kind) => G.prompts.find((p) => p.from === a && p.to === b && p.kind === kind);
   for (const key of G.order) {
     const pk = G.picks[key]; const me = who(key); if (!pk || !me) continue;
@@ -254,6 +263,14 @@ export function galaResolve(game) {
     if (!other) continue;
     const pr = resp(key, pk.with, kind), tgtGuest = other.kind === "guest";
     const answered = !!(pr && pr.status === "done");
+    if (kind === "romance" && (me.kind === "wag" || other.kind === "wag")) {
+      const wg = me.kind === "wag" ? me : other, pl = me.kind === "wag" ? other : me, ans = !!(answered && pr.mode === "yes");
+      if (!ans) { say(`${N(key)} asked ${N(pk.with)} to dance. ${answered ? "A polite no." : "Nobody answered."}`, 1, { priv: true, keys: [key, pk.with] }); noteTo(key, `${N(pk.with)} did not dance with you.`); continue; }
+      const prr = pairOf(game, wg.wag, "u:" + pl.pid), seeing = !!(prr && prr.status === "seeing"); if (seeing) prr.bond = Math.min(100, prr.bond + K.danceBond);
+      applyFx(game, game.players[pl.pid], { fol: 150 }); const w = wagOf(game, wg.wag); if (w) w.fol += 150;
+      say(seeing ? `${wg.name} and ${pl.name} danced together, and did not look at anyone else.` : `${wg.name} and ${pl.name} danced. People noticed.`, seeing ? 3 : 2, { keys: [key, pk.with], tag: seeing ? "confirmed" : "rumour", story: { icon: "💃", head: seeing ? `${up(wg.name)} AND ${up(pl.name)}: THE GALA'S FIRST DANCE` : `WHO WAS ${up(pl.name)} DANCING WITH? ${up(wg.name)}, SAY WITNESSES`, sub: seeing ? `Together at the gala, together on the floor. Insiders call it "very sweet" and "a bit much".` : `Several guests report the dance was "longer than a dance needs to be". Both have said "it was only a dance".` } });
+      continue;
+    }
     if (kind === "romance") {
       const accepted = tgtGuest || (answered && pr.mode === "yes");
       if (!accepted) { say(`${N(key)} asked ${N(pk.with)} to dance. ${answered ? "A polite no." : "Nobody answered."}`, 1, { priv: true, keys: [key, pk.with] }); remember(game, me.pid, "rej", { id: "u:" + other.pid, name: other.name, what: "dance" }); noteTo(key, `${N(pk.with)} did not dance with you.`); continue; }

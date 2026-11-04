@@ -43,14 +43,14 @@ export const pmHandlers = {
 // ---------- lobby ----------
 export function modeCard(S) {
   const y = you(S); if (!y) return "";
-  const pm = y.mode === "player";
-  return `<div class="card"><h3>How do you want to play?</h3><div class="row wrap" style="gap:8px"><button class="btn ${pm ? "" : "pri"}" data-act="mode" data-mode="manager">Manage a team</button><button class="btn ${pm ? "pri" : ""}" data-act="mode" data-mode="player">Play as a footballer</button></div>
-    <p class="small mute mt">${pm ? "You create a footballer, grow him through the season and pick which team to join. You do not run a team." : "You draft, bid and set line-ups for a club."}</p></div>`;
+  const pm = y.mode === "player", wg = y.mode === "wag";
+  return `<div class="card"><h3>How do you want to play?</h3><div class="row wrap" style="gap:8px"><button class="btn ${pm || wg ? "" : "pri"}" data-act="mode" data-mode="manager">Manage a team</button><button class="btn ${pm ? "pri" : ""}" data-act="mode" data-mode="player">Play as a footballer</button><button class="btn ${wg ? "pri" : ""}" data-act="mode" data-mode="wag">Be a WAG</button></div>
+    <p class="small mute mt">${wg ? "You create a WAG: no club and no squad. You earn from content, go to matches, meet footballers and date them. Footballers who are people in this room have to say yes." : pm ? "You create a footballer, grow him through the season and pick which team to join. You do not run a team." : "You draft, bid and set line-ups for a club."}</p></div>`;
 }
 // Someone who arrives after the game has begun builds a footballer here, then joins: free-agent list and dating pool at once.
 export function lateCard(S) {
   const y = you(S); if (!y || !y.late || y.pid != null) return "";
-  return `<div class="card"><h3>You are joining late</h3><p class="small mute">The game is already running. Build a footballer below, then join: you go straight onto the free-agent list for the managers and into everyone's dating pool.</p><div class="row mt"><button class="btn pri" data-act="lateJoin">Join the game as ${esc((y.char && y.char.name) || "a footballer")}</button></div></div>${creator(S)}`;
+  return `<div class="card"><h3>You are joining late</h3><p class="small mute">The game is already running. Build a footballer below, then join: you go straight onto the free-agent list for the managers and into everyone's dating pool.</p><div class="row mt wrap" style="gap:8px"><button class="btn pri" data-act="lateJoin">Join the game as ${esc((y.char && y.char.name) || "a footballer")}</button><button class="btn" data-act="mode" data-mode="wag">Join as a WAG instead</button></div></div>${creator(S)}`;
 }
 export function creator(S) {
   const y = you(S); if (!y || y.mode !== "player" || !y.char) return "";

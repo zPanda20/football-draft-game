@@ -19,6 +19,7 @@ import { rivalButton } from "./story.js";
 import { romHandlers, relPanel, ceremonyTick } from "./romance.js";
 import { pmScreen, pmScreenHandlers, pmLayoutOn, pmHubStep } from "./pmscreen.js";
 import { socialHandlers, socialPanel, playerSocial, styleCard, galaScreen } from "./social.js";
+import { wagHandlers, wagCreator, wagLate, wagScreen, wagStrip } from "./wag.js";
 import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
@@ -91,7 +92,7 @@ const A = {
   speed(a) { send({ t: "speedVote", dir: a.dir }); },
   auto() { send({ t: "auto", on: !st.S.me.auto }); },
 };
-Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers, pmScreenHandlers, socialHandlers);
+Object.assign(A, draftHandlers, marketHandlers, matchHandlers, offHandlers, pmHandlers, lifeHandlers, romHandlers, unlockHandlers, pcardHandlers, winHandlers, liteHandlers, histHandlers, helpHandlers, lookHandlers, storeHandlers, menuHandlers, pmScreenHandlers, socialHandlers, wagHandlers);
 
 // An idle manager is back online with the first thing they touch.
 let lastWake = 0;
@@ -268,7 +269,7 @@ const extrasCard = (S) => { const s = S.settings, dis = S.host ? "" : "disabled"
 function lobby(S) {
   const you = S.players.find((p) => p.you);
   const taken = new Map(S.players.filter((p) => p.club).map((p) => [p.club, p]));
-  const humans = S.players.filter((p) => p.mode !== "player").length, fill = Math.max(0, Math.min(S.settings.minTeams, S.pools && S.pools[S.settings.pool || "all"] ? S.pools[S.settings.pool || "all"].maxClubs : 30) - humans);
+  const humans = S.players.filter((p) => p.mode !== "player" && p.mode !== "wag").length, fill = Math.max(0, Math.min(S.settings.minTeams, S.pools && S.pools[S.settings.pool || "all"] ? S.pools[S.settings.pool || "all"].maxClubs : 30) - humans);
   const fam = (slug) => (st.clubBy[slug] && st.clubBy[slug].base) || slug;
   const takenFam = new Map(S.players.filter((p) => p.club).map((p) => [fam(p.club), p]));
   const cont = st.ui.clubCont || "all", CONTS = ["Europe", "South America", "North America", "Africa", "Asia"];
@@ -312,11 +313,11 @@ function lobby(S) {
   const startBtn = S.host ? `<button class="btn pri big" style="width:100%" data-act="start">Start game</button>` : `<p class="small mute">Waiting for the host to start.</p>`;
   const main = `<div class="card"><div class="row wrap"><div><h3>Room code</h3><div style="font-size:54px;font-weight:900;letter-spacing:.2em">${esc(S.room)}</div></div><div class="grow"></div>
       <div class="col" style="align-items:flex-end"><button class="btn" data-act="copy">Copy join link</button><span class="small mute">or open <b>/screen</b> on the projector</span></div></div></div>
-    ${modeCard(S)}${extrasCard(S)}${styleCard(S)}${liteChooser(S)}<div class="card"><h3>Theme</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}
-    <div class="card" ${you && you.mode === "player" ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div>${clubPreview(you)}${clubBar}<div class="clubgrid mt">${clubs}</div>${clubMore}${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
+    ${modeCard(S)}${extrasCard(S)}${styleCard(S)}${liteChooser(S)}<div class="card"><h3>Theme</h3>${lookPicker()}</div>${you && you.mode === "player" ? creator(S) : ""}${you && you.mode === "wag" ? wagCreator(S) : ""}
+    <div class="card" ${you && (you.mode === "player" || you.mode === "wag") ? 'style="display:none"' : ""}><h3>Your club</h3><div class="row"><input id="teamname" class="grow" maxlength="28" placeholder="Team name" value="${esc(you?.teamName || "")}"></div>${clubPreview(you)}${clubBar}<div class="clubgrid mt">${clubs}</div>${clubMore}${extra ? `<h4 class="mt2" style="margin:14px 0 6px">Unlocked clubs</h4><div class="clubgrid">${extra}</div>` : ""}</div>
     <div class="card"><div class="row"><div class="grow"><b>More options</b><div class="small mute">Game settings, trophy cabinet and codes</div></div><button class="btn sm" data-act="lobbyMore">${moreOpen ? "Hide" : "Show"}</button></div></div>
     ${moreOpen ? enterCode(you) : ""}`;
-  const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : esc(p.teamName || "no club yet")}</div></div>${rivalButton(S, p)}</div>`).join("")}</div>
+  const side = `<div class="card"><h3>In the room (${S.players.length})</h3><div class="plist">${S.players.map((p) => `<div class="pl"><span class="dot ${p.connected ? (p.idle ? "idle" : "on") : ""}"></span><div class="grow"><b>${esc(p.name)}</b>${p.host ? ` <span class="pill acc">host</span>` : ""}${p.mode === "player" ? ` <span class="pill">footballer</span>` : p.mode === "wag" ? ` <span class="pill">WAG</span>` : ""}<div class="small mute">${p.mode === "player" ? esc((p.char && p.char.name) || "") + (p.char ? " · " + esc(p.char.pos) : "") : p.mode === "wag" ? esc((p.wag && p.wag.name) || "") : esc(p.teamName || "no club yet")}</div></div>${rivalButton(S, p)}</div>`).join("")}</div>
       ${s.pool && s.pool !== "all" && S.pools ? `<p class="small mute mt">${s.pool === "female" ? "Women" : "Men"}-only league: ${S.pools[s.pool].players} players, ${S.pools[s.pool].keepers} keepers, so at most ${S.pools[s.pool].maxClubs} clubs.</p>` : ""}
       ${fill ? `<p class="small mute mt">${fill} CPU team${fill > 1 ? "s" : ""} will fill the league up to ${s.minTeams}. League sizes are always even; 17–19 managers become 20.</p>` : ""}</div>
     <div class="card">${startBtn}</div>
@@ -352,17 +353,19 @@ function render() {
   document.body.classList.remove("onmenu"); applyTheme(); applyLook(S); renderTop(); levelDefault(S);
   let main = "", side = "";
   const ctx = { chatCard, teamsList };
-  const meY = S.players.find((p) => p.you), lateMe = !!(meY && meY.late && meY.pid == null && S.step !== "lobby");
-  if (lateMe) { main = lateCard(S); side = chatCard(S); }
+  const meY = S.players.find((p) => p.you), wagMe = !!(meY && meY.mode === "wag"), lateMe = !!(meY && meY.late && S.step !== "lobby" && (wagMe ? !S.wag : meY.pid == null));
+  if (lateMe) { main = wagMe ? wagLate(S) : lateCard(S); side = chatCard(S); }
   else if (S.step === "lobby") ({ main, side } = lobby(S));
   else if (S.step.startsWith("gala.")) ({ main, side } = galaScreen(S));
+  else if (wagMe && !/^md\.(half1|half|half2|result)$/.test(S.step)) ({ main, side } = wagScreen(S, ctx));
   else if (S.step.startsWith("draft.")) ({ main, side } = draftView(S, ctx));
   else if (S.step.startsWith("market.")) ({ main, side } = marketView(S, ctx));
   else if (S.step.startsWith("off.")) ({ main, side } = offView(S, ctx));
   else if (pmLayoutOn(S) && pmHubStep(S)) { main = ""; side = ""; }
   else ({ main, side } = matchView(S, ctx));
-  const pmOn = !lateMe && pmLayoutOn(S);
+  const pmOn = !lateMe && !wagMe && pmLayoutOn(S);
   if (lateMe) { /* the late-join card stands alone */ }
+  else if (wagMe && S.step !== "lobby") { if (!S.step.startsWith("gala.") && /^md\./.test(S.step) && !/^md\.lineup$/.test(S.step)) main = wagStrip(S) + main; main = liteIntro(S).slice(0, 0) + newsAsk(S).slice(0, 0) + main + (S.news && S.news.list.length && S.step !== "md.lineup" ? newsCard(S) : ""); }
   else if (S.step !== "lobby" && pmOn) { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + gambleOverlay(S) + packOverlay(S) + pmScreen(S, ctx, main); side = ""; }
   else if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + (S.me && /^(md\.lineup|md\.result|season\.intro)$/.test(S.step) ? socialPanel(S) : "") + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;

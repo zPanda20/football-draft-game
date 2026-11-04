@@ -17,19 +17,29 @@ export const usermodeMethods = {
   // ---------- lobby ----------
   isPlayerMode(p) { return p && p.mode === "player"; },
   setMode(token, mode, late) {
-    const p = this.players.get(token); if (!p || (this.phase !== "lobby" && !late)) return;
+    const p = this.players.get(token); if (!p) return;
+    if (this.phase !== "lobby") {                                                      // after the game has begun only a late joiner who has not joined yet may choose between footballer and WAG
+      const open = (late || p.late) && p.pid == null && p.wid == null && this.game;
+      if (!open || (mode !== "player" && mode !== "wag")) return;
+    }
+    if (mode === "wag") {
+      if (p.mode === "wag") return;
+      p.mode = "wag"; p.club = null; p.teamName = ""; p.char = null; p.wchar = this.defaultWagChar(token, p.name); return;
+    }
     if (mode === "player") {
+      p.wchar = null;
       if (p.mode === "player") return;
       p.mode = "player"; p.club = null; p.teamName = "";
       const r = rollNumbers(P0, this.code, token, 0);
       const g = this.settings.pool === "female" ? "F" : "M", rr = makeRng(this.code, "face", token);
       p.char = { name: p.name, pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM"), rolls: 0, nat: "", gender: g, img: [Math.floor(rr() * 6), Math.floor(rr() * 6), Math.floor(rr() * 6)].join("-") };
-    } else { p.mode = "manager"; p.char = null; }
+    } else { p.mode = "manager"; p.char = null; p.wchar = null; }
   },
   // A footballer can be edited in the lobby and while the others draft; once the market opens he is as he is.
   editable(p) { return ((this.phase === "lobby" || this.phase === "draft") || (p && p.late && p.pid == null)) && this.isPlayerMode(p) && p.char; },
   // Someone who arrives after the game began builds a footballer, then joins: he is in the free-agent pool and the dating pool at once.
   lateJoin(token) {
+    if (this.isWagMode(this.players.get(token))) return this.lateJoinWag(token);
     const p = this.players.get(token); if (!p || !p.late || p.pid != null || !this.game || !this.isPlayerMode(p) || !p.char) return;
     const g = this.game, up = createUserPlayer(g, { token, ...p.char });
     p.pid = up.id; this.baseOf.set(up.id, up);
@@ -183,8 +193,14 @@ export const usermodeMethods = {
   },
   userPlayers() { return [...this.players.values()].filter((p) => this.isPlayerMode(p) && p.pid != null); },
   // Someone who is here and has not picked this week's activity yet.
-  lifeOpen() { return this.userPlayers().some((u) => u.connected && !u.auto && !ensureLife(this.game, this.game.players[u.pid]).act); },
+  lifeOpen() { return this.userPlayers().some((u) => u.connected && !u.auto && !ensureLife(this.game, this.game.players[u.pid]).act) || this.wagOpen(); },
+  // Changing your own week frees any WAG who had been booked for it.
   chooseActivity(token, act, partner, secret, dinner) {
+    const u = this.players.get(token), had = u && this.isPlayerMode(u) && u.pid != null && this.game && ensureLife(this.game, this.game.players[u.pid]).act;
+    this.chooseActivity0(token, act, partner, secret, dinner);
+    if (had && had.wag && u) this.wagFootballerMoved(u.pid);
+  },
+  chooseActivity0(token, act, partner, secret, dinner) {
     const u = this.players.get(token); if (!u || !this.isPlayerMode(u) || u.pid == null || this.step !== "md.lineup") return;
     const g = this.game, p = g.players[u.pid], L = ensureLife(g, p);
     if (L.act && L.act.joint) cancelJoint(g, p);                       // changing your mind frees the footballer you were going out with
@@ -386,7 +402,7 @@ export const usermodeMethods = {
     const boosts = {}; for (const it of g.items) if (it.life && (p.items[it.id] || 0) > 0) boosts[it.life] = { id: it.id, left: p.items[it.id] };
     const T = trainRec(g, L), tr = { gain: +T.gain.toFixed(2), cap: g.P.life.trainCap, sessions: T.sessions, per: g.P.life.trainGain };
     return { boosts, tr, opts, pref: L.pref, offer: L.offer ? { ...L.offer } : null, deal: L.deal, trophies: L.trophies, matchGain: L.matchGain || 0, lm: p.lastMatch ? { gf: p.lastMatch.gf, ga: p.lastMatch.ga, g: p.lastMatch.g, a: p.lastMatch.a, r: +p.lastMatch.r.toFixed(1), gain: p.lastMatch.gain } : null,
-      clubs: this.clubView(g, p), fol: L.fol, love: L.love, partner: L.partner ? { ...L.partner, bond: Math.round(bondOf(g, L)) } : null, married: L.married, affair: affairView(g, p), committed: committed(L), own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, rom: this.romView(u, p) };
+      clubs: this.clubView(g, p), fol: L.fol, love: L.love, partner: L.partner ? { ...L.partner, bond: Math.round(bondOf(g, L)) } : null, married: L.married, affair: affairView(g, p), committed: committed(L), own: L.own, cnt: L.cnt, act: L.act, last: L.last, clubName: L.clubName, costs, shop, income: inc, base: g.P.player.income, open: this.step === "md.lineup", store: ["season.intro", "md.lineup", "md.result"].includes(this.step), sCount: L.sCount, rom: this.romView(u, p), wag: this.wagFor(p) };
   },
   // Everything the Relationships panel shows: your partner, the other footballers, requests, thrupple, wedding and online beef.
   // How clubs feel about him: the club he plays for, anyone he has a rivalry with, and every club whose opinion has moved.

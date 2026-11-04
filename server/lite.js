@@ -21,7 +21,7 @@ export const liteMethods = {
   syncStages() { for (const p of this.players.values()) if (p.path) p.stage = stageFor(this.game ? this.game.season : 0, this.step); },
   // { all: true|false } graduates to Full or goes back to Lite; { set: { xi: true, ... } } flips single switches.
   setLite(token, m) {
-    const p = this.players.get(token); if (!p || p.mode === "player") return;
+    const p = this.players.get(token); if (!p || p.mode === "player" || p.mode === "wag") return;
     if (m && (m.all === true || m.all === false)) { if (m.all) { p.path = false; p.over = {}; p.lite = { ...FULL }; } else { p.path = true; p.over = {}; p.lite = undefined; p.stage = stageFor(this.game ? this.game.season : 0, this.step); } }
     else if (m && m.set && typeof m.set === "object") {
       if (p.path) { const o = { ...(p.over || {}) }; for (const k of LITE_KEYS) if (typeof m.set[k] === "boolean") o[k] = m.set[k]; p.over = o; }

@@ -58,7 +58,7 @@ export function menuView() { return step === "name" ? nameWindow() : menuWindow(
 // Beginners start every new room on the gentle Lite path (once per room, so a later switch to Full sticks).
 export function levelDefault(S) {
   if (level() !== "beginner" || st.watch || !S || S.step !== "lobby") return;
-  const y = S.players && S.players.find((p) => p.you); if (!y || y.mode === "player") return;
+  const y = S.players && S.players.find((p) => p.you); if (!y || y.mode === "player" || y.mode === "wag") return;
   if (store("lvlroom") === S.room) return;
   store("lvlroom", S.room);
   if (!y.lite) send({ t: "lite", all: false });

@@ -1,6 +1,7 @@
 // Footballer relationships: your partner, asking other footballers out, going exclusive, thrupples, weddings as events,
 // answering online beef, and the ceremony popup everybody sees.
 import { st, $, esc, send, toast, coins, faceOf, initials } from "./core.js";
+import { wagBox } from "./wag.js";
 
 const ui = () => st.ui;
 const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
@@ -184,7 +185,7 @@ export function relPanel(S) {
   return `<div class="card relp"><div class="row wrap" style="gap:8px"><h3 style="margin:0">Relationships</h3>${mine ? `<span class="pill bad">${mine} request${mine === 1 ? "" : "s"}</span>` : ""}<div class="grow"></div>${R.note ? `<span class="small" style="color:var(--acc)">${esc(R.note)}</span>` : ""}</div>
     ${beefCard(R)}${requestsIn(R)}
     <div class="mt">${partnerBox(R, lf)}</div>${affairBox(R, lf)}${thr}${weddingBox(R, lf, pm)}${outs}
-    ${giftBox(R, lf)}${memBox(R)}<h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${clubsBox(lf)}
+    ${giftBox(R, lf)}${memBox(R)}${wagBox(S)}<h4 class="shh mt">Other footballers</h4><div class="relist">${peopleList(R, lf, pm)}</div>${clubsBox(lf)}
     <p class="tiny mute mt">Dating a listed person is shared: if another footballer is exclusive with them, they are off everyone else's list. Going out with someone else while exclusive is a cheating scandal.</p></div>`;
 }
 

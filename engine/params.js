@@ -205,6 +205,15 @@ export const DEFAULT_PARAMS = {
     // the footballers' market: invitations, gifts and memory
     invite: { dinnerMult: 1.5, bond: 4, fol: 600, maxOpen: 2, memory: 12 },   // a dinner costs this many dates; extra bond on top of a date; followers when it is a public night out
     gift: { tiers: { flowers: { price: 12, like: 5 }, watch: { price: 45, like: 11 }, jewel: { price: 120, like: 18 } }, perTarget: 3, perWeek: 2, fade: 0.5, cap: 30, fondQ: 300, accept: 0.3, noticeChance: 0.35, publicFol: 900, jealous: 14 },
+    // WAG mode (Stage 1). Labelled defaults to tune: a WAG has no football income, a finite starting purse and a few capped ways to earn.
+    wag: { startCoins: 400, startFol: 3000, age: 24,
+      cost: { attend: 25, date: 60 },                                       // ticket price (paid once, at kick-off); a date is paid only when it happens
+      content: { perSeason: 4, base: 30, folDiv: 4000, maxPay: 90, fol: 250 },   // "make content": pay grows a little with followers, capped, a few times a season
+      attend: { meet: 0.3, target: 0.2, fame: 0.00002, fameCap: 0.1, win: 0.05, fol: 150, contactDays: 3, scene: 2 },   // meeting chance; bonus for naming someone; per follower; capped; supported team won; followers for a day out
+      date: { good: 0.55, bondStart: 15, bondGood: 10, bondBad: 2, decayAfter: 2, decay: 4, end: 8, fol: 300, contactBonus: 0.15, accept: 0.38, rejRecover: 3, maxOpen: 3 },   // bond goes up with good dates and fades if you neglect it
+      gift: { maxPerWeek: 2 },                                                // price, fade and caps come from social.gift
+      gala: { toastFol: 400, jokeHit: 300, danceBond: 3 },
+      story: { firstDate: 0.5 } },
     // the gala
     gala: { prepSec: 40, liveSec: 55, endSec: 14, tableSize: 6, seatPerTarget: 2, dramaSeat: 0.7, boastFol: 800, maxStories: 3, toastTrust: 1, minUsers: 1, toastFol: 400, jokeHit: 300, sceneFol: 700, danceLove: 6, danceBond: 3 },
   },
