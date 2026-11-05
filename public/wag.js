@@ -9,7 +9,7 @@ export const isWagUser = (S) => { const y = you(S); return !!(y && y.mode === "w
 export const wagHandlers = {
   wName(a) { send({ t: "wChar", c: { name: a.value } }); },
   wGender(a) { send({ t: "wChar", c: { gender: a.g } }); },
-  wFace(a) { const y = you(st.S), w = st.S.wag || (y && y.wag) || {}, cur = String(w.img || (y && y.wchar && y.wchar.img) || "0-0-0"), p = cur.split("-").map(Number); if (a.f) return send({ t: "wChar", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "wChar", c: { img: p.slice(0, 3).join("-") } }); },
+  wFace(a) { const y = you(st.S), w = st.S.wag || (y && y.wag) || {}, cur = String(w.img || (y && y.wchar && y.wchar.img) || "0-0-0"), p = (/^\d-\d-\d$/.test(cur) ? cur : "0-0-0").split("-").map(Number); if (a.f) return send({ t: "wChar", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "wChar", c: { img: p.slice(0, 3).join("-") } }); },
   wAuto() { send({ t: "auto", on: !(st.S.wag && st.S.wag.auto) }); },
   wPick(a) { ui().act = a.act; st.render(); },
   wFx(a) { const u = ui(); u.fx = +a.value; u.team = null; u.target = ""; st.render(); },
@@ -37,15 +37,18 @@ export const wagHandlers = {
 function faceRow(label, list, part, cur) { return `<div class="facerow"><span class="small mute">${label}</span>${list.map((col, i) => `<button class="fdot ${cur === i ? "sel" : ""}" style="background:${col}" data-act="wFace" data-part="${part}" data-v="${i}" aria-label="${label} ${i + 1}"></button>`).join("")}</div>`; }
 export function wagCreator(S, title = "Create your WAG") {
   const y = you(S); if (!y || y.mode !== "wag") return "";
-  const w = S.wag || {}, c = { name: w.name || (y.wchar && y.wchar.name) || y.name, g: w.g || (y.wchar && y.wchar.gender) || "F", img: w.img || (y.wchar && y.wchar.img) || "0-0-0" };
-  const [fs, fh, fc] = String(c.img).split("-").map(Number);
+  const w = S.wag || y.wag || {}, c = { name: w.name || (y.wchar && y.wchar.name) || y.name, g: w.g || (y.wchar && y.wchar.gender) || "F", img: w.img || (y.wchar && y.wchar.img) || "0-0-0" };
+  const [fs, fh, fc] = (/^\d-\d-\d$/.test(c.img) ? c.img : "0-0-0").split("-").map(Number);
   const hair = `<div class="facerow"><span class="small mute">Hair</span>${HAIR_NAMES.map((n, i) => `<button class="btn sm ${fh === i ? "pri" : ""}" data-act="wFace" data-part="1" data-v="${i}">${n}</button>`).join("")}</div>`;
   const photos = (st.cat.faces || []).length ? `<div class="facerow"><span class="small mute">Photos</span>${st.cat.faces.map((f) => `<button class="fphoto ${c.img === "f:" + f ? "sel" : ""}" data-act="wFace" data-f="f:${esc(f)}"><img src="/assets/faces/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("")}</div>` : "";
+  // Portraits held by thunder plates this browser has unlocked (the same row the footballer creator shows).
+  const have = new Set(y.unlocks || []), tf = (st.cat.plates || []).filter((pl) => pl.kind === "portrait" && have.has(pl.id)).flatMap((pl) => (pl.faces || []).map((f) => ({ f, pl })));
+  const thunder = (st.cat.plates || []).some((pl) => pl.kind === "portrait") ? `<div class="facerow"><span class="small mute">⚡ Thunder plates</span>${tf.length ? tf.map(({ f, pl }) => `<button class="fphoto ${c.img === "p:" + f ? "sel" : ""}" data-act="wFace" data-f="p:${esc(f)}" title="${esc(pl.name)}"><img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("") : `<span class="tiny mute">Portraits that only a thunder plate unlocks. Enter a code in the trophy cabinet to open one.</span>`}</div>` : "";
   return `<div class="card wagc"><h3>${title}</h3>
     <p class="small mute">A WAG is not a footballer: no club, no squad place, no wages. You earn from content, spend on tickets, dates and gifts, and meet people at matches.</p>
     <div class="row wrap mt" style="gap:10px"><input id="wname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="wName" style="flex:1;min-width:160px">
       <span class="seg"><button class="btn sm ${c.g === "F" ? "pri" : ""}" data-act="wGender" data-g="F">Woman</button><button class="btn sm ${c.g === "M" ? "pri" : ""}" data-act="wGender" data-g="M">Man</button></span></div>
-    <div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, c.g)}</div><div class="col grow" style="gap:6px;min-width:230px">${faceRow("Skin", SKIN, 0, fs)}${hair}${faceRow("Hair colour", HAIRC, 2, fc)}${photos}</div></div></div>`;
+    <div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, c.g)}</div><div class="col grow" style="gap:6px;min-width:230px">${faceRow("Skin", SKIN, 0, fs)}${hair}${faceRow("Hair colour", HAIRC, 2, fc)}${photos}${thunder}</div></div></div>`;
 }
 export function wagLate(S) {
   const y = you(S); if (!y || !y.late || S.wag) return "";

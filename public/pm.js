@@ -14,7 +14,7 @@ export const pmHandlers = {
   charPos(a) { send({ t: "char", c: { pos: a.value } }); },
   charNat(a) { send({ t: "char", c: { nat: a.value } }); },
   charGender(a) { send({ t: "char", c: { gender: a.g } }); },
-  charFace(a) { const y = you(st.S), p = String((y && y.char && y.char.img) || "0-0-0").split("-").map(Number); if (a.f && (a.f.startsWith("f:") || a.f.startsWith("p:"))) return send({ t: "char", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "char", c: { img: p.slice(0, 3).join("-") } }); },
+  charFace(a) { const y = you(st.S), cur = String((y && y.char && y.char.img) || "0-0-0"), p = (/^\d-\d-\d$/.test(cur) ? cur : "0-0-0").split("-").map(Number); if (a.f && (a.f.startsWith("f:") || a.f.startsWith("p:"))) return send({ t: "char", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "char", c: { img: p.slice(0, 3).join("-") } }); },
   charSwap(a) {
     const i = +a.i, s = ui().swap, y = you(st.S), asg = y && y.char && y.char.assign;
     if (!asg) return;

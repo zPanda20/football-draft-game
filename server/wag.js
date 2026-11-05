@@ -25,7 +25,7 @@ export const wagMethods = {
     const out = p.wid != null && this.game ? W.wagOf(this.game, p.wid) : null, tgt = out || (p.wchar = p.wchar || this.defaultWagChar(token, p.name));
     if (typeof c.name === "string") { const n = c.name.trim().slice(0, 22); if (n) tgt.name = n; }
     if (c.gender === "F" || c.gender === "M") { if (out) out.g = c.gender; else tgt.gender = c.gender; }
-    if (typeof c.img === "string" && /^(\d-\d-\d|f:[\w.-]{1,40})$/.test(c.img)) tgt.img = c.img;
+    if (typeof c.img === "string" && (/^(\d-\d-\d|f:[\w.-]{1,40})$/.test(c.img) || this.portraitOk(p, c.img))) tgt.img = c.img;
     if (out) p.wchar = { name: out.name, gender: out.g, img: out.img };
     this.changed();
   },

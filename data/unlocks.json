@@ -295,6 +295,29 @@
     "red-bolt.svg",
     "high-voltage.svg"
    ]
+  },
+  {
+   "id": "mastermind",
+   "name": "Thunder Plate: The Inner Circle",
+   "codes": [
+    "ppp",
+    "luke is a master mind",
+    "luke is a mastermind",
+    "panda"
+   ],
+   "hint": "Only the people who made this game know the word.",
+   "clubs": [],
+   "kind": "portrait",
+   "faces": [
+    "inner-circle-1.jpg",
+    "inner-circle-2.jpg",
+    "inner-circle-3.jpg",
+    "inner-circle-4.jpg",
+    "inner-circle-5.jpg",
+    "inner-circle-6.jpg",
+    "inner-circle-7.jpg",
+    "inner-circle-8.jpg"
+   ]
   }
  ],
  "clubs": [

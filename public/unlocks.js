@@ -9,7 +9,7 @@ export const unlockHandlers = {
 const stored = () => { try { return JSON.parse(store("plates") || "[]"); } catch { return []; } };
 // Called with every lobby state: the browser remembers plates between games; the server only knows them once told.
 export function unlockSync(S) {
-  const you = S.players.find((p) => p.you); if (!you || S.step !== "lobby" || !you.unlocks) return;
+  const you = S.players.find((p) => p.you); if (!you || (S.step !== "lobby" && !you.late) || !you.unlocks) return;   // a late joiner has no lobby: their saved plates are sent while they set up
   const have = new Set(you.unlocks), mem = stored(), all = [...new Set([...mem, ...you.unlocks])];
   if (all.length !== mem.length) store("plates", JSON.stringify(all));
   const missing = mem.filter((id) => !have.has(id) && st.cat.plates.some((p) => p.id === id));
@@ -21,14 +21,14 @@ export function unlockSync(S) {
 export const codeClubs = (you) => { const have = new Set((you && you.unlocks) || []); return st.cat.clubs.filter((c) => c.kind === "code" && have.has(c.unlock)); };
 export const clubOpen = (c, you) => { const u = c.unlock || (c.kind === "throwback" ? "wayback" : null); return !u || ((you && you.unlocks) || []).includes(u); };
 
-const KIND_SUB = { club: "A new club to play as", pack: (p) => `${p.clubs.length} new clubs to play as`, throwbacks: "Throwback shirts on every club", variant: "An alternate away kit" };
+const KIND_SUB = { club: "A new club to play as", pack: (p) => `${p.clubs.length} new clubs to play as`, throwbacks: "Throwback shirts on every club", variant: "An alternate away kit", portrait: (p) => `${(p.faces || []).length} profile portraits for footballers and WAGs` };
 // A plate: gold with its rivets when it is yours, a locked slot when it is not. Also the plate shown in the unlock reveal.
 export function plateTile(p, on, flash = false) {
   const cl = st.clubBy[p.clubs[0]];
   if (!on) return `<div class="plate locked"><span class="pl-lock">🔒</span><b>???</b><span class="tiny">${esc(p.hint)}</span></div>`;
   const sw = p.clubs.slice(0, 4).map((s) => st.clubBy[s]).filter(Boolean);
-  const art = p.kind === "portrait" ? `<span class="pl-por">${(p.faces || []).map((f) => `<img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="34" height="34">`).join("")}</span>` : p.kind === "club" && cl ? crestOfClub(cl, 34) : `<span class="pl-sw">${sw.map((c) => `<i style="background:${c.c1}"></i>`).join("") || "<i></i>"}</span>`;
-  return `<div class="plate on ${flash ? "flash" : ""}">${art}<b>${esc(p.name)}</b><span class="tiny">${p.kind === "pack" ? `${p.clubs.length} clubs` : p.kind === "throwbacks" ? "Throwback shirts on every club" : p.kind === "variant" ? "Alternate away kit" : p.kind === "portrait" ? "Footballer portraits (player mode)" : "Club colours"}</span></div>`;
+  const art = p.kind === "portrait" ? `<span class="pl-por">${(p.faces || []).slice(0, 4).map((f) => `<img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="34" height="34">`).join("")}</span>` : p.kind === "club" && cl ? crestOfClub(cl, 34) : `<span class="pl-sw">${sw.map((c) => `<i style="background:${c.c1}"></i>`).join("") || "<i></i>"}</span>`;
+  return `<div class="plate on ${flash ? "flash" : ""}">${art}<b>${esc(p.name)}</b><span class="tiny">${p.kind === "pack" ? `${p.clubs.length} clubs` : p.kind === "throwbacks" ? "Throwback shirts on every club" : p.kind === "variant" ? "Alternate away kit" : p.kind === "portrait" ? `${(p.faces || []).length} profile portraits` : "Club colours"}</span></div>`;
 }
 
 // ---------- the unlock reveal: thunder, lightning, the plate slams down ----------
@@ -59,7 +59,7 @@ export function enterCode(you) {
   const plates = st.cat.plates, have = new Set((you && you.unlocks) || []);
   const tile = (p) => plateTile(p, have.has(p.id), st.ui.flashPlate === p.id);
   return `<div class="card"><h3>Enter code</h3><div class="row" style="gap:8px"><input id="codein" class="grow" placeholder="Got a code? Type it here" maxlength="40" autocomplete="off" spellcheck="false"><button class="btn pri" data-act="redeem">Unlock</button></div>
-    <p class="small mute mt">Codes unlock cosmetic extras: club colours, throwback shirts and alternate kits. They stay on this browser, so you only enter each one once.</p>
+    <p class="small mute mt">Codes unlock cosmetic extras: club colours, throwback shirts, alternate kits and profile portraits. They stay on this browser, so you only enter each one once.</p>
     <div class="cabhead mt"><b>Trophy cabinet</b><span class="small mute">${have.size} / ${plates.length} plates</span></div><div class="cabinet mt">${plates.map(tile).join("")}</div>${trophyShelf()}</div>`;
 }
 

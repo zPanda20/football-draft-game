@@ -66,7 +66,7 @@ export const usermodeMethods = {
     const pool = this.settings.pool;
     if (c.gender === "F" || c.gender === "M") p.char.gender = pool === "female" ? "F" : pool === "male" ? "M" : c.gender;
     if (typeof c.img === "string" && /^(\d-\d-\d|f:[\w.-]{1,40})$/.test(c.img)) p.char.img = c.img;
-    else if (typeof c.img === "string" && /^p:[\w.-]{1,40}$/.test(c.img) && (this.D.plates || []).some((pl) => pl.kind === "portrait" && p.unlocks && p.unlocks.has(pl.id) && (pl.faces || []).includes(c.img.slice(2)))) p.char.img = c.img;   // a thunder-plate portrait: only once its plate is unlocked
+    else if (this.portraitOk(p, c.img)) p.char.img = c.img;   // a thunder-plate portrait: only once its plate is unlocked
     this.syncChar(p);
   },
   // The host changed the pool: footballers who no longer fit the league switch to the gender it uses.
@@ -158,6 +158,10 @@ export const usermodeMethods = {
   },
 
   // ---------- cosmetic unlocks ----------
+  // A thunder-plate portrait ("p:<file>") may be used by a footballer or a WAG only once the plate that holds it is unlocked.
+  portraitOk(p, img) {
+    return typeof img === "string" && /^p:[\w.-]{1,40}$/.test(img) && !!p && !!p.unlocks && (this.D.plates || []).some((pl) => pl.kind === "portrait" && p.unlocks.has(pl.id) && (pl.faces || []).includes(img.slice(2)));
+  },
   redeem(token, text) {
     const p = this.players.get(token); if (!p || this.phase !== "lobby") return;
     const plate = findPlate(this.D.plates || [], text);
