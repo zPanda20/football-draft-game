@@ -560,7 +560,7 @@ export class Room {
     this.changed();
   }
   halftime() {
-    this.step = "md.half"; this.openWindow(); this.ready = new Set(); this.applyPlans();
+    this.step = "md.half"; this.wagHalf(); this.openWindow(); this.ready = new Set(); this.applyPlans();
     for (const p of this.players.values()) if (this.passive(p) && p.teamId != null) this.ready.add(p.teamId);
     const anyone = this.humanTeams().some((t) => { const h = this.humanFor(t.id); return h && (h.auto || !this.passive(h)); }) || this.userPlayers().some((u) => u.connected && this.onPitchNow(u));
     this.after(anyone ? this.settings.halfSec * 1000 + this.lead() : this.p(1500), () => this.secondHalf());
@@ -603,7 +603,7 @@ export class Room {
     this.hold = null;
     this.shownTable = this.pendingTable; if (this.pendingLast) this.lastDay = this.pendingLast;
     if (this.pendingIncome) { applyIncome(this.game, this.pendingIncome); this.gain = { seq: (this.gain ? this.gain.seq : 0) + 1, byTeam: this.pendingIncome, user: this.game.P.player.income }; this.pendingIncome = null; }
-    this.dealCareerCards(); this.rollStore(); this.socialAfter(); this.wagAfter();
+    this.dealCareerCards(); this.rollStore(); this.socialAfter(); this.wagFinish(); this.wagAfter();
     this.step = "md.result"; if (!this.windowInfo().open) this.expireOffers();
     this.after(this.p(8000), () => this.afterResult());
     this.changed();

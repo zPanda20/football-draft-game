@@ -1,6 +1,6 @@
 // WAG mode screens: the profile (lobby, draft, market), the weekly home screen, requests, people, gifts and the footballer-side list of WAGs.
 // A WAG is a third way to play: no club, no squad, no wages. The server sends this person only their own record (S.wag).
-import { st, $, esc, send, toast, team, crest, faceOf, SKIN, HAIRC, HAIR_NAMES } from "./core.js";
+import { st, $, esc, send, toast, team, crest, faceOf, card, pl, SKIN, HAIRC, HAIR_NAMES } from "./core.js";
 
 const ui = () => (st.ui.wag = st.ui.wag || {});
 const you = (S) => S.players.find((p) => p.you);
@@ -11,21 +11,23 @@ export const wagHandlers = {
   wGender(a) { send({ t: "wChar", c: { gender: a.g } }); },
   wFace(a) { const y = you(st.S), w = st.S.wag || (y && y.wag) || {}, cur = String(w.img || (y && y.wchar && y.wchar.img) || "0-0-0"), p = (/^\d-\d-\d$/.test(cur) ? cur : "0-0-0").split("-").map(Number); if (a.f) return send({ t: "wChar", c: { img: a.f } }); p[+a.part] = +a.v; send({ t: "wChar", c: { img: p.slice(0, 3).join("-") } }); },
   wAuto() { send({ t: "auto", on: !(st.S.wag && st.S.wag.auto) }); },
-  wPick(a) { ui().act = a.act; st.render(); },
+  wTab(a) { ui().tab = a.tab; st.render(); },
+  wRoster(a) { ui().rosterTeam = +a.i; st.render(); },
   wFx(a) { const u = ui(); u.fx = +a.value; u.team = null; u.target = ""; st.render(); },
   wTeam(a) { const u = ui(); u.team = +a.value; u.target = ""; st.render(); },
   wTarget(a) { ui().target = a.value; },
-  wPartner(a) { ui().partner = a.value; },
   wGiftTo(a) { ui().giftTo = a.value; },
   wGiftPub(a, el) { ui().giftPub = !!(el && el.checked); },
-  wQuiet() { send({ t: "wAct", c: { act: "quiet" } }); },
-  wContent() { send({ t: "wAct", c: { act: "content" } }); },
-  wAttend() {
-    const W = st.S.wag, u = ui(), fx = u.fx != null ? u.fx : (W.fixtures[0] || {}).i, f = W.fixtures.find((x) => x.i === fx); if (!f) return toast("No match to go to.");
-    const tm = u.team != null && (u.team === f.a || u.team === f.b) ? u.team : f.a;
-    send({ t: "wAct", c: { act: "attend", fixture: f.i, team: tm, target: u.target || null } });
+  // the week's activity: date opens the pool of people; everything else is chosen straight away
+  wDo(a) { if (a.a === "date") { const u = ui(); u.dateOpen = !u.dateOpen; return st.render(); } ui().dateOpen = false; send({ t: "wAct", c: { act: a.a } }); },
+  wInvite(a) { send({ t: "wAct", c: { act: "date", partner: a.id } }); },
+  wGoMatch() {
+    const W = st.S.wag, u = ui(), m = W.match, fx = u.fx != null ? u.fx : (m ? m.fixture : (W.fixtures[0] || {}).i), f = W.fixtures.find((x) => x.i === fx); if (!f) return toast("No match to go to.");
+    const tm = u.team != null && (u.team === f.a || u.team === f.b) ? u.team : m && (m.team === f.a || m.team === f.b) && m.fixture === f.i ? m.team : f.a;
+    send({ t: "wMatch", c: { fixture: f.i, team: tm, target: (u.target != null ? u.target : m && m.target) || null } });
   },
-  wDate() { const id = ui().partner || ""; if (!id) return toast("Pick someone to invite."); send({ t: "wAct", c: { act: "date", partner: id } }); },
+  wNoMatch() { const u = ui(); u.fx = null; u.team = null; u.target = ""; send({ t: "wMatchClear" }); },
+  wSeq(a) { send({ t: "wSeq", i: +a.i }); },
   wClear() { send({ t: "wClear" }); },
   wAsk(a) { send({ t: "wAsk", to: a.to, kind: a.kind || "date" }); },
   wYes(a) { send({ t: "wAnswer", id: +a.id, yes: true }); },
@@ -45,7 +47,7 @@ export function wagCreator(S, title = "Create your WAG") {
   const have = new Set(y.unlocks || []), tf = (st.cat.plates || []).filter((pl) => pl.kind === "portrait" && have.has(pl.id)).flatMap((pl) => (pl.faces || []).map((f) => ({ f, pl })));
   const thunder = (st.cat.plates || []).some((pl) => pl.kind === "portrait") ? `<div class="facerow"><span class="small mute">⚡ Thunder plates</span>${tf.length ? tf.map(({ f, pl }) => `<button class="fphoto ${c.img === "p:" + f ? "sel" : ""}" data-act="wFace" data-f="p:${esc(f)}" title="${esc(pl.name)}"><img src="/assets/portraits/${encodeURIComponent(f)}" alt="" width="36" height="36"></button>`).join("") : `<span class="tiny mute">Portraits that only a thunder plate unlocks. Enter a code in the trophy cabinet to open one.</span>`}</div>` : "";
   return `<div class="card wagc"><h3>${title}</h3>
-    <p class="small mute">A WAG is not a footballer: no club, no squad place, no wages. You earn from content, spend on tickets, dates and gifts, and meet people at matches.</p>
+    <p class="small mute">A WAG is not a footballer: no club, no squad place, no wages. You can date, go out, shoot content, build a business and go to matches, and you earn and spend your own money.</p>
     <div class="row wrap mt" style="gap:10px"><input id="wname" maxlength="22" value="${esc(c.name)}" placeholder="Name" data-change="wName" style="flex:1;min-width:160px">
       <span class="seg"><button class="btn sm ${c.g === "F" ? "pri" : ""}" data-act="wGender" data-g="F">Woman</button><button class="btn sm ${c.g === "M" ? "pri" : ""}" data-act="wGender" data-g="M">Man</button></span></div>
     <div class="row wrap mt" style="gap:14px;align-items:flex-start"><div class="facebox">${faceOf(c.img, 92, c.g)}</div><div class="col grow" style="gap:6px;min-width:230px">${faceRow("Skin", SKIN, 0, fs)}${hair}${faceRow("Hair colour", HAIRC, 2, fc)}${photos}${thunder}</div></div></div>`;
@@ -58,39 +60,76 @@ export function wagLate(S) {
 // ---------- the home screen ----------
 const tn = (S, id) => (S.teams[id] ? S.teams[id].name : "?");
 const pill = (t, c = "") => `<span class="pill ${c}">${t}</span>`;
+const initialsOf = (n) => String(n || "?").split(/\s+/).map((x) => x[0]).join("").slice(0, 2).toUpperCase();
+const hue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+// A dating partner who is not a player: the same pictures the footballers' dating screen uses.
+const npcFace = (slug, name, size = 72) => { const u = st.cat.art && st.cat.art.partners && st.cat.art.partners[slug]; return u ? `<img class="pface" src="${esc(u)}" alt="" width="${size}" height="${size}" loading="lazy">` : `<span class="pface ini" style="width:${size}px;height:${size}px;--h:${hue(slug)}">${esc(initialsOf(name))}</span>`; };
 function head(S, W) {
   const sup = W.support ? `<span class="small mute">Supports <b>${esc(W.support)}</b></span>` : "";
+  const biz = W.biz.lvl ? pill(`💼 Business level ${W.biz.lvl}${W.biz.lvl < W.biz.max ? ` · ${W.biz.prog}/${W.biz.per}` : " · top"}`) : pill(`💼 No business yet${W.biz.prog ? ` · ${W.biz.prog}/${W.biz.per}` : ""}`);
   return `<div class="card wagh"><div class="row wrap" style="gap:14px;align-items:center"><div class="facebox">${faceOf(W.img, 64, W.g)}</div>
     <div class="grow col" style="gap:4px"><h3 style="margin:0">${esc(W.name)} <span class="tiny mute">WAG</span></h3>
-      <div class="row wrap" style="gap:8px">${pill(`💰 ${W.coins} coins`)}${pill(`👥 ${W.fol.toLocaleString()} followers`)}${sup}</div></div>
+      <div class="row wrap" style="gap:8px">${pill(`💰 ${W.coins} coins`)}${pill(`👥 ${W.fol.toLocaleString()} followers`)}${pill(`⭐ Brand ${W.brand}`)}${biz}${W.passive ? pill(`+${W.passive} coins a matchday`) : ""}${sup}</div></div>
     <button class="btn sm ${W.auto ? "pri" : ""}" data-act="wAuto" title="On Auto you take quiet weeks and are never waited for">${W.auto ? "Auto: on" : "Auto: off"}</button></div>
     ${W.step === "md.lineup" ? `<div class="small mute mt">Matchday ${W.next} of ${W.total}. Choose how you spend this week before kick-off.</div>` : ""}
     ${W.note ? `<div class="small mt" style="color:var(--accent,#3ddc84)">${esc(W.note)}</div>` : ""}</div>`;
 }
-function lastLine(W) {
+function lastLine(S, W) {
   const l = W.last; if (!l) return "";
-  const txt = l.act === "content" ? `You made content and earned ${l.earned} coins.` : l.act === "attend" ? "You went to the match." : l.act === "date" ? (l.failed ? "Your date did not happen." : `Your date ${l.good ? "went well" : "was awkward"}.`) : l.failed ? "Your invitation was not taken up." : "A quiet week.";
-  return `<div class="small mute mt">Last matchday: ${esc(txt)}</div>`;
+  const txt = l.act === "content" ? `You made content and earned ${l.earned} coins.` : l.act === "party" ? "You went out." : l.act === "business" ? "You worked on your business." : l.act === "date" ? (l.failed ? "Your date did not happen." : `Your date ${l.good ? "went well" : "was awkward"}.`) : l.failed ? "Your invitation was not taken up." : "A quiet night in.";
+  return `<div class="small mute mt">Last matchday: ${esc(txt)}${l.attend != null ? ` You were at the ${esc(tn(S, l.attend))} match.` : ""}</div>${seqLog(W.seq)}`;
+}
+const seqLog = (q) => (q && q.log.length ? `<div class="col mt" style="gap:3px">${q.log.map((x) => `<div class="small"><b>${esc(x.name)}</b>${x.auto ? ' <span class="tiny mute">(chosen for you)</span>' : ""}: ${esc(x.text)}${x.fx ? ` <span class="tiny ${x.ok ? "" : "mute"}">(${esc(x.fx)})</span>` : ""}</div>`).join("")}</div>` : "");
+
+// ---------- this week: a match (optional) and one main thing ----------
+const ACT_CARDS = [
+  ["date", "💘", "Go on a date", (W) => `From ${W.cost.dateNpc} coins. Someone from your pool, a footballer you have a number for, or a player in the room.`],
+  ["party", "🪩", "Go out partying", (W) => `${W.cost.party} coins. Followers, a night out, maybe a new number.`],
+  ["quiet", "🛋️", "A quiet night in", () => "Free. Warms things with whoever you see."],
+  ["content", "📸", "Shoot content", (W) => `About ${W.contentPay} coins and followers. ${W.contentLeft} left this season.`],
+  ["business", "💼", "Build a business", () => "Progress towards a business that pays every matchday."],
+];
+function matchCard(S, W) {
+  const u = ui(), m = W.match, fx = W.fixtures.find((x) => x.i === (u.fx != null ? u.fx : (m ? m.fixture : (W.fixtures[0] || {}).i))) || W.fixtures[0];
+  const tm = fx ? (u.team != null && (u.team === fx.a || u.team === fx.b) ? u.team : m && m.fixture === fx.i && (m.team === fx.a || m.team === fx.b) ? m.team : fx.a) : null;
+  const sq = fx && tm != null ? W.roster[tm] || [] : [], tgt = u.target != null ? u.target : (m && m.team === tm ? m.target || "" : "");
+  return `<div class="card"><h4 class="shh">🎟️ A match (optional)</h4>
+    <p class="small mute">${W.cost.attend} coins, paid at kick-off. You choose who to support. After full time there is a chance to meet someone from that team; you can invite them from next matchday. If you go, content, a night out and business become a quick version, because the match is where you are. If you do not go, you get the match-time choices instead.</p>
+    <div class="row wrap mt" style="gap:6px"><select data-change="wFx">${W.fixtures.map((f) => `<option value="${f.i}" ${fx && f.i === fx.i ? "selected" : ""}>${esc(f.an)} v ${esc(f.bn)}</option>`).join("")}</select>
+      ${fx ? `<select data-change="wTeam"><option value="${fx.a}" ${tm === fx.a ? "selected" : ""}>Support ${esc(fx.an)}</option><option value="${fx.b}" ${tm === fx.b ? "selected" : ""}>Support ${esc(fx.bn)}</option></select>` : ""}
+      <select data-change="wTarget"><option value="">Anyone</option>${sq.map((p) => `<option value="${esc(p.id)}" ${tgt === p.id ? "selected" : ""} ${p.taken ? "disabled" : ""}>${esc(p.name)} (${esc(p.pos)})${p.human ? " ★" : ""}${p.taken ? " · taken" : ""}</option>`).join("")}</select>
+      <button class="btn ${m ? "pri" : ""}" data-act="wGoMatch" ${W.coins < W.cost.attend || !fx ? "disabled" : ""}>${m ? "Going ✓ (update)" : "Go"}</button>${m ? `<button class="btn sm ghost" data-act="wNoMatch">Not going</button>` : ""}</div>
+    <div class="tiny mute mt">${m ? `You are going to the ${esc(tn(S, m.team))} match.` : "Naming someone improves the odds a little. It is a chance, not a promise."}</div></div>`;
+}
+const tag = (t) => `<span class="tiny mute">${t}</span>`;
+function poolTile(S, W, x) {
+  const act = W.act, booked = act && act.act === "date" && act.partner === x.id, open = W.chooseOpen;
+  if (x.kind === "npc") {
+    return `<div class="datec ${booked ? "sel" : ""} ${x.g === "F" ? "gf" : "gm"}">${npcFace(x.slug, x.name)}<b>${esc(x.name)}</b>${tag("Not a footballer · little effect on your status")}
+      <button class="btn sm ${booked ? "pri" : ""}" data-act="wInvite" data-id="${esc(x.id)}" ${open && W.coins >= x.cost ? "" : "disabled"}>${booked ? "Invited ✓" : `Invite · ${x.cost}`}</button></div>`;
+  }
+  const label = x.kind === "seeing" ? `💘 Seeing · bond ${x.bond}` : x.kind === "contact" ? `📞 Your contact · until matchday ${x.until + 1}` : x.kind === "scene" ? "On the scene" : x.seeing ? "💘 Seeing" : x.ready ? "📞 Your contact" : "A player in the room";
+  let btn;
+  if (x.kind === "human") btn = booked ? `<span class="pill good">Booked ✓</span>` : `<button class="btn sm" data-act="wAsk" data-to="${esc(x.id)}" data-kind="date" ${open && !x.taken && !x.asked && W.coins >= W.cost.date ? "" : "disabled"}>${x.taken ? "Taken" : x.asked ? "Asked…" : `Ask out · ${W.cost.date}`}</button>`;
+  else btn = `<button class="btn sm ${booked ? "pri" : ""}" data-act="wInvite" data-id="${esc(x.id)}" ${open && x.can && W.coins >= W.cost.date ? "" : "disabled"}>${booked ? "Invited ✓" : x.taken ? "Taken" : `Invite · ${W.cost.date}`}</button>`;
+  return `<div class="datec wtile ${booked ? "sel" : ""}">${card(x.pid, { size: "sm", info: true, tag: label })}<b>${esc(x.name)}</b>${x.human ? tag("A player in this room · they have to say yes") : ""}${btn}</div>`;
+}
+function datePool(S, W) {
+  const groups = [["seeing", "Seeing"], ["contact", "Numbers you have"], ["human", "Footballers in the room"], ["scene", "On the scene"], ["npc", "Out and about (not footballers)"]];
+  return `<div class="card"><h4 class="shh">💘 Who do you invite?</h4><p class="small mute">A footballer appears here once you have their number (from a match or a night out), is on the scene, or you are already seeing them. Others may invite the same person: the better-scored invitation wins and the rest are not charged. Dates with people who are not footballers are cheaper and barely change your status.</p>
+    ${groups.map(([k, t]) => { const l = W.pool.filter((x) => x.kind === k); return l.length ? `<h4 class="shh mt">${t}</h4><div class="datecards">${l.map((x) => poolTile(S, W, x)).join("")}</div>` : ""; }).join("")}</div>`;
 }
 function choice(S, W) {
-  if (!W.chooseOpen) return `<div class="card"><h4 class="shh">This week</h4><p class="small mute">${W.step === "md.result" ? "The matchday is over. You choose your next week when the line-up window opens." : "Choices open in the line-up window before each match."}</p>${W.attending ? `<p class="small">🎟️ You are at the ${esc(W.attending.team)} match.</p>` : ""}${lastLine(W)}</div>`;
-  const u = ui(), act = W.act ? W.act.act : null, cur = (id) => (act === id ? "pri" : "");
-  const fx = W.fixtures.find((x) => x.i === (u.fx != null ? u.fx : (W.act && W.act.fixture != null ? W.act.fixture : (W.fixtures[0] || {}).i))) || W.fixtures[0];
-  const tm = fx ? (u.team != null && (u.team === fx.a || u.team === fx.b) ? u.team : (W.act && act === "attend" && (W.act.team === fx.a || W.act.team === fx.b) ? W.act.team : fx.a)) : null;
-  const sq = fx && tm != null ? W.roster[tm] || [] : [];
-  const attend = `<div class="sitopt"><div class="grow"><b>🎟️ Go to a match</b> <span class="tiny mute">${W.cost.attend} coins, paid at kick-off. After full time there is a chance to meet someone from the team you back; you can invite them from next matchday.</span>
-      <div class="row wrap mt" style="gap:6px"><select data-change="wFx">${W.fixtures.map((f) => `<option value="${f.i}" ${fx && f.i === fx.i ? "selected" : ""}>${esc(f.an)} v ${esc(f.bn)}</option>`).join("")}</select>
-      ${fx ? `<select data-change="wTeam"><option value="${fx.a}" ${tm === fx.a ? "selected" : ""}>Support ${esc(fx.an)}</option><option value="${fx.b}" ${tm === fx.b ? "selected" : ""}>Support ${esc(fx.bn)}</option></select>` : ""}
-      <select data-change="wTarget"><option value="">Anyone</option>${sq.map((p) => `<option value="${esc(p.id)}" ${u.target === p.id ? "selected" : ""} ${p.taken ? "disabled" : ""}>${esc(p.name)} (${esc(p.pos)})${p.human ? " ★" : ""}${p.taken ? " · taken" : ""}</option>`).join("")}</select></div>
-      <div class="tiny mute mt">Naming someone improves the odds a little. It is a chance, not a promise.</div></div><button class="btn ${cur("attend")}" data-act="wAttend" ${W.coins < W.cost.attend ? "disabled" : ""}>${act === "attend" ? "Going ✓" : "Go"}</button></div>`;
-  const everyone = [...W.contacts.filter((c) => c.ready).map((c) => ({ id: c.id, name: c.name, tag: "contact", team: c.team })), ...W.scene.map((p) => ({ id: p.id, name: p.name, tag: "on the scene", team: p.team })), ...W.seeing.map((p) => ({ id: p.id, name: p.name, tag: `seeing · bond ${p.bond}`, team: p.team }))].filter((p, i, a) => a.findIndex((q) => q.id === p.id) === i && !String(p.id).startsWith("u:"));
-  const date = `<div class="sitopt"><div class="grow"><b>💘 Go on a date</b> <span class="tiny mute">${W.cost.date} coins, only if it happens. Others may invite the same person: the better-scored invitation wins and the rest are not charged.</span>
-      <div class="row wrap mt" style="gap:6px"><select data-change="wPartner"><option value="">Choose…</option>${everyone.map((p) => `<option value="${esc(p.id)}" ${(u.partner || (W.act && W.act.partner)) === p.id ? "selected" : ""}>${esc(p.name)} · ${esc(p.tag)}${p.team ? " · " + esc(p.team) : ""}</option>`).join("")}</select></div>
-      ${W.act && act === "date" && String(W.act.partner).startsWith("u:") ? `<div class="small mt">Booked with a footballer who said yes.</div>` : ""}</div><button class="btn ${cur("date")}" data-act="wDate" ${W.coins < W.cost.date ? "disabled" : ""}>${act === "date" && !String((W.act || {}).partner || "").startsWith("u:") ? "Invited ✓" : "Invite"}</button></div>`;
-  const content = `<div class="sitopt"><div class="grow"><b>📸 Make content</b> <span class="tiny mute">About +${W.contentPay} coins and a few followers. ${W.contentLeft} left this season.</span></div><button class="btn ${cur("content")}" data-act="wContent" ${W.contentLeft <= 0 ? "disabled" : ""}>${act === "content" ? "Chosen ✓" : "Do it"}</button></div>`;
-  const quiet = `<div class="sitopt"><div class="grow"><b>🛋️ A quiet week</b> <span class="tiny mute">Costs nothing.</span></div><button class="btn ${cur("quiet")}" data-act="wQuiet">${act === "quiet" ? "Chosen ✓" : "Stay in"}</button></div>`;
-  return `<div class="card"><h4 class="shh">This week · one main thing</h4><div class="col" style="gap:10px">${attend}${date}${content}${quiet}</div>
-    ${act ? `<div class="row mt" style="gap:8px;align-items:center"><span class="small">You chose: <b>${esc({ attend: "Go to a match", date: "Go on a date", content: "Make content", quiet: "A quiet week" }[act])}</b></span><button class="btn sm ghost" data-act="wClear">Change my mind</button></div>` : ""}${lastLine(W)}</div>`;
+  if (!W.chooseOpen) return `<div class="card"><h4 class="shh">This week</h4><p class="small mute">${W.step === "md.result" ? "The matchday is over. You choose your next week when the line-up window opens." : "Choices open in the line-up window before each match."}</p>${W.attending ? `<p class="small">🎟️ You are at the ${esc(W.attending.team)} match.</p>` : ""}${lastLine(S, W)}</div>`;
+  const u = ui(), act = W.act ? W.act.act : null, picked = (W.act && W.act.partner) || null;
+  const cards = ACT_CARDS.map(([id, ic, name, desc]) => {
+    const dis = (id === "content" && W.contentLeft <= 0) || (id === "party" && W.coins < W.cost.party), on = act === id;
+    return `<button class="wact ${on ? "sel" : ""}" data-act="wDo" data-a="${id}" ${dis ? "disabled" : ""}><span class="wi">${ic}</span><b>${name}</b><span class="tiny mute">${desc(W)}</span><span class="tiny">${on ? (id === "date" ? (String(picked).startsWith("n:") ? "Invited ✓" : String(picked).startsWith("u:") ? "Booked ✓" : "Invited ✓") : "Chosen ✓") : id === "date" ? (u.dateOpen ? "Hide the pool" : "Choose who →") : ""}</span></button>`;
+  }).join("");
+  return `${matchCard(S, W)}<div class="card"><h4 class="shh">This week · one main thing</h4><div class="wacts">${cards}</div>
+    ${act ? `<div class="row mt" style="gap:8px;align-items:center"><span class="small">You chose: <b>${esc(({ date: "Go on a date", party: "Go out partying", quiet: "A quiet night in", content: "Shoot content", business: "Build a business" })[act])}</b>${W.match ? " and the match" : ""}</span><button class="btn sm ghost" data-act="wClear">Change my mind</button></div>` : `<div class="tiny mute mt">Choose a match first if you want one: the line-up window can close as soon as everybody has picked their main thing.</div>`}
+    ${!W.match && ["content", "party", "business"].includes(act) ? `<div class="small mt">⏱️ No match? During the matches you will get two quick choices (one each half) that change your brand, money, followers and relationships.</div>` : ""}
+    ${lastLine(S, W)}</div>${u.dateOpen || act === "date" ? datePool(S, W) : ""}`;
 }
 function requests(S, W) {
   const inc = W.incoming || [], out = W.outgoing || []; if (!inc.length && !out.length) return "";
@@ -117,19 +156,41 @@ function memory(W) {
   if (m.gifts.length) bits.push(`Gifts: ${m.gifts.map((g) => `${esc(g.tier)} to ${esc(g.name)}`).join(", ")}`);
   return bits.length ? `<div class="card"><h4 class="shh">Your history</h4>${bits.map((b) => `<div class="small">${b}</div>`).join("")}</div>` : "";
 }
+// Every team's players as cards, so a WAG can see who is worth a number. Cards you can open for the full stats.
+function rosters(S, W) {
+  const u = ui(), sel = u.rosterTeam != null && S.teams[u.rosterTeam] ? u.rosterTeam : (S.teams.find((t) => t.name === W.support) || S.teams[0] || {}).id ?? 0, t = team(sel), ps = (t.players || []).map((id) => pl(id)).filter(Boolean);
+  const mark = new Map(); for (const c of W.contacts) if (c.ready && c.pid != null) mark.set(c.pid, "📞 your contact"); for (const x of W.scene) mark.set(x.pid, "on the scene"); for (const x of W.seeing) if (x.id.startsWith("f:") || x.id.startsWith("u:")) mark.set(+x.id.slice(2), "💘 seeing");
+  const list = ps.slice().sort((a, b) => (a.pos === "GK") - (b.pos === "GK") || b.ovr - a.ovr);
+  return `<div class="card"><h4 class="shh">📋 Team rosters</h4><div class="row wrap" style="gap:6px">${S.teams.map((x) => `<button class="btn sm ${x.id === sel ? "pri" : ""}" data-act="wRoster" data-i="${x.id}">${crest(x, 16)} ${esc(x.name)}</button>`).join("")}</div></div>
+    <div class="card"><div class="row wrap" style="gap:10px;align-items:center">${crest(t, 36)}<b style="font-size:18px">${esc(t.name)}</b><span class="small mute">${t.owner ? "Managed by " + esc(t.owner) : "CPU manager"}</span></div>
+    <div class="rost mt">${list.map((p) => `<div class="rostc">${card(p.id, { size: "sm", info: true, tag: mark.get(p.id) || undefined })}</div>`).join("") || `<p class="small mute">No players yet.</p>`}</div>
+    <p class="tiny mute mt">${W.cost ? "Players you have a number for, or who are on the scene, are marked. Open a card with the i button for the full stats." : ""}</p></div>`;
+}
+const TABS = [["week", "🏠 This week"], ["people", "👥 People and gifts"], ["rosters", "📋 Team rosters"]];
 // What a WAG sees in every phase. During the draft and market there is no weekly choice: just the profile, the people and the league.
 export function wagScreen(S, ctx) {
   const W = S.wag;
   if (!W) return { main: `<div class="card"><h3>WAG</h3><p class="small mute">Your profile is being set up…</p></div>`, side: ctx.chatCard(S) };
-  const pre = /^(draft|market)\./.test(S.step) || S.step === "season.intro";
+  const pre = /^(draft|market)\./.test(S.step) || S.step === "season.intro", u = ui(), tab = TABS.some((x) => x[0] === u.tab) ? u.tab : "week";
   const intro = pre ? `<div class="card"><h4 class="shh">${S.step.startsWith("draft.") ? "The managers are drafting" : S.step.startsWith("market.") ? "The pre-season market" : "The season is about to start"}</h4><p class="small mute">You have no squad to build. Finish your profile and have a look at the league: your weekly choices open once the season is under way.</p></div>` : "";
-  const main = head(S, W) + intro + (pre ? "" : choice(S, W) + requests(S, W)) + (pre ? requests(S, W) : "") + people(S, W) + memory(W) + (W.edit ? wagCreator(S, "Your profile") : "");
-  return { main, side: ctx.teamsList(S) + ctx.chatCard(S) };
+  const tabs = `<div class="row wrap wtabs" style="gap:6px">${TABS.map(([id, name]) => `<button class="btn sm ${tab === id ? "pri" : ""}" data-act="wTab" data-tab="${id}">${name}</button>`).join("")}${(W.incoming || []).length ? `<span class="pill bad">${W.incoming.length} request${W.incoming.length === 1 ? "" : "s"}</span>` : ""}</div>`;
+  const body = tab === "rosters" ? rosters(S, W) : tab === "people" ? people(S, W) + memory(W) : intro + (pre ? "" : choice(S, W) + requests(S, W)) + (pre ? requests(S, W) : "") + (W.edit ? wagCreator(S, "Your profile") : "");
+  return { main: head(S, W) + tabs + body, side: ctx.teamsList(S) + ctx.chatCard(S) };
+}
+// While the matches are on: the two quick choices (one in each half). Never waited for: whatever is not chosen is chosen for you.
+function seqCard(S, W) {
+  const q = W.seq; if (!q) return "";
+  const o = q.open, half = S.step === "md.half1" ? "first half" : S.step === "md.half" ? "half-time" : S.step === "md.half2" ? "second half" : "";
+  const status = q.done ? `<p class="small mute">That is your matchday done. You are back in the menu when everyone else is.</p>` : o ? "" : `<p class="small mute">${q.beat === 0 ? "Your next choice opens at half-time." : "You have made your choice. Full time is coming."}</p>`;
+  return `<div class="card wseq"><div class="row wrap" style="gap:8px;align-items:center"><h4 class="shh" style="margin:0">${q.icon} ${esc(q.title)}</h4><span class="pill">${q.done ? "done" : `choice ${q.beat + 1} of 2`}</span><span class="grow"></span><span class="tiny mute">${half}</span></div>
+    ${o ? `<p class="small mt">${esc(o.prompt)}</p><div class="wopts">${o.options.map((x) => `<button class="wopt" data-act="wSeq" data-i="${x.i}" ${x.can ? "" : "disabled"}><b>${esc(x.name)}</b><span class="tiny mute">${esc(x.desc)}</span><span class="tiny">${x.cost ? `${x.cost} coins` : "free"}</span></button>`).join("")}</div><div class="tiny mute mt">If you do not choose, the safe option is chosen for you. The match is never held up.</div>` : ""}
+    ${status}${seqLog(q)}</div>`;
 }
 // Drawn above the match screens so the full-time view still tells a WAG what their day was.
 export function wagStrip(S) {
   const W = S.wag; if (!W) return "";
-  return `<div class="card wagh"><div class="row wrap" style="gap:10px;align-items:center"><span class="facebox">${faceOf(W.img, 36, W.g)}</span><b>${esc(W.name)}</b>${pill(`💰 ${W.coins}`)}${pill(`👥 ${W.fol.toLocaleString()}`)}${W.attending ? pill(`🎟️ at the ${esc(W.attending.team)} match`, "good") : ""}<span class="grow"></span>${W.note ? `<span class="small">${esc(W.note)}</span>` : ""}</div>${S.step === "md.result" ? lastLine(W) : ""}</div>`;
+  const live = ["md.half1", "md.half", "md.half2"].includes(S.step);
+  return `<div class="card wagh"><div class="row wrap" style="gap:10px;align-items:center"><span class="facebox">${faceOf(W.img, 36, W.g)}</span><b>${esc(W.name)}</b>${pill(`💰 ${W.coins}`)}${pill(`👥 ${W.fol.toLocaleString()}`)}${pill(`⭐ ${W.brand}`)}${W.biz.lvl ? pill(`💼 L${W.biz.lvl}`) : ""}${W.attending ? pill(`🎟️ at the ${esc(W.attending.team)} match`, "good") : ""}<span class="grow"></span>${W.note ? `<span class="small">${esc(W.note)}</span>` : ""}</div>${S.step === "md.result" ? lastLine(S, W) : ""}</div>${live ? seqCard(S, W) : ""}`;
 }
 
 // ---------- the footballer's side ----------

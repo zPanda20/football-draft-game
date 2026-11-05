@@ -61,6 +61,18 @@ export const wagMethods = {
     if (res.ok) this.wagDeliver(res.notes);
     this.changed(); if (res.ok) this.maybeGo();
   },
+  // The match is its own choice (a ticket, a team, maybe a player), made in the same window as the week's activity.
+  wagMatch(token, c) {
+    const me = this.wagMe(token); if (!me || this.step !== OPEN_ACT || !c) return;
+    const res = W.setMatch(this.game, me.w, c, { fixtures: this.days[this.mdIdx] || [] });
+    me.u.wagNote = res.ok ? "Saved. The ticket is paid at kick-off." : res.why; this.changed();
+  },
+  wagMatchClear(token) { const me = this.wagMe(token); if (!me || this.step !== OPEN_ACT) return; W.clearMatch(me.w); this.changed(); },
+  // While the matches are on: the WAG's sequence choice for the beat that is open now. Never holds anything up (see wagHalf / wagFinish).
+  wagSeq(token, i) {
+    const me = this.wagMe(token); if (!me || !["md.half1", "md.half", "md.half2"].includes(this.step)) return;
+    const res = W.seqChoose(this.game, me.w, i | 0); me.u.wagNote = res.ok ? null : res.why; if (res.ok) this.wagDeliver(res.notes); this.changed();
+  },
   wagClear(token) { const me = this.wagMe(token); if (!me || this.step !== OPEN_ACT) return; this.wagDeliver(W.clearAct(this.game, me.w)); me.u.wagNote = null; this.changed(); },
   // One door for both sides: a WAG asking a footballer, or a footballer asking a WAG.
   wagWho(token) {
@@ -94,6 +106,9 @@ export const wagMethods = {
     this.wagDeliver(res.notes); for (const s of res.stories) deskStory(g, s);
     for (const u of this.wagUsers()) u.wagNote = null;
   },
+  // Half-time: a first choice nobody made is made for them (the safe one), and the second choice opens. Full time: whatever is left is decided before the result is public.
+  wagHalf() { const g = this.game; if (!g || !g.wag) return; this.wagDeliver(W.seqHalf(g, { day: this.mdIdx }).notes); },
+  wagFinish() { const g = this.game; if (!g || !g.wag) return; this.wagDeliver(W.seqFinish(g, { day: this.mdIdx }).notes); },
   // Full time: an attendance becomes an encounter, after the result is public. Never touches the match.
   wagAfter() {
     const g = this.game; if (!g || !g.wag || !this.lastDay) return;
@@ -104,7 +119,7 @@ export const wagMethods = {
   wagView(token) {
     const me = this.wagMe(token); if (!me || !this.game) return null;
     const day = this.wagDay(), v = W.viewFor(this.game, me.w, { day, fixtures: this.days ? this.days[day] || [] : [], open: this.step === OPEN_ACT });
-    v.note = me.u.wagNote || null; v.auto = !!me.u.auto; v.step = this.step; v.social = this.settings.social !== false; v.chooseOpen = this.step === OPEN_ACT; v.giftOpen = [OPEN_ACT, "md.result"].includes(this.step);
+    v.note = me.u.wagNote || null; v.auto = !!me.u.auto; v.step = this.step; v.social = this.settings.social !== false; v.chooseOpen = this.step === OPEN_ACT; v.seqLive = ["md.half1", "md.half", "md.half2"].includes(this.step); v.giftOpen = [OPEN_ACT, "md.result"].includes(this.step);
     v.next = day + 1; v.total = (this.days || []).length; v.edit = this.wagEditable(me.u);
     return v;
   },

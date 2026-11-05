@@ -4,7 +4,8 @@
 // Weekly loop: choices are made in md.lineup; kickoff() settles them once; afterMatch() resolves a match attendance once, after full time.
 import { makeRng, shuffle } from "./rng.js";
 import { ensureSoc, memOf, remember, fondOf, addFond, variant, deskStory, openThread } from "./social.js";
-import { ensureLife, ensureRom, applyFx } from "./life.js";
+import { ensureLife, ensureRom, applyFx, PARTNER_LIST, partnerById } from "./life.js";
+import { SEQ } from "./wagseq.js";
 
 const up = (s) => String(s).toUpperCase();
 const fail = (why) => ({ ok: false, why });
@@ -14,14 +15,21 @@ export const isFb = (id) => typeof id === "string" && id.startsWith("f:");
 export const isHumanFb = (id) => typeof id === "string" && id.startsWith("u:");
 export const pidOf = (id) => +String(id).slice(2);
 export const fbId = (pid) => "f:" + pid;
+export const isNpc = (id) => typeof id === "string" && id.startsWith("n:");        // "n:sofia-marquez": a dating partner who is not a player (the same people footballers meet)
+export const npcSlug = (id) => String(id).slice(2);
 
 export function ensureWag(game) {
   if (!game.wag) game.wag = {};
   const W = game.wag; W.seq = W.seq || 0; W.list = W.list || {}; W.pairs = W.pairs || {}; W.req = W.req || []; W.reqSeq = W.reqSeq || 0; W.ledger = W.ledger || []; W.kick = W.kick || "";
   return W;
 }
-export const wagOf = (game, id) => (game.wag && game.wag.list[id]) || null;
-export const wagList = (game) => (game.wag ? Object.values(game.wag.list) : []);
+// Older records (saved before the WAG week) get the new fields the first time they are looked at.
+function norm(game, w) {
+  if (w && w.brand === undefined) { const P = game.P.social.wag; w.brand = P.startBrand; w.rapport = P.startRapport; w.biz = { lvl: 0, prog: 0 }; w.match = null; w.sq = null; w.cnt = { attend: 0, date: 0, content: 0, quiet: 0, ...(w.cnt || {}), party: 0, business: 0 }; }
+  return w;
+}
+export const wagOf = (game, id) => norm(game, (game.wag && game.wag.list[id]) || null);
+export const wagList = (game) => (game.wag ? Object.values(game.wag.list).map((w) => norm(game, w)) : []);
 const day0 = (game) => game.weekDay ?? 0;
 const K = (game) => game.P.social.wag;
 const spend = (game, w, n, why) => { n = Math.max(0, Math.round(n)); w.coins = Math.max(0, w.coins - n); const W = ensureWag(game); W.ledger.push({ s: game.season, d: day0(game), w: w.id, n: -n, why }); if (W.ledger.length > 60) W.ledger.shift(); return n; };
@@ -32,7 +40,7 @@ const earn = (game, w, n, why) => { n = Math.max(0, Math.round(n)); w.coins += n
 export function createWag(game, { token = null, name, gender, img }) {
   const W = ensureWag(game), id = "w" + ++W.seq, P = K(game);
   const w = { id, name: String(name || "WAG").trim().slice(0, 22) || "WAG", g: gender === "M" ? "M" : "F", img: img || null, age: P.age, coins: P.startCoins, fol: P.startFol, act: null, attending: null, contacts: [], last: null,
-    cnt: { attend: 0, date: 0, content: 0, quiet: 0 }, content: { season: game.season, n: 0 }, gifts: { week: -1, n: 0, by: {} }, life: { fav: {}, giftAt: {} }, since: { season: game.season, day: day0(game) }, support: null };
+    cnt: { attend: 0, date: 0, content: 0, quiet: 0, party: 0, business: 0 }, brand: P.startBrand, rapport: P.startRapport, biz: { lvl: 0, prog: 0 }, match: null, sq: null, content: { season: game.season, n: 0 }, gifts: { week: -1, n: 0, by: {} }, life: { fav: {}, giftAt: {} }, since: { season: game.season, day: day0(game) }, support: null };
   W.list[id] = w; return w;
 }
 
@@ -43,6 +51,7 @@ export function humanOk(game, pid) { const p = game.players[pid]; return !!p && 
 export function personOf(game, id) {
   if (isFb(id)) { const p = game.players[pidOf(id)]; return p ? { id, name: p.name, team: p.team ?? null, pos: p.pos, ovr: p.ovr, g: p.gender === "F" ? "F" : "M", human: false, ok: fbOk(game, p.id) } : null; }
   if (isHumanFb(id)) { const p = game.players[pidOf(id)]; return p ? { id, name: p.name, team: p.team ?? null, pos: p.pos, ovr: p.ovr, g: p.gender === "F" ? "F" : "M", human: true, ok: humanOk(game, p.id), img: p.img } : null; }
+  if (isNpc(id)) { const x = partnerById(npcSlug(id)); return x ? { id, name: x.name, team: null, g: x.g, human: false, ok: true, npc: true, slug: x.id } : null; }
   if (isWag(id)) { const w = wagOf(game, id); return w ? { id, name: w.name, team: null, g: w.g, human: true, ok: true, img: w.img, wag: true } : null; }
   return null;
 }
@@ -76,9 +85,11 @@ export function reachable(game, w, id, day) {
 }
 
 // ---------- the weekly choice ----------
-export const ACTS = { quiet: "A quiet week", content: "Make content", attend: "Go to a match", date: "Go on a date" };
-export const costOf = (game, act) => ({ attend: K(game).cost.attend, date: K(game).cost.date }[act] || 0);
-export function contentPay(game, w) { const P = K(game).content; return Math.min(P.maxPay, P.base + Math.floor(w.fol / P.folDiv)); }
+// Two separate choices. (1) What you do this week: a date, a night out, a quiet night in, content or your business. (2) Optionally, a match to go to and who to support.
+// Content, a night out and business become a short sequence while the matches are on, unless you chose to go to a match (then they are a quick version).
+export const ACTS = { date: "Go on a date", party: "Go out partying", quiet: "A quiet night in", content: "Shoot content", business: "Build a business" };
+export const costOf = (game, act) => ({ date: K(game).cost.date, party: K(game).cost.party }[act] || 0);
+export function contentPay(game, w) { const P = K(game).content; return Math.min(P.maxPay, P.base + Math.floor(w.fol / P.folDiv) + Math.floor(w.brand * P.brandPay)); }
 function contentLeft(game, w) { const P = K(game).content; if (w.content.season !== game.season) w.content = { season: game.season, n: 0 }; return Math.max(0, P.perSeason - w.content.n); }
 // Free the human footballer a WAG had booked a date with (and the other way round).
 export function releaseBooking(game, w, why) {
@@ -87,26 +98,29 @@ export function releaseBooking(game, w, why) {
   if (p && p.life && p.life.act && p.life.act.wag === w.id) { p.life.act = null; if (why) notes.push({ pid: p.id, text: why }); }
   return notes;
 }
-export function setAct(game, w, c, { day, fixtures }) {
+// The week's people who are not players: three, both genders, the same every time the same WAG looks that matchday.
+export function npcOpts(game, w, day) {
+  const r = makeRng(game.seed, "wagNpc", w.id, game.season, day), n = K(game).npc.pool, all = shuffle(PARTNER_LIST.slice(), r), out = all.slice(0, n);
+  if (n >= 2 && out.every((x) => x.g === out[0].g)) { const o = all.slice(n).find((x) => x.g !== out[0].g); if (o) out[n - 1] = o; }
+  return out;
+}
+export function setAct(game, w, c, { day }) {
   const P = K(game), act = c && c.act;
   if (!ACTS[act]) return fail("Pick something to do.");
   const notes = [];
-  if (act === "quiet" || act === "content") {
+  if (act !== "date") {
     if (act === "content" && contentLeft(game, w) <= 0) return fail(`You have made all ${P.content.perSeason} pieces of content you can for this season.`);
+    if (act === "party" && w.coins < P.cost.party) return fail(`A night out costs ${P.cost.party} coins.`);
     notes.push(...releaseBooking(game, w, `${w.name} cancelled your date.`)); w.act = { act }; return { ok: true, notes };
   }
-  if (act === "attend") {
-    const f = (fixtures || [])[c.fixture | 0]; if (!f) return fail("Pick a match.");
-    const team = c.team | 0; if (team !== f[0] && team !== f[1]) return fail("Pick one of the two teams.");
-    if (w.coins < P.cost.attend) return fail(`A ticket costs ${P.cost.attend} coins.`);
-    let target = c.target || null;
-    if (target) { const pe = personOf(game, target); if (!pe || !pe.ok || pe.team !== team) return fail("They do not play for that team."); if (isHumanFb(target) && committed(game, target)) target = null; }
-    notes.push(...releaseBooking(game, w, `${w.name} cancelled your date.`));
-    w.act = { act, fixture: c.fixture | 0, match: [f[0], f[1]], team, target }; return { ok: true, notes };
-  }
-  // date: a roster footballer (settled at kick-off, rivals compete) or a human footballer who has already said yes (set by the request, not here)
+  // date: someone from the pool who is not a player (settled at kick-off), a roster footballer (settled at kick-off, rivals compete) or a human footballer who has already said yes (set by the request, not here)
   const id = String(c.partner || "");
   if (isHumanFb(id)) { if (w.act && w.act.act === "date" && w.act.partner === id) return { ok: true, notes }; return fail("Ask them first: a human footballer has to say yes."); }
+  if (isNpc(id)) {
+    if (!npcOpts(game, w, day).some((x) => x.id === npcSlug(id))) return fail("They are not in your pool this week.");
+    if (w.coins < P.cost.dateNpc) return fail(`A date costs ${P.cost.dateNpc} coins.`);
+    notes.push(...releaseBooking(game, w, `${w.name} cancelled your date.`)); w.act = { act: "date", partner: id }; return { ok: true, notes };
+  }
   const pe = personOf(game, id); if (!pe || !pe.ok || !isFb(id)) return fail("Pick someone you can invite.");
   if (!reachable(game, w, id, day)) return fail("You have not met them: invite someone you have a contact with, or from the scene.");
   const t = takenBy(game, id); if (t && t !== w.id) return fail(`${pe.name} is seeing someone.`);
@@ -115,11 +129,21 @@ export function setAct(game, w, c, { day, fixtures }) {
   w.act = { act: "date", partner: id }; return { ok: true, notes };
 }
 export const clearAct = (game, w) => { const notes = releaseBooking(game, w, `${w.name} cancelled your date.`); w.act = null; return notes; };
+// The match is its own choice: a ticket (paid once, at kick-off), a team to support and, if you like, a player you hope to meet.
+export function setMatch(game, w, c, { fixtures }) {
+  const P = K(game), f = (fixtures || [])[c && c.fixture | 0]; if (!f) return fail("Pick a match.");
+  const team = c.team | 0; if (team !== f[0] && team !== f[1]) return fail("Pick one of the two teams.");
+  if (w.coins < P.cost.attend) return fail(`A ticket costs ${P.cost.attend} coins.`);
+  let target = c.target || null;
+  if (target) { const pe = personOf(game, target); if (!pe || !pe.ok || pe.team !== team || pe.npc) return fail("They do not play for that team."); if (isHumanFb(target) && committed(game, target)) target = null; }
+  w.match = { fixture: c.fixture | 0, match: [f[0], f[1]], team, target }; return { ok: true };
+}
+export const clearMatch = (w) => { w.match = null; };
 
 // ---------- date quality, bonds ----------
 function dateScore(game, w, id, day) {
   const P = K(game), pr = pairOf(game, w.id, id), D = (w.life.dq || {})[id] || { n: 0, good: 0 }, m = memOf(game, w.id), turned = m.rej.filter((x) => x.id === id && game.season - x.season <= 0 && day - (x.day ?? 0) <= P.date.rejRecover).length;
-  let s = 0.3 + Math.min(0.15, w.fol / 400000) + (activeContacts(w, day).some((c) => c.id === id) ? P.date.contactBonus : 0) + Math.min(0.12, fondOf(game, w, id) / game.P.social.gift.fondQ) + Math.min(0.15, D.good * 0.05) + (pr && pr.status === "seeing" ? 0.1 : 0) - turned * 0.08;
+  let s = 0.3 + Math.min(0.15, w.fol / 400000) + Math.min(0.1, w.brand * 0.001) + Math.min(0.1, w.rapport * 0.001) + (activeContacts(w, day).some((c) => c.id === id) ? P.date.contactBonus : 0) + Math.min(0.12, fondOf(game, w, id) / game.P.social.gift.fondQ) + Math.min(0.15, D.good * 0.05) + (pr && pr.status === "seeing" ? 0.1 : 0) - turned * 0.08;
   s += (makeRng(game.seed, "wagDate", w.id, id, game.season, day)() - 0.5) * 0.3;
   return +s.toFixed(3);
 }
@@ -144,6 +168,7 @@ function runDate(game, w, id, day, { payer, notes, stories }) {
   q = clamp(q, 0.05, 1); const good = q >= P.date.good, D = ((w.life.dq = w.life.dq || {})[id] = (w.life.dq || {})[id] || { n: 0, good: 0, sum: 0 }); D.n++; D.sum += q; if (good) D.good++;
   const first = !pairOf(game, w.id, id) || pairOf(game, w.id, id).dates === 0, pr = bumpPair(game, w, id, { good, day });
   w.contacts = (w.contacts || []).filter((c) => c.id !== id);
+  if (good) w.brand = clamp(w.brand + P.date.brand, 0, K(game).brand.max);
   w.fol += Math.round(P.date.fol * (good ? 1.5 : 0.5)); if (isHumanFb(id)) applyFx(game, game.players[pidOf(id)], { fol: Math.round(P.date.fol * (good ? 1 : 0.3)) });
   notes.push({ wag: w.id, text: `Your date with ${pe.name} ${good ? "went well" : "was awkward"}.${pr.dates >= 2 ? ` Bond ${pr.bond}.` : ""}` });
   if (isHumanFb(id) && payer !== id) notes.push({ pid: pidOf(id), text: `Your date with ${w.name} ${good ? "went well" : "was awkward"}.` });
@@ -159,6 +184,92 @@ function runDate(game, w, id, day, { payer, notes, stories }) {
   return { good, pr, q };
 }
 
+// A date with someone from the pool who is not a player: cheaper, and it hardly moves your status (a share of the followers, no brand, a little warmth).
+function runNpcDate(game, w, id, day, notes) {
+  const P = K(game), pe = personOf(game, id);
+  spend(game, w, P.cost.dateNpc, "date"); w.cnt.date++;
+  const q = 0.4 + makeRng(game.seed, "wagNdq", w.id, id, game.season, day)() * 0.45 + Math.min(0.1, w.brand * 0.001), good = q >= P.date.good;
+  w.fol += Math.round(P.date.fol * P.npc.mult * (good ? 1.5 : 0.5)); if (good) w.rapport = clamp(w.rapport + P.npc.rapport, 0, 100);
+  notes.push({ wag: w.id, text: `Your date with ${pe.name} ${good ? "went well" : "was awkward"}. It was a nice evening and nothing the papers will print.` });
+  return { good };
+}
+// Warmth goes to whoever you are seeing; with nobody, it goes to your standing with the scene (which helps when you invite someone later).
+function warm(game, w, n, scene = n) {
+  const mine = Object.values(ensureWag(game).pairs).filter((pr) => pr.w === w.id && pr.status === "seeing");
+  if (mine.length) for (const pr of mine) pr.bond = clamp(pr.bond + n, 0, 100); else w.rapport = clamp(w.rapport + scene, 0, 100);
+}
+function addProg(game, w, n, notes) {
+  const B = K(game).biz; if (w.biz.lvl >= B.max) { w.biz.prog = 0; return; }
+  w.biz.prog = Math.max(0, +(w.biz.prog + n).toFixed(2));
+  while (w.biz.lvl < B.max && w.biz.prog >= B.perLevel) { w.biz.prog = +(w.biz.prog - B.perLevel).toFixed(2); w.biz.lvl++; if (notes) notes.push({ wag: w.id, text: w.biz.lvl === 1 ? "Your business is open: it will bring in coins every matchday." : `Your business grew to level ${w.biz.lvl}.` }); }
+  if (w.biz.lvl >= B.max) w.biz.prog = 0;
+}
+export const bizIncome = (game, w) => (w.biz.lvl ? Math.round(w.biz.lvl * K(game).biz.income * (1 + w.brand * K(game).biz.brandMult)) : 0);
+
+// ---------- while the matches are on: two choices, one in each half ----------
+// Opened at kick-off for a content, night-out or business week with no match to go to. The first choice is open in the first half; whatever is not chosen
+// is decided for you (the safe option) at half-time and again before full time, so a WAG who is away, idle or on Auto never holds anything up.
+const seqCfg = (game, kind) => K(game).seqs[kind];
+const fxText = (e) => [e.c ? `${e.c > 0 ? "+" : ""}${e.c} coins` : "", e.f ? `${e.f > 0 ? "+" : ""}${e.f} followers` : "", e.b ? `${e.b > 0 ? "+" : ""}${e.b} brand` : "", e.r ? `${e.r > 0 ? "+" : ""}${e.r} relationships` : "", e.prog ? `${e.prog > 0 ? "+" : ""}${e.prog} business` : ""].filter(Boolean).join(", ");
+function openSeq(game, w, kind, day) { w.sq = { day, kind, beat: 0, picks: [null, null], log: [], done: false }; }
+const optsOf = (game, w, beat) => (w.sq && seqCfg(game, w.sq.kind) ? seqCfg(game, w.sq.kind)[beat] : []);
+function autoIdx(game, w, beat) {
+  const list = optsOf(game, w, beat), ok = list.map((o, i) => ({ o, i })).filter((x) => (x.o.cost || 0) <= w.coins);
+  const def = ok.find((x) => x.o.def); if (def) return def.i;
+  return ok.sort((x, y) => (x.o.cost || 0) - (y.o.cost || 0) || x.i - y.i)[0]?.i ?? -1;
+}
+function seqApply(game, w, idx, beat, auto, notes) {
+  const P = K(game), sq = w.sq, o = optsOf(game, w, beat)[idx], t = SEQ[sq.kind].opts[o.id], r = makeRng(game.seed, "wagSeq", w.id, game.season, sq.day, beat);
+  if (o.cost) spend(game, w, o.cost, sq.kind);
+  const ok = r() < clamp(o.p + Math.min(P.seq.cap, w.brand * P.seq.chance), 0, 1), e = ok ? o : o.x || {}, got = {};
+  if (e.c) { earn(game, w, e.c, sq.kind); got.c = e.c; }
+  if (e.f) { w.fol = Math.max(0, w.fol + e.f); got.f = e.f; }
+  if (e.b) { w.brand = clamp(w.brand + e.b, 0, P.brand.max); got.b = e.b; }
+  if (e.r) { warm(game, w, e.r); got.r = e.r; }
+  if (e.prog) { addProg(game, w, e.prog, notes); got.prog = e.prog; }
+  let met = null;
+  if (ok && o.meet) {
+    const have = new Set((w.contacts || []).map((c) => c.id)), pool = scene(game, w, sq.day).filter((id) => !have.has(id));
+    if (pool.length) { const id = pool[Math.floor(r() * pool.length)], pe = personOf(game, id); w.contacts = w.contacts || []; w.contacts.push({ id, name: pe.name, team: pe.team, made: sq.day, from: sq.day + 1, until: sq.day + P.attend.contactDays, via: "party" }); met = pe.name; }
+  }
+  const text = (ok ? t.ok : t.bad || t.ok) + (met ? ` You met ${met}: you can invite them from next matchday.` : "");
+  const entry = { beat, id: o.id, name: t.name, ok, auto: !!auto, text, fx: fxText(got), cost: o.cost || 0 };
+  sq.picks[beat] = idx; sq.log.push(entry);
+  if (auto && notes) notes.push({ wag: w.id, text: `${SEQ[sq.kind].title}: you were busy, so "${t.name}" was chosen for you. ${text}${entry.fx ? ` (${entry.fx})` : ""}` });
+  return entry;
+}
+// A WAG chooses an option for the current beat (the one that is open right now).
+export function seqChoose(game, w, idx) {
+  const sq = w.sq; if (!sq || sq.done) return fail("Nothing to choose right now.");
+  const beat = sq.beat; if (sq.picks[beat] != null) return fail("You have already chosen.");
+  const o = optsOf(game, w, beat)[idx | 0]; if (!o) return fail("Pick one of the options.");
+  if ((o.cost || 0) > w.coins) return fail(`That costs ${o.cost} coins.`);
+  const notes = [], entry = seqApply(game, w, idx | 0, beat, false, notes); if (beat === 1) sq.done = true;
+  return { ok: true, entry, notes };
+}
+// Half-time: any first choice left open is made for the WAG, and the second one opens.
+export function seqHalf(game, { day }) {
+  const notes = [];
+  for (const w of wagList(game)) { const sq = w.sq; if (!sq || sq.day !== day || sq.done || sq.beat !== 0) continue; if (sq.picks[0] == null) { const i = autoIdx(game, w, 0); if (i >= 0) seqApply(game, w, i, 0, true, notes); } sq.beat = 1; }
+  return { notes };
+}
+// Before the result is public: whatever is still open is decided, so the choices are always finished by full time.
+export function seqFinish(game, { day }) {
+  const notes = [];
+  for (const w of wagList(game)) {
+    const sq = w.sq; if (!sq || sq.day !== day || sq.done) continue;
+    if (sq.picks[0] == null) { const i = autoIdx(game, w, 0); if (i >= 0) seqApply(game, w, i, 0, true, notes); }
+    sq.beat = 1; if (sq.picks[1] == null) { const i = autoIdx(game, w, 1); if (i >= 0) seqApply(game, w, i, 1, true, notes); }
+    sq.done = true;
+  }
+  return { notes };
+}
+export function seqView(game, w) {
+  const sq = w.sq; if (!sq) return null; const T = SEQ[sq.kind], cur = sq.done ? null : sq.beat;
+  return { kind: sq.kind, title: T.title, icon: T.icon, beat: sq.beat, done: sq.done, log: sq.log.map((x) => ({ ...x })),
+    open: cur == null || sq.picks[cur] != null ? null : { beat: cur, prompt: T.beats[cur], options: optsOf(game, w, cur).map((o, i) => { const t = T.opts[o.id]; return { i, id: o.id, name: t.name, desc: t.desc, cost: o.cost || 0, can: (o.cost || 0) <= w.coins }; }) } };
+}
+
 // ---------- kick-off: everything chosen is settled once ----------
 // Returns { notes: [{wag|pid, text}], stories: [] } (stories are printed by the caller through the capped league desk).
 export function kickoff(game, { day, fixtures }) {
@@ -166,7 +277,7 @@ export function kickoff(game, { day, fixtures }) {
   if (W.kick === key) return { notes, stories, again: true };
   W.kick = key;
   for (const r of W.req) if (r.status === "open") r.status = "lapsed";                       // requests live in the lineup window only
-  const ws = Object.values(W.list), byFb = new Map();
+  const ws = wagList(game), byFb = new Map();
   for (const w of ws) {
     w.contacts = (w.contacts || []).filter((c) => c.until >= day);
     if (!w.act) w.act = { act: "quiet" };
@@ -186,20 +297,44 @@ export function kickoff(game, { day, fixtures }) {
     if (win && sc.length > 1) { notes.push({ wag: win.w.id, text: `${pe.name} chose your invitation over ${sc.filter((x) => x !== win).map((x) => x.w.name).join(" and ")}.` }); remember(game, win.w.id, "rival", { id, name: sc[1].w.name, over: pe.name, wag: sc[1].w.id }); }
   }
   for (const w of ws) {
-    const a = w.act; w.last = null;
+    const a = w.act; w.last = null; w.sq = null;
+    // money that comes in by itself: a little for the brand, more for a business that is open
+    const pass = Math.floor(w.brand / P.brand.passiveDiv) + bizIncome(game, w);
+    if (pass > 0) { earn(game, w, pass, "brand"); notes.push({ wag: w.id, text: `Your brand${w.biz.lvl ? " and your business" : ""} brought in ${pass} coins.` }); }
+    // the match (a ticket, paid once) is separate from the week's activity
+    const m = w.match; let atMatch = false; w.match = null;
+    if (m) {
+      if (w.coins >= P.cost.attend) { spend(game, w, P.cost.attend, "ticket"); w.attending = { day, match: m.match, team: m.team, target: m.target || null, done: false }; w.cnt.attend++; atMatch = true; }
+      else notes.push({ wag: w.id, text: "You could not afford the ticket, so you did not go to the match." });
+    }
+    const k = atMatch ? P.atMatch : 1, show = (act, extra = {}) => { w.last = { act, ...extra, ...(atMatch ? { attend: m.team } : {}) }; };
     if (a.act === "content") {
-      if (contentLeft(game, w) > 0) { const n = earn(game, w, contentPay(game, w), "content"); w.content.n++; w.fol += P.content.fol; w.cnt.content++; w.last = { act: "content", earned: n }; notes.push({ wag: w.id, text: `Your content did numbers: +${n} coins, +${P.content.fol} followers.` }); }
-      else w.last = { act: "quiet" };
-    } else if (a.act === "attend") {
-      if (w.coins >= P.cost.attend) { spend(game, w, P.cost.attend, "ticket"); w.attending = { day, match: a.match, team: a.team, target: a.target || null, done: false }; w.cnt.attend++; w.last = { act: "attend", team: a.team }; }
-      else { w.last = { act: "quiet" }; notes.push({ wag: w.id, text: "You could not afford the ticket, so you stayed in." }); }
+      if (contentLeft(game, w) > 0) {
+        const n = earn(game, w, Math.round(contentPay(game, w) * k), "content"), f = Math.round(P.content.fol * k); w.content.n++; w.fol += f; w.brand = clamp(w.brand + P.content.brand * k, 0, P.brand.max); w.cnt.content++;
+        show("content", { earned: n }); notes.push({ wag: w.id, text: `Your content did numbers${atMatch ? " (a quick one, between the match and the stands)" : ""}: +${n} coins, +${f} followers.` });
+        if (!atMatch) openSeq(game, w, "content", day);
+      } else show("quiet");
+    } else if (a.act === "party") {
+      if (w.coins >= P.cost.party) {
+        spend(game, w, P.cost.party, "party"); const f = Math.round(P.party.fol * k); w.fol += f; w.brand = clamp(w.brand + P.party.brand * k, 0, P.brand.max); w.cnt.party++;
+        show("party"); notes.push({ wag: w.id, text: `You went out${atMatch ? " after the match" : ""}: -${P.cost.party} coins, +${f} followers.` });
+        if (!atMatch) openSeq(game, w, "party", day);
+      } else { show("quiet"); notes.push({ wag: w.id, text: "You could not afford a night out, so you stayed in." }); }
+    } else if (a.act === "business") {
+      addProg(game, w, P.biz.base * k, notes); w.cnt.business++; show("business"); notes.push({ wag: w.id, text: `You worked on your business${atMatch ? " (a quick visit)" : ""}.` });
+      if (!atMatch) openSeq(game, w, "business", day);
+    } else if (a.act === "date" && isNpc(a.partner)) {
+      if (w.coins >= P.cost.dateNpc) { const res = runNpcDate(game, w, a.partner, day, notes); show("date", { with: a.partner, good: res.good }); }
+      else { show("quiet"); notes.push({ wag: w.id, text: "You could not afford the date, so you stayed in." }); }
     } else if (a.act === "date" && isHumanFb(a.partner)) {
       const q = game.players[pidOf(a.partner)], L = q && q.life, booked = L && L.act && L.act.wag === w.id, payer = a.payer || w.id, pay = payer === w.id ? w.coins : (q ? q.coins || 0 : 0);
-      if (!q || !humanOk(game, q.id) || !booked || committed(game, a.partner) || pay < P.cost.date) { w.last = { act: "quiet", failed: true }; notes.push({ wag: w.id, text: `Your date with ${q ? q.name : "them"} did not happen. You were not charged.` }); if (L && L.act && L.act.wag === w.id) L.act = null; }
-      else { const res = runDate(game, w, a.partner, day, { payer, notes, stories }); w.last = { act: "date", with: a.partner, good: res.good }; }
+      if (!q || !humanOk(game, q.id) || !booked || committed(game, a.partner) || pay < P.cost.date) { show("quiet", { failed: true }); notes.push({ wag: w.id, text: `Your date with ${q ? q.name : "them"} did not happen. You were not charged.` }); if (L && L.act && L.act.wag === w.id) L.act = null; }
+      else { const res = runDate(game, w, a.partner, day, { payer, notes, stories }); show("date", { with: a.partner, good: res.good }); }
     } else if (a.act === "date" && isFb(a.partner) && !a.failed) {
-      const pe = personOf(game, a.partner); if (pe && pe.ok) { const res = runDate(game, w, a.partner, day, { payer: w.id, notes, stories }); w.last = { act: "date", with: a.partner, good: res.good }; } else w.last = { act: "quiet" };
-    } else { w.cnt.quiet++; w.last = a.failed ? { act: "quiet", failed: true } : { act: "quiet" }; }
+      const pe = personOf(game, a.partner); if (pe && pe.ok) { const res = runDate(game, w, a.partner, day, { payer: w.id, notes, stories }); show("date", { with: a.partner, good: res.good }); } else show("quiet");
+    } else {
+      w.cnt.quiet++; warm(game, w, P.quiet.bond, P.quiet.rapport); show("quiet", a.failed ? { failed: true } : {});
+    }
     w.act = null;
   }
   // human footballers' bookings that no WAG kept are cleared (and never charged)
@@ -216,7 +351,7 @@ export function kickoff(game, { day, fixtures }) {
 // ---------- full time: an attendance becomes an encounter, once ----------
 export function afterMatch(game, { day, results }) {
   const notes = [], P = K(game).attend;
-  for (const w of Object.values(ensureWag(game).list)) {
+  for (const w of wagList(game)) {
     const at = w.attending; if (!at || at.done || at.day !== day) continue; at.done = true;
     const res = (results || []).find((m) => (m.a === at.match[0] && m.b === at.match[1]) || (m.a === at.match[1] && m.b === at.match[0])); if (!res) continue;
     const mine = at.team === res.a ? [res.ga, res.gb] : [res.gb, res.ga], won = mine[0] > mine[1], r = makeRng(game.seed, "wagAttend", w.id, game.season, day);
@@ -338,14 +473,24 @@ export function requestsFor(game, whoId) {
 }
 export const wagPeople = (game) => wagList(game).map((w) => ({ id: w.id, name: w.name, g: w.g, img: w.img }));
 export function viewFor(game, w, { day, fixtures, open }) {
-  const P = K(game), G = game.P.social.gift, ids = new Set([...activeContacts(w, day).map((c) => c.id)]);
-  const sc = scene(game, w, day), pe = (id) => personOf(game, id);
-  const people = (list, via) => list.map((id) => { const x = pe(id); if (!x || !x.ok) return null; const pr = pairOf(game, w.id, id), tk = takenBy(game, id); return { id, name: x.name, team: x.team != null ? (game.teams[x.team] || {}).name : "Free agent", pos: x.pos, ovr: x.ovr, human: x.human, via, seeing: !!(pr && pr.status === "seeing"), taken: !!(tk && tk !== w.id), can: via === "scene" || reachable(game, w, id, day) }; }).filter(Boolean);
-  const contacts = (w.contacts || []).map((c) => { const x = pe(c.id); return x && x.ok ? { id: c.id, name: x.name, team: x.team != null ? (game.teams[x.team] || {}).name : "Free agent", human: x.human, from: c.from, until: c.until, ready: c.from <= day } : null; }).filter(Boolean);
+  const P = K(game), G = game.P.social.gift;
+  const sc = scene(game, w, day), pe = (id) => personOf(game, id), tn = (x) => (x.team != null ? (game.teams[x.team] || {}).name : "Free agent");
+  const people = (list, via) => list.map((id) => { const x = pe(id); if (!x || !x.ok) return null; const pr = pairOf(game, w.id, id), tk = takenBy(game, id); return { id, pid: pidOf(id), name: x.name, g: x.g, team: tn(x), pos: x.pos, ovr: x.ovr, human: x.human, via, seeing: !!(pr && pr.status === "seeing"), taken: !!(tk && tk !== w.id), can: via === "scene" || reachable(game, w, id, day) }; }).filter(Boolean);
+  const contacts = (w.contacts || []).map((c) => { const x = pe(c.id); return x && x.ok ? { id: c.id, pid: pidOf(c.id), name: x.name, g: x.g, team: tn(x), pos: x.pos, ovr: x.ovr, human: x.human, from: c.from, until: c.until, ready: c.from <= day } : null; }).filter(Boolean);
   const attendFx = (fixtures || []).map((f, i) => ({ i, a: f[0], b: f[1], an: (game.teams[f[0]] || {}).name, bn: (game.teams[f[1]] || {}).name }));
-  const roster = {}; for (const f of fixtures || []) for (const t of f) roster[t] = Object.values(game.players).filter((p) => p.team === t && !p.retired && (fbOk(game, p.id) || humanOk(game, p.id))).sort((a, b) => b.ovr - a.ovr).slice(0, 12).map((p) => ({ id: p.user ? "u:" + p.id : fbId(p.id), name: p.name, pos: p.pos, human: !!p.user, taken: p.user ? committed(game, "u:" + p.id) : !!takenBy(game, fbId(p.id)) }));
-  const rq = requestsFor(game, w.id), humans = Object.values(game.players).filter((p) => p.user && !p.retired).map((p) => ({ id: "u:" + p.id, name: p.name, g: p.gender === "F" ? "F" : "M", img: p.img, team: p.team != null ? (game.teams[p.team] || {}).name : "Free agent", taken: committed(game, "u:" + p.id) }));
-  return { id: w.id, name: w.name, g: w.g, img: w.img, coins: Math.round(w.coins), fol: w.fol, support: w.support != null ? (game.teams[w.support] || {}).name : null, act: w.act ? { ...w.act } : null, last: w.last,
-    cost: P.cost, contentLeft: contentLeft(game, w), contentPay: contentPay(game, w), meet: { base: P.attend.meet, target: P.attend.target }, contacts, scene: people(sc, "scene"), fixtures: attendFx, roster, seeing: pairsView(game, w), humans,
+  const roster = {}; for (const f of fixtures || []) for (const t of f) roster[t] = Object.values(game.players).filter((p) => p.team === t && !p.retired && (fbOk(game, p.id) || humanOk(game, p.id))).sort((a, b) => b.ovr - a.ovr).slice(0, 12).map((p) => ({ id: p.user ? "u:" + p.id : fbId(p.id), pid: p.id, name: p.name, pos: p.pos, human: !!p.user, taken: p.user ? committed(game, "u:" + p.id) : !!takenBy(game, fbId(p.id)) }));
+  const rq = requestsFor(game, w.id), humans = Object.values(game.players).filter((p) => p.user && !p.retired).map((p) => ({ id: "u:" + p.id, pid: p.id, name: p.name, g: p.gender === "F" ? "F" : "M", img: p.img, team: p.team != null ? (game.teams[p.team] || {}).name : "Free agent", pos: p.pos, ovr: p.ovr, taken: committed(game, "u:" + p.id) }));
+  // The date pool: everyone you can invite this matchday, with a picture. Footballers show up once you have their number (a contact), or from the scene, or because you are seeing them.
+  const seeing = pairsView(game, w), asked = new Set(rq.outgoing.map((r) => r.who.id));
+  const pool = [
+    ...seeing.filter((x) => !x.human).map((x) => ({ id: x.id, kind: "seeing", pid: pidOf(x.id), name: x.name, team: x.team, bond: x.bond, can: true })),
+    ...contacts.filter((c) => c.ready && !c.human).map((c) => ({ ...c, kind: "contact", can: true, until: c.until })),
+    ...people(sc, "scene").filter((x) => !seeing.some((s) => s.id === x.id) && !contacts.some((c) => c.id === x.id && c.ready)).map((x) => ({ ...x, kind: "scene", can: !x.taken })),
+    ...npcOpts(game, w, day).map((x) => ({ id: "n:" + x.id, kind: "npc", slug: x.id, name: x.name, g: x.g, cost: P.cost.dateNpc, can: true })),
+    ...humans.map((h) => ({ ...h, kind: "human", asked: asked.has(h.id), can: !h.taken, seeing: seeing.some((s) => s.id === h.id), ready: contacts.some((c) => c.id === h.id && c.ready) })),
+  ].filter((x, i, a) => a.findIndex((y) => y.id === x.id) === i);
+  return { id: w.id, name: w.name, g: w.g, img: w.img, coins: Math.round(w.coins), fol: w.fol, brand: Math.round(w.brand), rapport: Math.round(w.rapport), biz: { lvl: w.biz.lvl, prog: w.biz.prog, per: P.biz.perLevel, max: P.biz.max, income: bizIncome(game, w), next: Math.round((w.biz.lvl + 1) * P.biz.income * (1 + w.brand * P.biz.brandMult)) }, passive: Math.floor(w.brand / P.brand.passiveDiv) + bizIncome(game, w),
+    support: w.support != null ? (game.teams[w.support] || {}).name : null, act: w.act ? { ...w.act } : null, match: w.match ? { ...w.match } : null, last: w.last, seq: seqView(game, w),
+    cost: P.cost, atMatch: P.atMatch, contentLeft: contentLeft(game, w), contentPay: contentPay(game, w), meet: { base: P.attend.meet, target: P.attend.target }, contacts, scene: people(sc, "scene"), pool, fixtures: attendFx, roster, seeing, humans,
     incoming: rq.incoming, outgoing: rq.outgoing, gifts: Object.entries(G.tiers).map(([id, t]) => ({ id, name: { flowers: "Flowers", watch: "Watch", jewel: "Jewellery" }[id], price: t.price, can: w.coins >= t.price })), mem: memoryOf(game, w), attending: w.attending && !w.attending.done ? { team: (game.teams[w.attending.team] || {}).name } : null, open: !!open, cnt: w.cnt };
 }

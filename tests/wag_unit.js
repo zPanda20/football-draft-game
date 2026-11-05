@@ -38,24 +38,24 @@ t("a WAG is not a footballer: no player record, no team, no wages, no football f
 });
 t("setAct: choose a match, a team, a target; money is not taken until kick-off", () => {
   const { g, ws } = world(); const w = ws[0], c0 = w.coins, tg = NPC(g, 0);
-  assert.equal(W.setAct(g, w, { act: "attend", fixture: 0, team: 5 }, { day: 2, fixtures: FX }).ok, false, "team must be in the fixture");
-  assert.equal(W.setAct(g, w, { act: "attend", fixture: 9, team: 0 }, { day: 2, fixtures: FX }).ok, false, "fixture must exist");
-  assert.equal(W.setAct(g, w, { act: "attend", fixture: 0, team: 1, target: W.fbId(tg.id) }, { day: 2, fixtures: FX }).ok, false, "target must play for the supported team");
-  assert.ok(W.setAct(g, w, { act: "attend", fixture: 0, team: 0, target: W.fbId(tg.id) }, { day: 2, fixtures: FX }).ok);
+  assert.equal(W.setMatch(g, w, { fixture: 0, team: 5 }, { fixtures: FX }).ok, false, "team must be in the fixture");
+  assert.equal(W.setMatch(g, w, { fixture: 9, team: 0 }, { fixtures: FX }).ok, false, "fixture must exist");
+  assert.equal(W.setMatch(g, w, { fixture: 0, team: 1, target: W.fbId(tg.id) }, { fixtures: FX }).ok, false, "target must play for the supported team");
+  assert.ok(W.setMatch(g, w, { fixture: 0, team: 0, target: W.fbId(tg.id) }, { fixtures: FX }).ok);
   assert.equal(w.coins, c0, "nothing paid yet");
   assert.equal(W.setAct(g, w, { act: "nonsense" }, { day: 2, fixtures: FX }).ok, false);
-  const poor = W.createWag(g, { name: "P" }); poor.coins = 5; assert.equal(W.setAct(g, poor, { act: "attend", fixture: 0, team: 0 }, { day: 2, fixtures: FX }).ok, false, "cannot afford a ticket");
+  const poor = W.createWag(g, { name: "P" }); poor.coins = 5; assert.equal(W.setMatch(g, poor, { fixture: 0, team: 0 }, { fixtures: FX }).ok, false, "cannot afford a ticket");
 });
 t("kick-off settles the ticket once (a second kick-off call for the same day does nothing)", () => {
   const { g, ws } = world(); const w = ws[0], c0 = w.coins;
-  W.setAct(g, w, { act: "attend", fixture: 0, team: 0 }, { day: 2, fixtures: FX });
+  W.setMatch(g, w, { fixture: 0, team: 0 }, { fixtures: FX });
   const a = kick(g); assert.equal(w.coins, c0 - g.P.social.wag.cost.attend); assert.ok(w.attending && !w.attending.done);
   const b = kick(g); assert.ok(b.again); assert.equal(w.coins, c0 - g.P.social.wag.cost.attend, "never charged twice");
   assert.equal(w.cnt.attend, 1);
 });
 t("attendance resolves once, after the result: a contact for the NEXT matchday, never the same day", () => {
   const { g, ws } = world(); const w = ws[0]; g.P.social.wag.attend.meet = 1;
-  const tg = NPC(g, 0); W.setAct(g, w, { act: "attend", fixture: 0, team: 0, target: W.fbId(tg.id) }, { day: 2, fixtures: FX }); kick(g);
+  const tg = NPC(g, 0); W.setMatch(g, w, { fixture: 0, team: 0, target: W.fbId(tg.id) }, { fixtures: FX }); kick(g);
   assert.equal(w.contacts.length, 0, "no encounter before the match is over");
   const r = after(g); assert.equal(w.contacts.length, 1); assert.equal(w.contacts[0].id, W.fbId(tg.id));
   assert.equal(W.activeContacts(w, 2).length, 0, "no free same-week date"); assert.equal(W.activeContacts(w, 3).length, 1);
@@ -68,14 +68,14 @@ t("attendance never reads or changes football results: the same match plays out 
   const A = world(), B = world(); A.g.P.social.wag.attend.meet = 1;
   const rec = (g) => { const m = beginMatch(g, 0, 1, "0-0-1", {}); return JSON.stringify([m.ht.score, m.ht.events.length]); };
   const base = rec(B.g);
-  W.setAct(A.g, A.ws[0], { act: "attend", fixture: 0, team: 0 }, { day: 2, fixtures: FX }); kick(A.g); after(A.g);
+  W.setMatch(A.g, A.ws[0], { fixture: 0, team: 0 }, { fixtures: FX }); kick(A.g); after(A.g);
   assert.equal(rec(A.g), base, "football RNG untouched by WAG activity");
 });
 t("a miss gives followers only; a hit needs the meeting roll (seeded, repeatable)", () => {
-  const run = () => { const { g, ws } = world({ seed: 31 }); g.P.social.wag.attend.meet = 0.5; W.setAct(g, ws[0], { act: "attend", fixture: 0, team: 0 }, { day: 2, fixtures: FX }); kick(g); after(g); return ws[0].contacts.map((c) => c.id).join(); };
+  const run = () => { const { g, ws } = world({ seed: 31 }); g.P.social.wag.attend.meet = 0.5; W.setMatch(g, ws[0], { fixture: 0, team: 0 }, { fixtures: FX }); kick(g); after(g); return ws[0].contacts.map((c) => c.id).join(); };
   assert.equal(run(), run(), "same seed, same encounter");
   const { g, ws } = world(); g.P.social.wag.attend.meet = 0; g.P.social.wag.attend.fameCap = 0; g.P.social.wag.attend.win = 0; g.P.social.wag.attend.target = 0;
-  W.setAct(g, ws[0], { act: "attend", fixture: 0, team: 0 }, { day: 2, fixtures: FX }); kick(g); const f0 = ws[0].fol; after(g); assert.equal(ws[0].contacts.length, 0); assert.ok(ws[0].fol > f0);
+  W.setMatch(g, ws[0], { fixture: 0, team: 0 }, { fixtures: FX }); kick(g); const f0 = ws[0].fol; after(g); assert.equal(ws[0].contacts.length, 0); assert.ok(ws[0].fol > f0);
 });
 t("content pays a capped amount a few times a season", () => {
   const { g, ws } = world(); const w = ws[0], K = g.P.social.wag.content;
@@ -226,7 +226,7 @@ t("gifts are refused when Social events are switched off; dating still works", (
 });
 t("a WAG never appears in the roster, pool, lineups, stats, training or wages, however much they do", () => {
   const { g, us, ws } = world({ nf: 1, nw: 2 }); const players0 = Object.keys(g.players).length, pool0 = g.pool.length, ids = ws.map((w) => w.id);
-  for (let d = 0; d < 6; d++) { for (const w of ws) { w.contacts.push({ id: W.fbId(NPC(g, 0).id), name: "x", team: 0, made: 0, from: 0, until: 99 }); W.setAct(g, w, { act: d % 2 ? "attend" : "content", fixture: 0, team: 0 }, { day: d, fixtures: FX }); } kick(g, d); after(g, d); }
+  for (let d = 0; d < 6; d++) { for (const w of ws) { w.contacts.push({ id: W.fbId(NPC(g, 0).id), name: "x", team: 0, made: 0, from: 0, until: 99 }); W.setAct(g, w, { act: "content" }, { day: d, fixtures: FX }); if (d % 2) W.setMatch(g, w, { fixture: 0, team: 0 }, { fixtures: FX }); } kick(g, d); after(g, d); }
   assert.equal(Object.keys(g.players).length, players0); assert.equal(g.pool.length, pool0);
   for (const t of g.teams) for (const id of ids) assert.ok(!t.players.includes(id) && !(t.lineup && JSON.stringify(t.lineup).includes('"' + id + '"')));
   for (const id of ids) { assert.ok(!(id in (g.stats || {}))); assert.ok(!(id in g.players)); }

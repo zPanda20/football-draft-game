@@ -20,7 +20,7 @@ function client(name, role, room) {
 }
 function play(c, s) {
   const g = s.gala; if (g && g.attending) { const key = s.step + s.seasonNo; if (s.step === "gala.prep" && !c.done.has(key)) { c.done.add(key); c.send({ t: "gReady" }); } if (s.step === "gala.live" && !g.pick && !c.done.has(key)) { c.done.add(key); c.send({ t: "gPick", opt: (g.options || [])[0] ? g.options[0].id : "pass" }); } }
-  if (c.role === "wag") { const W = s.wag; if (W && s.step === "md.lineup" && W.chooseOpen && !c.done.has("w" + s.seasonNo + W.next)) { c.done.add("w" + s.seasonNo + W.next); const ready = W.contacts.find((x) => x.ready); const f = W.fixtures[0]; if (ready && W.coins >= W.cost.date) c.send({ t: "wAct", c: { act: "date", partner: ready.id } }); else if (f && W.coins >= W.cost.attend) c.send({ t: "wAct", c: { act: "attend", fixture: f.i, team: f.a, target: ((W.roster[f.a] || []).find((p) => !p.taken && !p.human) || {}).id || null } }); else c.send({ t: "wAct", c: { act: "quiet" } }); } return; }
+  if (c.role === "wag") { const W = s.wag; if (W && s.step === "md.lineup" && W.chooseOpen && !c.done.has("w" + s.seasonNo + W.next)) { c.done.add("w" + s.seasonNo + W.next); const ready = W.contacts.find((x) => x.ready); const f = W.fixtures[0]; if (ready && W.coins >= W.cost.date) c.send({ t: "wAct", c: { act: "date", partner: ready.id } }); else { if (f && W.coins >= W.cost.attend) c.send({ t: "wMatch", c: { fixture: f.i, team: f.a, target: ((W.roster[f.a] || []).find((p) => !p.taken && !p.human) || {}).id || null } }); c.send({ t: "wAct", c: { act: W.next % 3 === 0 ? "business" : W.next % 3 === 1 && W.contentLeft > 0 ? "content" : "quiet" } }); } } return; }
   const me = s.me; if (!me) return;
   if (s.step === "draft.pick" && !(me.pick && me.pick.locked)) { c.send({ t: "pick", idx: 0 }); c.send({ t: "lock" }); }
   if (s.step === "market.bid" && !me.done && !me.bid) c.send({ t: "pass" });
@@ -48,16 +48,16 @@ must(!host2.s.wag && host2.s.teams.filter((t) => t.human).length === 1, "manager
 // play on to the season-end checkpoint
 must(await until(host2, (s) => s.step === "season.end" && !s.final, 150000), "season 1 played out after the restore");
 await wait(600);
-const end = { coins: wag3.s.wag.coins, fol: wag3.s.wag.fol, cnt: { ...wag3.s.wag.cnt }, seeing: wag3.s.wag.seeing.length };
-must(end.cnt.attend + end.cnt.date + end.cnt.content >= 3, "the WAG played real weeks in season 1: " + JSON.stringify(end.cnt));
+const end = { coins: wag3.s.wag.coins, fol: wag3.s.wag.fol, cnt: { ...wag3.s.wag.cnt }, seeing: wag3.s.wag.seeing.length, brand: wag3.s.wag.brand, biz: JSON.stringify(wag3.s.wag.biz) };
+must(end.cnt.attend + end.cnt.date + end.cnt.content + end.cnt.business >= 3, "the WAG played real weeks in season 1: " + JSON.stringify(end.cnt));
 srv.kill("SIGKILL"); await wait(800); for (const c of [host2, wag3, wag4]) c.ws.close();
 await boot();
 const host3 = client("Ana", "host", room), wag5 = client("Wen", "wag", room); host3.role = "host";
 must(await until(wag5, (s) => !!s.wag), "after a restart from the season-end save the WAG still has a record");
-must(wag5.s.wag.coins === end.coins && wag5.s.wag.fol === end.fol && JSON.stringify(wag5.s.wag.cnt) === JSON.stringify(end.cnt) && wag5.s.wag.seeing.length === end.seeing, "season-end restore keeps coins, followers, counters and relationships");
+must(wag5.s.wag.coins === end.coins && wag5.s.wag.fol === end.fol && JSON.stringify(wag5.s.wag.cnt) === JSON.stringify(end.cnt) && wag5.s.wag.seeing.length === end.seeing && wag5.s.wag.brand === end.brand && JSON.stringify(wag5.s.wag.biz) === end.biz, "season-end restore keeps coins, followers, counters, relationships, brand and business");
 host3.send({ t: "continue" });
 must(await until(host3, (s) => s.step === "season.end" && s.final, 200000), "the restored game plays season 2 to the end with the WAG taking part");
-must(wag5.s.wag.cnt.attend + wag5.s.wag.cnt.date + wag5.s.wag.cnt.content + wag5.s.wag.cnt.quiet > end.cnt.attend + end.cnt.date + end.cnt.content + end.cnt.quiet, "the WAG kept playing weeks after the restore");
+must(wag5.s.wag.cnt.attend + wag5.s.wag.cnt.date + wag5.s.wag.cnt.content + wag5.s.wag.cnt.quiet + wag5.s.wag.cnt.business > end.cnt.attend + end.cnt.date + end.cnt.content + end.cnt.quiet + end.cnt.business, "the WAG kept playing weeks after the restore");
 srv.kill(); for (const c of [host3, wag5]) c.ws.close();
 if (check.length) { console.error("FAILED:\n - " + check.join("\n - ")); process.exit(1); }
 console.log("wag restore e2e ok"); process.exit(0);

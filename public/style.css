@@ -680,3 +680,16 @@ body[data-pm="1"] .page{grid-template-columns:minmax(0,1fr)}body[data-pm="1"] .s
 .galatables{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
 .gtable{border:1px solid var(--line,#ffffff22);border-radius:10px;padding:8px}.gtable.mine{border-color:var(--accent,#3ddc84)}.gtable .you{font-weight:700}
 .sitopt{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.sitopt .tiny{flex:1 1 200px}
+
+/* WAG week: activity cards, date pool, match-time choices, rosters */
+.wtabs{margin:10px 0}
+.wacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.wact{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:inherit;cursor:pointer;font:inherit}
+.wact:hover:not(:disabled){border-color:var(--acc)}.wact.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}.wact:disabled{opacity:.5;cursor:not-allowed}.wact .wi{font-size:22px}
+.wtile{min-width:0}.wtile .pcard{margin:0 auto}.datecards .wtile b{font-size:13px}
+.wopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:8px}
+.wopt{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:inherit;cursor:pointer;font:inherit}
+.wopt:hover:not(:disabled){border-color:var(--acc)}.wopt:disabled{opacity:.45;cursor:not-allowed}
+.rost{display:flex;flex-wrap:wrap;gap:10px}.rostc{width:104px}
+@media (max-width:560px){.wacts{grid-template-columns:1fr 1fr}.datecards{grid-template-columns:repeat(2,1fr)}}
+.wagh .grow{flex:1 1 200px;min-width:0}

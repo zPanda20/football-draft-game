@@ -206,14 +206,38 @@ export const DEFAULT_PARAMS = {
     invite: { dinnerMult: 1.5, bond: 4, fol: 600, maxOpen: 2, memory: 12 },   // a dinner costs this many dates; extra bond on top of a date; followers when it is a public night out
     gift: { tiers: { flowers: { price: 12, like: 5 }, watch: { price: 45, like: 11 }, jewel: { price: 120, like: 18 } }, perTarget: 3, perWeek: 2, fade: 0.5, cap: 30, fondQ: 300, accept: 0.3, noticeChance: 0.35, publicFol: 900, jealous: 14 },
     // WAG mode (Stage 1). Labelled defaults to tune: a WAG has no football income, a finite starting purse and a few capped ways to earn.
-    wag: { startCoins: 400, startFol: 3000, age: 24,
-      cost: { attend: 25, date: 60 },                                       // ticket price (paid once, at kick-off); a date is paid only when it happens
-      content: { perSeason: 4, base: 30, folDiv: 4000, maxPay: 90, fol: 250 },   // "make content": pay grows a little with followers, capped, a few times a season
+    wag: { startCoins: 400, startFol: 3000, startBrand: 10, startRapport: 10, age: 24,
+      cost: { attend: 25, date: 60, dateNpc: 30, party: 40 },               // ticket (paid once, at kick-off); a date is paid only when it happens (the pool is cheaper than a footballer)
+      content: { perSeason: 8, base: 30, folDiv: 4000, maxPay: 90, fol: 250, brandPay: 0.15, brand: 1 },   // the quick version of "make content": pay grows a little with followers and brand, capped
+      party: { fol: 500, brand: 0 },                                         // the quick version of a night out (a sequence replaces it when there is no match)
+      quiet: { bond: 3, rapport: 1 },                                        // a quiet night in: a little warmth with whoever you are seeing (or with the scene)
+      npc: { pool: 3, mult: 0.2, rapport: 1 },                               // dating someone from the pool: followers worth this share of a date with a player, no brand
+      brand: { max: 100, passiveDiv: 20 },                                   // brand points give passive coins each matchday (1 per this many points)
+      biz: { base: 1, perLevel: 3, max: 5, income: 8, brandMult: 0.005 },             // progress per level, top level, coins per level per matchday, +0.5% per brand point
+      atMatch: 0.5,                                                          // a content, party or business week spent at a match is a quick version worth this share
+      seq: { chance: 0.0016, cap: 0.1 },                                     // an option's success chance rises by this per brand point (at most +cap)
       attend: { meet: 0.3, target: 0.2, fame: 0.00002, fameCap: 0.1, win: 0.05, fol: 150, contactDays: 3, scene: 2 },   // meeting chance; bonus for naming someone; per follower; capped; supported team won; followers for a day out
-      date: { good: 0.55, bondStart: 15, bondGood: 10, bondBad: 2, decayAfter: 2, decay: 4, end: 8, fol: 300, contactBonus: 0.15, accept: 0.38, rejRecover: 3, maxOpen: 3 },   // bond goes up with good dates and fades if you neglect it
+      date: { good: 0.55, bondStart: 15, bondGood: 10, bondBad: 2, decayAfter: 2, decay: 4, end: 8, fol: 300, brand: 1, contactBonus: 0.15, accept: 0.38, rejRecover: 3, maxOpen: 3 },   // bond goes up with good dates and fades if you neglect it; the scene's regard adds a little to a date's score
       gift: { maxPerWeek: 2 },                                                // price, fade and caps come from social.gift
       gala: { toastFol: 400, jokeHit: 300, danceBond: 3 },
-      story: { firstDate: 0.5 } },
+      story: { firstDate: 0.5 },
+      // What a WAG can do while the match is on (when not at a match): two choices, one in each half. Numbers only; the words are in engine/wagseq.js.
+      // cost: coins to pay now. c f b r prog: coins, followers, brand, relationships (bond with whoever you see, else the scene's regard), business progress.
+      // p: chance it works (brand helps a little); x: what happens when it does not; meet: a new contact. def: what happens if you do not choose in time.
+      seqs: {
+        content: [
+          [{ id: "trend", cost: 0, c: 20, f: 300, b: 0, r: 0, p: 0.9, x: { f: 50 }, def: 1 }, { id: "collab", cost: 0, c: 55, f: 100, b: 2, r: 0, p: 0.65, x: { c: 10, b: -2 } }, { id: "raw", cost: 0, c: 10, f: 200, b: 3, r: 0, p: 0.8, x: { f: -100 } }],
+          [{ id: "post", cost: 0, c: 0, f: 250, b: 0, r: 0, p: 0.92, x: { f: 50 }, def: 1 }, { id: "peak", cost: 0, c: 0, f: 550, b: 0, r: 0, p: 0.6, x: { f: 60 } }, { id: "tag", cost: 0, c: 0, f: 300, b: 0, r: 4, p: 0.75, x: { r: -3, b: -1 } }],
+        ],
+        party: [
+          [{ id: "vip", cost: 30, c: 0, f: 500, b: 1, r: 0, p: 0.8, x: { f: 100 } }, { id: "floor", cost: 0, c: 0, f: 250, b: 0, r: 2, p: 0.85, x: { f: 100 }, def: 1 }, { id: "bar", cost: 0, c: 0, f: 100, b: 0, r: 3, p: 0.95, x: { r: 1 } }],
+          [{ id: "live", cost: 0, c: 0, f: 600, b: 1, r: 0, p: 0.6, x: { f: -300, b: -3 } }, { id: "after", cost: 25, c: 0, f: 200, b: 0, r: 2, p: 0.7, x: { f: 50 }, meet: 1 }, { id: "home", cost: 0, c: 0, f: 50, b: 0, r: 1, p: 1, x: {}, def: 1 }],
+        ],
+        business: [
+          [{ id: "small", cost: 20, c: 0, f: 0, b: 0, r: 0, prog: 1, p: 0.95, x: { prog: 0.5 }, def: 1 }, { id: "big", cost: 60, c: 0, f: 0, b: 0, r: 0, prog: 3, p: 0.7, x: { prog: 0 } }, { id: "lean", cost: 0, c: 0, f: 0, b: 0, r: 0, prog: 0.5, p: 1, x: {} }],
+          [{ id: "ads", cost: 25, c: 0, f: 400, b: 0, r: 0, prog: 1, p: 0.8, x: { f: 100 } }, { id: "hire", cost: 40, c: 0, f: 0, b: 1, r: 0, prog: 2, p: 0.75, x: { prog: 0.5 } }, { id: "network", cost: 0, c: 0, f: 0, b: 0, r: 3, prog: 0.5, p: 0.9, x: {}, def: 1 }],
+        ],
+      } },
     // the gala
     gala: { prepSec: 40, liveSec: 55, endSec: 14, tableSize: 6, seatPerTarget: 2, dramaSeat: 0.7, boastFol: 800, maxStories: 3, toastTrust: 1, minUsers: 1, toastFol: 400, jokeHit: 300, sceneFol: 700, danceLove: 6, danceBond: 3 },
   },

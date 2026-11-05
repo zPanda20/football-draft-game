@@ -68,17 +68,22 @@ function onState(c, s) {
 function wagBot(c, s) {
   const W = s.wag; if (!W) return;
   const lk = "L" + s.seasonNo + ":" + W.next + ":" + (W.last && W.last.act);
-  if (W.last && !c.done.has(lk)) { c.done.add(lk); if (W.last.act === "attend") evidence.attend++; if (W.last.act === "date" && !W.last.failed) { evidence.date++; if (String(W.last.with).startsWith("u:")) evidence.humanDate++; } if (W.last.act === "content") evidence.content++; }
+  if (W.last && !c.done.has(lk)) { c.done.add(lk); if (W.last.attend != null) evidence.attend++; if (W.last.act === "party") evidence.party = (evidence.party || 0) + 1; if (W.last.act === "business") evidence.business = (evidence.business || 0) + 1; if (W.last.act === "date" && String(W.last.with).startsWith("n:")) evidence.npcDate = (evidence.npcDate || 0) + 1; if (W.last.act === "date" && !W.last.failed) { evidence.date++; if (String(W.last.with).startsWith("u:")) evidence.humanDate++; } if (W.last.act === "content") evidence.content++; }
+  if (W.seq && W.seq.done && !c.done.has("sq" + lk)) { c.done.add("sq" + lk); evidence.seqDone = (evidence.seqDone || 0) + 1; if (W.seq.log.some((x) => x.auto)) evidence.seqAuto = (evidence.seqAuto || 0) + 1; if (W.seq.log.some((x) => !x.auto)) evidence.seqChosen = (evidence.seqChosen || 0) + 1; }
   if (c.opts.silent || c.opts.auto) return;
+  // the two match-time choices: some WAGs answer them live, the gifter never does (it is chosen for them)
+  if (["md.half1", "md.half", "md.half2"].includes(s.step) && W.seq && W.seq.open && !c.opts.gifter) { const k = "q" + s.seasonNo + ":" + W.next + ":" + W.seq.open.beat; if (!c.done.has(k)) { c.done.add(k); const o = W.seq.open.options.filter((x) => x.can); if (o.length) c.send({ t: "wSeq", i: o[(W.next + W.seq.open.beat) % o.length].i }); } }
   if (s.step !== "md.lineup" || !W.chooseOpen) return;
   const key = "w" + s.seasonNo + ":" + W.next; if (c.done.has(key)) return; c.done.add(key);
   const ready = W.contacts.find((x) => x.ready);
   if (c.opts.asker && (W.humans || []).length && !c.done.has("asked")) { const h = W.humans.find((x) => !x.taken); if (h) { c.done.add("asked"); return c.send({ t: "wAsk", to: h.id, kind: "date" }); } }
+  const f = W.fixtures[0]; if (f && W.coins >= W.cost.attend && (W.next % 2 === 0 || s.seasonNo === 1 && W.next < 4)) { const sq = (W.roster[f.a] || []).find((p) => !p.taken && !p.human); c.send({ t: "wMatch", c: { fixture: f.i, team: f.a, target: sq ? sq.id : null } }); }
   if (W.seeing.some((x) => x.human) && !c.done.has("hum" + W.next)) return c.send({ t: "wAct", c: { act: "quiet" } });
   if (ready && W.coins >= W.cost.date) return c.send({ t: "wAct", c: { act: "date", partner: ready.id } });
   if (W.social && W.contacts.length === 0 && W.gifts.length && c.opts.gifter && W.coins > 200) { const to = (W.scene[0] || {}).id; if (to) { evidence.giftSent++; c.send({ t: "wGift", to, tier: "flowers", pub: false }); } }
-  const f = W.fixtures[0]; if (f && W.coins >= W.cost.attend) { const sq = (W.roster[f.a] || []).find((p) => !p.taken && !p.human); return c.send({ t: "wAct", c: { act: "attend", fixture: f.i, team: f.a, target: sq ? sq.id : null } }); }
-  c.send({ t: "wAct", c: { act: W.contentLeft > 0 ? "content" : "quiet" } });
+  const rot = ["party", "business", "content", "date", "quiet"][W.next % 5], npc = (W.pool || []).find((x) => x.kind === "npc");
+  if (rot === "date" && npc && W.coins >= npc.cost) return c.send({ t: "wAct", c: { act: "date", partner: npc.id } });
+  c.send({ t: "wAct", c: { act: rot === "content" && W.contentLeft <= 0 ? "quiet" : rot === "date" ? "quiet" : rot === "party" && W.coins < W.cost.party ? "quiet" : rot } });
 }
 const roles = { mixed: [["Ana", "host"], ["Fay", "foot"], ["Wen", "wag", { asker: true }], ["Wyn", "wag", { gifter: true }], ["Wil", "wag", {}]], wagonly: [["Wen", "wag", { host: true }]], nowag: [["Ana", "host"], ["Bo", "mgr"], ["Fay", "foot"]], off: [["Ana", "host"], ["Fay", "foot"], ["Wen", "wag", { asker: true, gifter: true }]], auto: [["Ana", "host"], ["Wen", "wag", { auto: true }], ["Wyn", "wag", { silent: true }], ["Wex", "wag", {}]], late: [["Ana", "host"], ["Bo", "mgr"]] }[SHAPE];
 const cl = []; let host = null;
@@ -111,11 +116,11 @@ must(s.teams.filter((t) => t.human).length === cl.filter((c) => c.role === "mgr"
 const galaSteps = steps.filter((x) => x.startsWith("gala."));
 const galaOK = SHAPE === "off" || SHAPE === "nowag" || galaSteps.join(",") === Array.from({ length: SEASONS }, () => "gala.prep,gala.live,gala.end").join(",");
 must(SHAPE === "nowag" || galaOK, "gala steps wrong: " + galaSteps.join(","));
-if (SHAPE === "mixed") { must(evidence.attend >= 2, "attendance did not happen"); must(evidence.contacts >= 1, "nobody got a contact"); must(evidence.date >= 1, "no date happened"); must(evidence.humanAccepts >= 1, "the footballer never got a WAG request"); must(evidence.humanDate >= 1, "the WAG and the human footballer never went on their date"); must(evidence.competition >= 1, "two WAGs never competed for an invitation"); }
+if (SHAPE === "mixed") { must(evidence.attend >= 2, "attendance did not happen"); must((evidence.party || 0) >= 1 && (evidence.business || 0) >= 1 && (evidence.npcDate || 0) >= 1, "party, business and a pool date should all have happened: " + JSON.stringify(evidence)); must((evidence.seqChosen || 0) >= 1 && (evidence.seqAuto || 0) >= 1, "match-time choices: some answered live, some chosen for the WAG: " + JSON.stringify(evidence)); must(evidence.contacts >= 1, "nobody got a contact"); must(evidence.date >= 1, "no date happened"); must(evidence.humanAccepts >= 1, "the footballer never got a WAG request"); must(evidence.humanDate >= 1, "the WAG and the human footballer never went on their date"); must(evidence.competition >= 1, "two WAGs never competed for an invitation"); }
 if (SHAPE === "wagonly") { must(evidence.attend >= 1 || evidence.content >= 1, "a WAG alone never acted"); must(galaSteps.length === SEASONS * 3, "WAG-only gala missing"); }
 if (SHAPE === "off") { must(evidence.attend >= 1, "no attendance with social off"); }
 if (SHAPE === "auto") { const wex = cl.find((x) => x.name === "Wex"); must(wex.s && wex.s.wag && wex.s.wag.id === wex.wagId, "reconnected WAG lost its record"); const a = cl.find((x) => x.name === "Wen"); must(a.s.wag && a.s.wag.cnt.attend === 0 && a.s.wag.cnt.date === 0 && a.s.wag.coins >= 400, "the Auto WAG must take quiet weeks and spend nothing"); }
-if (SHAPE === "late") { const lw = late && late.s && late.s.wag; must(lw && lw.name === "Late WAG", "late WAG never joined: " + JSON.stringify(late && late.s && late.s.players.find((p) => p.you)) + " errors " + errors.join("; ")); if (lw) must(lw.cnt.attend + lw.cnt.content + lw.cnt.quiet + lw.cnt.date >= 1, "late WAG never played a week"); }
+if (SHAPE === "late") { const lw = late && late.s && late.s.wag; must(lw && lw.name === "Late WAG", "late WAG never joined: " + JSON.stringify(late && late.s && late.s.players.find((p) => p.you)) + " errors " + errors.join("; ")); if (lw) must(lw.cnt.attend + lw.cnt.content + lw.cnt.quiet + lw.cnt.date + (lw.cnt.party || 0) + (lw.cnt.business || 0) >= 1, "late WAG never played a week"); }
 console.log(`shape ${SHAPE}:`, JSON.stringify({ finished, evidence, galaSteps: galaSteps.length, elapsed: Math.round((Date.now() - t0) / 1000) + "s", errors }));
 srv.kill(); for (const c of cl) c.ws && c.ws.close();
 if (check.length) { console.error("FAILED " + SHAPE + ":\n - " + check.join("\n - ")); process.exit(1); }
