@@ -5,7 +5,7 @@
 import { makeRng, shuffle } from "./rng.js";
 import { ensureSoc, memOf, remember, fondOf, addFond, variant, deskStory, openThread } from "./social.js";
 import { ensureLife, ensureRom, applyFx, PARTNER_LIST, partnerById } from "./life.js";
-import { SEQ } from "./wagseq.js";
+import { MENU, CATS } from "./wagseq.js";
 
 const up = (s) => String(s).toUpperCase();
 const fail = (why) => ({ ok: false, why });
@@ -206,68 +206,58 @@ function addProg(game, w, n, notes) {
 }
 export const bizIncome = (game, w) => (w.biz.lvl ? Math.round(w.biz.lvl * K(game).biz.income * (1 + w.brand * K(game).biz.brandMult)) : 0);
 
-// ---------- while the matches are on: two choices, one in each half ----------
-// Opened at kick-off for a content, night-out or business week with no match to go to. The first choice is open in the first half; whatever is not chosen
-// is decided for you (the safe option) at half-time and again before full time, so a WAG who is away, idle or on Auto never holds anything up.
-const seqCfg = (game, kind) => K(game).seqs[kind];
+// ---------- while the matches are on: a menu of things to do ----------
+// Opened at kick-off for every WAG. Each half they can pick a couple of actions from the menu (one if they are at the match: they are busy watching); each action can be done once per match.
+// Picks resolve at once. Nothing is chosen for anyone: a WAG who does nothing simply spends the match on the sofa, so nothing ever waits for a WAG.
+const FOCUS = { content: "content", party: "party", business: "business" };
+const menuCfg = (game) => K(game).menu;
 const fxText = (e) => [e.c ? `${e.c > 0 ? "+" : ""}${e.c} coins` : "", e.f ? `${e.f > 0 ? "+" : ""}${e.f} followers` : "", e.b ? `${e.b > 0 ? "+" : ""}${e.b} brand` : "", e.r ? `${e.r > 0 ? "+" : ""}${e.r} relationships` : "", e.prog ? `${e.prog > 0 ? "+" : ""}${e.prog} business` : ""].filter(Boolean).join(", ");
-function openSeq(game, w, kind, day) { w.sq = { day, kind, beat: 0, picks: [null, null], log: [], done: false }; }
-const optsOf = (game, w, beat) => (w.sq && seqCfg(game, w.sq.kind) ? seqCfg(game, w.sq.kind)[beat] : []);
-function autoIdx(game, w, beat) {
-  const list = optsOf(game, w, beat), ok = list.map((o, i) => ({ o, i })).filter((x) => (x.o.cost || 0) <= w.coins);
-  const def = ok.find((x) => x.o.def); if (def) return def.i;
-  return ok.sort((x, y) => (x.o.cost || 0) - (y.o.cost || 0) || x.i - y.i)[0]?.i ?? -1;
-}
-function seqApply(game, w, idx, beat, auto, notes) {
-  const P = K(game), sq = w.sq, o = optsOf(game, w, beat)[idx], t = SEQ[sq.kind].opts[o.id], r = makeRng(game.seed, "wagSeq", w.id, game.season, sq.day, beat);
-  if (o.cost) spend(game, w, o.cost, sq.kind);
-  const ok = r() < clamp(o.p + Math.min(P.seq.cap, w.brand * P.seq.chance), 0, 1), e = ok ? o : o.x || {}, got = {};
-  if (e.c) { earn(game, w, e.c, sq.kind); got.c = e.c; }
-  if (e.f) { w.fol = Math.max(0, w.fol + e.f); got.f = e.f; }
+function openSeq(game, w, day, focus, at) { const S = K(game).seq; w.sq = { day, beat: 0, left: at ? S.slotsAt : S.slots, used: [], log: [], done: false, focus: focus || null, at: !!at }; }
+function seqApply(game, w, m, notes) {
+  const P = K(game), sq = w.sq, t = MENU[m.id], r = makeRng(game.seed, "wagSeq", w.id, game.season, sq.day, m.id);
+  if (m.cost) spend(game, w, m.cost, "matchday");
+  const focus = sq.focus && sq.focus === m.cat, ok = r() < clamp(m.p + Math.min(P.seq.cap, w.brand * P.seq.chance) + (focus ? P.seq.focusP : 0), 0, 1), e = ok ? m : m.x || {}, got = {};
+  const k = (n) => (focus && ok && n > 0 ? Math.round(n * P.seq.focus * 10) / 10 : n);
+  if (e.c) { const n = Math.round(k(e.c)); earn(game, w, n, "matchday"); got.c = n; }
+  if (e.f) { const n = Math.round(k(e.f)); w.fol = Math.max(0, w.fol + n); got.f = n; }
   if (e.b) { w.brand = clamp(w.brand + e.b, 0, P.brand.max); got.b = e.b; }
   if (e.r) { warm(game, w, e.r); got.r = e.r; }
-  if (e.prog) { addProg(game, w, e.prog, notes); got.prog = e.prog; }
+  if (e.prog) { const n = k(e.prog); addProg(game, w, n, notes); got.prog = n; }
   let met = null;
-  if (ok && o.meet) {
+  if (ok && m.meet) {
     const have = new Set((w.contacts || []).map((c) => c.id)), pool = scene(game, w, sq.day).filter((id) => !have.has(id));
     if (pool.length) { const id = pool[Math.floor(r() * pool.length)], pe = personOf(game, id); w.contacts = w.contacts || []; w.contacts.push({ id, name: pe.name, team: pe.team, made: sq.day, from: sq.day + 1, until: sq.day + P.attend.contactDays, via: "party" }); met = pe.name; }
   }
-  const text = (ok ? t.ok : t.bad || t.ok) + (met ? ` You met ${met}: you can invite them from next matchday.` : "");
-  const entry = { beat, id: o.id, name: t.name, ok, auto: !!auto, text, fx: fxText(got), cost: o.cost || 0 };
-  sq.picks[beat] = idx; sq.log.push(entry);
-  if (auto && notes) notes.push({ wag: w.id, text: `${SEQ[sq.kind].title}: you were busy, so "${t.name}" was chosen for you. ${text}${entry.fx ? ` (${entry.fx})` : ""}` });
-  return entry;
+  const lines = ok || !t.bad.length ? t.ok : t.bad, text = lines[Math.floor(r() * lines.length)] + (met ? ` You swapped numbers with ${met}: you can invite them from next matchday.` : "");
+  const entry = { beat: sq.beat, id: m.id, name: t.name, icon: t.icon, ok, text, fx: fxText(got), cost: m.cost || 0 };
+  sq.used.push(m.id); sq.left--; sq.log.push(entry); return entry;
 }
-// A WAG chooses an option for the current beat (the one that is open right now).
-export function seqChoose(game, w, idx) {
-  const sq = w.sq; if (!sq || sq.done) return fail("Nothing to choose right now.");
-  const beat = sq.beat; if (sq.picks[beat] != null) return fail("You have already chosen.");
-  const o = optsOf(game, w, beat)[idx | 0]; if (!o) return fail("Pick one of the options.");
-  if ((o.cost || 0) > w.coins) return fail(`That costs ${o.cost} coins.`);
-  const notes = [], entry = seqApply(game, w, idx | 0, beat, false, notes); if (beat === 1) sq.done = true;
-  return { ok: true, entry, notes };
+// A WAG does one action from the menu.
+export function seqChoose(game, w, id) {
+  const sq = w.sq; if (!sq || sq.done) return fail("Nothing to do right now.");
+  if (sq.left <= 0) return fail(sq.beat === 0 ? "That is your picks for the first half. More at half-time." : "That is all your picks for this match.");
+  const m = menuCfg(game).find((x) => x.id === id); if (!m) return fail("Pick something from the menu.");
+  if (sq.used.includes(id)) return fail("You have already done that this match.");
+  if ((m.cost || 0) > w.coins) return fail(`That costs ${m.cost} coins.`);
+  const notes = [], entry = seqApply(game, w, m, notes); return { ok: true, entry, notes };
 }
-// Half-time: any first choice left open is made for the WAG, and the second one opens.
+// Half-time: the second half's picks open.
 export function seqHalf(game, { day }) {
-  const notes = [];
-  for (const w of wagList(game)) { const sq = w.sq; if (!sq || sq.day !== day || sq.done || sq.beat !== 0) continue; if (sq.picks[0] == null) { const i = autoIdx(game, w, 0); if (i >= 0) seqApply(game, w, i, 0, true, notes); } sq.beat = 1; }
-  return { notes };
+  const S = K(game).seq;
+  for (const w of wagList(game)) { const sq = w.sq; if (!sq || sq.day !== day || sq.done || sq.beat !== 0) continue; sq.beat = 1; sq.left = sq.at ? S.slotsAt : S.slots; }
+  return { notes: [] };
 }
-// Before the result is public: whatever is still open is decided, so the choices are always finished by full time.
+// Full time: the menu closes.
 export function seqFinish(game, { day }) {
-  const notes = [];
-  for (const w of wagList(game)) {
-    const sq = w.sq; if (!sq || sq.day !== day || sq.done) continue;
-    if (sq.picks[0] == null) { const i = autoIdx(game, w, 0); if (i >= 0) seqApply(game, w, i, 0, true, notes); }
-    sq.beat = 1; if (sq.picks[1] == null) { const i = autoIdx(game, w, 1); if (i >= 0) seqApply(game, w, i, 1, true, notes); }
-    sq.done = true;
-  }
-  return { notes };
+  for (const w of wagList(game)) { const sq = w.sq; if (sq && sq.day === day) { sq.done = true; sq.left = 0; } }
+  return { notes: [] };
 }
 export function seqView(game, w) {
-  const sq = w.sq; if (!sq) return null; const T = SEQ[sq.kind], cur = sq.done ? null : sq.beat;
-  return { kind: sq.kind, title: T.title, icon: T.icon, beat: sq.beat, done: sq.done, log: sq.log.map((x) => ({ ...x })),
-    open: cur == null || sq.picks[cur] != null ? null : { beat: cur, prompt: T.beats[cur], options: optsOf(game, w, cur).map((o, i) => { const t = T.opts[o.id]; return { i, id: o.id, name: t.name, desc: t.desc, cost: o.cost || 0, can: (o.cost || 0) <= w.coins }; }) } };
+  const sq = w.sq; if (!sq) return null;
+  const P = K(game);
+  return { title: "Matchday menu", beat: sq.beat, done: sq.done, left: sq.done ? 0 : sq.left, at: sq.at, focus: sq.focus, log: sq.log.map((x) => ({ ...x })),
+    menu: menuCfg(game).map((m) => { const t = MENU[m.id]; return { id: m.id, cat: m.cat, icon: t.icon, name: t.name, desc: t.desc, cost: m.cost || 0, used: sq.used.includes(m.id), can: !sq.done && sq.left > 0 && !sq.used.includes(m.id) && (m.cost || 0) <= w.coins, focus: !!sq.focus && sq.focus === m.cat }; }),
+    cats: Object.entries(CATS).map(([id, c]) => ({ id, ...c })), per: sq.at ? P.seq.slotsAt : P.seq.slots };
 }
 
 // ---------- kick-off: everything chosen is settled once ----------
@@ -312,17 +302,14 @@ export function kickoff(game, { day, fixtures }) {
       if (contentLeft(game, w) > 0) {
         const n = earn(game, w, Math.round(contentPay(game, w) * k), "content"), f = Math.round(P.content.fol * k); w.content.n++; w.fol += f; w.brand = clamp(w.brand + P.content.brand * k, 0, P.brand.max); w.cnt.content++;
         show("content", { earned: n }); notes.push({ wag: w.id, text: `Your content did numbers${atMatch ? " (a quick one, between the match and the stands)" : ""}: +${n} coins, +${f} followers.` });
-        if (!atMatch) openSeq(game, w, "content", day);
       } else show("quiet");
     } else if (a.act === "party") {
       if (w.coins >= P.cost.party) {
         spend(game, w, P.cost.party, "party"); const f = Math.round(P.party.fol * k); w.fol += f; w.brand = clamp(w.brand + P.party.brand * k, 0, P.brand.max); w.cnt.party++;
         show("party"); notes.push({ wag: w.id, text: `You went out${atMatch ? " after the match" : ""}: -${P.cost.party} coins, +${f} followers.` });
-        if (!atMatch) openSeq(game, w, "party", day);
       } else { show("quiet"); notes.push({ wag: w.id, text: "You could not afford a night out, so you stayed in." }); }
     } else if (a.act === "business") {
       addProg(game, w, P.biz.base * k, notes); w.cnt.business++; show("business"); notes.push({ wag: w.id, text: `You worked on your business${atMatch ? " (a quick visit)" : ""}.` });
-      if (!atMatch) openSeq(game, w, "business", day);
     } else if (a.act === "date" && isNpc(a.partner)) {
       if (w.coins >= P.cost.dateNpc) { const res = runNpcDate(game, w, a.partner, day, notes); show("date", { with: a.partner, good: res.good }); }
       else { show("quiet"); notes.push({ wag: w.id, text: "You could not afford the date, so you stayed in." }); }
@@ -335,7 +322,7 @@ export function kickoff(game, { day, fixtures }) {
     } else {
       w.cnt.quiet++; warm(game, w, P.quiet.bond, P.quiet.rapport); show("quiet", a.failed ? { failed: true } : {});
     }
-    w.act = null;
+    openSeq(game, w, day, FOCUS[w.last && w.last.act], atMatch); w.act = null;
   }
   // human footballers' bookings that no WAG kept are cleared (and never charged)
   for (const p of Object.values(game.players)) if (p.user && p.life && p.life.act && p.life.act.wag && !(wagOf(game, p.life.act.wag) && wagOf(game, p.life.act.wag).last && wagOf(game, p.life.act.wag).last.with === "u:" + p.id)) p.life.act = null;

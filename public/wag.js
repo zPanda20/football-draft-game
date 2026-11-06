@@ -27,7 +27,8 @@ export const wagHandlers = {
     send({ t: "wMatch", c: { fixture: f.i, team: tm, target: (u.target != null ? u.target : m && m.target) || null } });
   },
   wNoMatch() { const u = ui(); u.fx = null; u.team = null; u.target = ""; send({ t: "wMatchClear" }); },
-  wSeq(a) { send({ t: "wSeq", i: +a.i }); },
+  wSeq(a) { send({ t: "wSeq", id: a.id }); },
+  wBig() { const u = ui(); u.wBig = !u.wBig; st.render(); },
   wClear() { send({ t: "wClear" }); },
   wAsk(a) { send({ t: "wAsk", to: a.to, kind: a.kind || "date" }); },
   wYes(a) { send({ t: "wAnswer", id: +a.id, yes: true }); },
@@ -79,7 +80,7 @@ function lastLine(S, W) {
   const txt = l.act === "content" ? `You made content and earned ${l.earned} coins.` : l.act === "party" ? "You went out." : l.act === "business" ? "You worked on your business." : l.act === "date" ? (l.failed ? "Your date did not happen." : `Your date ${l.good ? "went well" : "was awkward"}.`) : l.failed ? "Your invitation was not taken up." : "A quiet night in.";
   return `<div class="small mute mt">Last matchday: ${esc(txt)}${l.attend != null ? ` You were at the ${esc(tn(S, l.attend))} match.` : ""}</div>${seqLog(W.seq)}`;
 }
-const seqLog = (q) => (q && q.log.length ? `<div class="col mt" style="gap:3px">${q.log.map((x) => `<div class="small"><b>${esc(x.name)}</b>${x.auto ? ' <span class="tiny mute">(chosen for you)</span>' : ""}: ${esc(x.text)}${x.fx ? ` <span class="tiny ${x.ok ? "" : "mute"}">(${esc(x.fx)})</span>` : ""}</div>`).join("")}</div>` : "");
+const seqLog = (q) => (q && q.log.length ? `<div class="col mt" style="gap:3px">${q.log.map((x) => `<div class="small">${esc(x.icon || "")} <b>${esc(x.name)}</b>${x.ok ? "" : ' <span class="tiny mute">(flopped)</span>'}: ${esc(x.text)}${x.fx ? ` <span class="tiny ${x.ok ? "" : "mute"}">(${esc(x.fx)})</span>` : ""}</div>`).join("")}</div>` : "");
 
 // ---------- this week: a match (optional) and one main thing ----------
 const ACT_CARDS = [
@@ -177,21 +178,27 @@ export function wagScreen(S, ctx) {
   const body = tab === "rosters" ? rosters(S, W) : tab === "people" ? people(S, W) + memory(W) : intro + (pre ? "" : choice(S, W) + requests(S, W)) + (pre ? requests(S, W) : "") + (W.edit ? wagCreator(S, "Your profile") : "");
   return { main: head(S, W) + tabs + body, side: ctx.teamsList(S) + ctx.chatCard(S) };
 }
-// While the matches are on: the two quick choices (one in each half). Never waited for: whatever is not chosen is chosen for you.
-function seqCard(S, W) {
+// While the matches are on: a big menu of things to do, with the match as a small tile. Picks resolve at once; nothing is chosen for you.
+function menuCard(S, W) {
   const q = W.seq; if (!q) return "";
-  const o = q.open, half = S.step === "md.half1" ? "first half" : S.step === "md.half" ? "half-time" : S.step === "md.half2" ? "second half" : "";
-  const status = q.done ? `<p class="small mute">That is your matchday done. You are back in the menu when everyone else is.</p>` : o ? "" : `<p class="small mute">${q.beat === 0 ? "Your next choice opens at half-time." : "You have made your choice. Full time is coming."}</p>`;
-  return `<div class="card wseq"><div class="row wrap" style="gap:8px;align-items:center"><h4 class="shh" style="margin:0">${q.icon} ${esc(q.title)}</h4><span class="pill">${q.done ? "done" : `choice ${q.beat + 1} of 2`}</span><span class="grow"></span><span class="tiny mute">${half}</span></div>
-    ${o ? `<p class="small mt">${esc(o.prompt)}</p><div class="wopts">${o.options.map((x) => `<button class="wopt" data-act="wSeq" data-i="${x.i}" ${x.can ? "" : "disabled"}><b>${esc(x.name)}</b><span class="tiny mute">${esc(x.desc)}</span><span class="tiny">${x.cost ? `${x.cost} coins` : "free"}</span></button>`).join("")}</div><div class="tiny mute mt">If you do not choose, the safe option is chosen for you. The match is never held up.</div>` : ""}
-    ${status}${seqLog(q)}</div>`;
+  const half = { "md.half1": "First half", "md.half": "Half-time", "md.half2": "Second half" }[S.step] || "", last = q.log[q.log.length - 1];
+  const head = `<div class="row wrap" style="gap:8px;align-items:center"><h3 style="margin:0">🎛️ Matchday menu</h3><span class="pill">${esc(half)}</span><span class="pill ${q.left ? "good" : ""}">${q.left} pick${q.left === 1 ? "" : "s"} left this half</span><span class="grow"></span><span class="tiny mute">${q.at ? "You are at the match, so one pick a half." : `${q.per} picks a half. Each can be done once per match.`}</span></div>`;
+  const latest = last ? `<div class="wlast ${last.ok ? "ok" : "bad"}"><span class="wi">${esc(last.icon || "")}</span><div><b>${esc(last.name)}</b>${last.ok ? "" : ' <span class="tiny mute">(it flopped)</span>'}<div class="small">${esc(last.text)}</div>${last.fx ? `<div class="tiny mute">${esc(last.fx)}</div>` : ""}</div></div>` : "";
+  const groups = q.cats.map((c) => { const l = q.menu.filter((m) => m.cat === c.id); return `<h4 class="shh mt">${c.icon} ${esc(c.name)}${q.focus === c.id ? ' <span class="pill good">your focus this week: a bit more from these</span>' : ""}</h4><div class="wmenu">${l.map((m) => `<button class="wopt big ${m.used ? "used" : ""} ${m.focus ? "foc" : ""}" data-act="wSeq" data-id="${esc(m.id)}" ${m.can ? "" : "disabled"}><span class="wi">${esc(m.icon)}</span><b>${esc(m.name)}</b><span class="tiny mute">${esc(m.desc)}</span><span class="tiny">${m.used ? "Done ✓" : m.cost ? `${m.cost} coins` : "free"}</span></button>`).join("")}</div>`; }).join("");
+  return `<div class="card wseq">${head}${latest}${q.done ? `<p class="small mute mt">The match is over. That is your matchday done: you are back in the menu when everyone else is.</p>` : groups}${q.log.length > 1 ? `<h4 class="shh mt">Your matchday so far</h4>${seqLog(q)}` : ""}</div>`;
+}
+// The match the WAG is watching, as a small tile that can be opened out.
+function miniMatch(S, html) {
+  const big = !!ui().wBig;
+  return `<div class="wmini ${big ? "" : "small"}"><div class="row" style="gap:8px;align-items:center;margin-bottom:6px"><b>📺 Watching the match</b><span class="grow"></span><button class="btn sm" data-act="wBig">${big ? "Make it small" : "Open the match"}</button></div>${html}</div>`;
 }
 // Drawn above the match screens so the full-time view still tells a WAG what their day was.
 export function wagStrip(S) {
   const W = S.wag; if (!W) return "";
-  const live = ["md.half1", "md.half", "md.half2"].includes(S.step);
-  return `<div class="card wagh"><div class="row wrap" style="gap:10px;align-items:center"><span class="facebox">${faceOf(W.img, 36, W.g)}</span><b>${esc(W.name)}</b>${pill(`💰 ${W.coins}`)}${pill(`👥 ${W.fol.toLocaleString()}`)}${pill(`⭐ ${W.brand}`)}${W.biz.lvl ? pill(`💼 L${W.biz.lvl}`) : ""}${W.attending ? pill(`🎟️ at the ${esc(W.attending.team)} match`, "good") : ""}<span class="grow"></span>${W.note ? `<span class="small">${esc(W.note)}</span>` : ""}</div>${S.step === "md.result" ? lastLine(S, W) : ""}</div>${live ? seqCard(S, W) : ""}`;
+  return `<div class="card wagh"><div class="row wrap" style="gap:10px;align-items:center"><span class="facebox">${faceOf(W.img, 36, W.g)}</span><b>${esc(W.name)}</b>${pill(`💰 ${W.coins}`)}${pill(`👥 ${W.fol.toLocaleString()}`)}${pill(`⭐ ${W.brand}`)}${W.biz.lvl ? pill(`💼 L${W.biz.lvl}`) : ""}${W.attending ? pill(`🎟️ at the ${esc(W.attending.team)} match`, "good") : ""}<span class="grow"></span>${W.note ? `<span class="small">${esc(W.note)}</span>` : ""}</div>${S.step === "md.result" ? lastLine(S, W) : ""}</div>`;
 }
+// During the first half, half-time and the second half: the strip, the match in a small tile (so the score is always in view), then the big menu.
+export function wagLive(S, matchHtml) { return wagStrip(S) + miniMatch(S, matchHtml) + menuCard(S, S.wag || {}); }
 
 // ---------- the footballer's side ----------
 export function wagBox(S) {

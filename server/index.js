@@ -152,7 +152,7 @@ function handle(ws, m) {
     case "wClear": room.wagClear(t); break;
     case "wMatch": room.wagMatch(t, m.c || {}); break;
     case "wMatchClear": room.wagMatchClear(t); break;
-    case "wSeq": room.wagSeq(t, m.i); break;
+    case "wSeq": room.wagSeq(t, m.id); break;
     case "wAsk": room.wagAsk(t, String(m.to || ""), String(m.kind || ""), m.tier, !!m.pub); break;
     case "wAnswer": room.wagAnswer(t, m.id | 0, !!m.yes); break;
     case "wGift": room.wagGift(t, String(m.to || ""), String(m.tier || ""), !!m.pub); break;

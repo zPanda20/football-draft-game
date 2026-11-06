@@ -69,9 +69,9 @@ export const wagMethods = {
   },
   wagMatchClear(token) { const me = this.wagMe(token); if (!me || this.step !== OPEN_ACT) return; W.clearMatch(me.w); this.changed(); },
   // While the matches are on: the WAG's sequence choice for the beat that is open now. Never holds anything up (see wagHalf / wagFinish).
-  wagSeq(token, i) {
+  wagSeq(token, id) {
     const me = this.wagMe(token); if (!me || !["md.half1", "md.half", "md.half2"].includes(this.step)) return;
-    const res = W.seqChoose(this.game, me.w, i | 0); me.u.wagNote = res.ok ? null : res.why; if (res.ok) this.wagDeliver(res.notes); this.changed();
+    const res = W.seqChoose(this.game, me.w, String(id || "")); me.u.wagNote = res.ok ? null : res.why; if (res.ok) this.wagDeliver(res.notes); this.changed();
   },
   wagClear(token) { const me = this.wagMe(token); if (!me || this.step !== OPEN_ACT) return; this.wagDeliver(W.clearAct(this.game, me.w)); me.u.wagNote = null; this.changed(); },
   // One door for both sides: a WAG asking a footballer, or a footballer asking a WAG.
@@ -119,7 +119,7 @@ export const wagMethods = {
   wagView(token) {
     const me = this.wagMe(token); if (!me || !this.game) return null;
     const day = this.wagDay(), v = W.viewFor(this.game, me.w, { day, fixtures: this.days ? this.days[day] || [] : [], open: this.step === OPEN_ACT });
-    v.note = me.u.wagNote || null; v.auto = !!me.u.auto; v.step = this.step; v.social = this.settings.social !== false; v.chooseOpen = this.step === OPEN_ACT; v.seqLive = ["md.half1", "md.half", "md.half2"].includes(this.step); v.giftOpen = [OPEN_ACT, "md.result"].includes(this.step);
+    v.watchTeam = me.w.attending && !me.w.attending.done ? me.w.attending.team : me.w.support != null ? me.w.support : null; v.note = me.u.wagNote || null; v.auto = !!me.u.auto; v.step = this.step; v.social = this.settings.social !== false; v.chooseOpen = this.step === OPEN_ACT; v.seqLive = ["md.half1", "md.half", "md.half2"].includes(this.step); v.giftOpen = [OPEN_ACT, "md.result"].includes(this.step);
     v.next = day + 1; v.total = (this.days || []).length; v.edit = this.wagEditable(me.u);
     return v;
   },

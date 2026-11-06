@@ -19,7 +19,7 @@ import { rivalButton } from "./story.js";
 import { romHandlers, relPanel, ceremonyTick } from "./romance.js";
 import { pmScreen, pmScreenHandlers, pmLayoutOn, pmHubStep } from "./pmscreen.js";
 import { socialHandlers, socialPanel, playerSocial, styleCard, galaScreen } from "./social.js";
-import { wagHandlers, wagCreator, wagLate, wagScreen, wagStrip } from "./wag.js";
+import { wagHandlers, wagCreator, wagLate, wagScreen, wagStrip, wagLive } from "./wag.js";
 import { menuView, menuReset, menuHandlers, levelDefault, level } from "./menu.js";
 
 const app = $("#app");
@@ -365,7 +365,7 @@ function render() {
   else ({ main, side } = matchView(S, ctx));
   const pmOn = !lateMe && !wagMe && pmLayoutOn(S);
   if (lateMe) { /* the late-join card stands alone */ }
-  else if (wagMe && S.step !== "lobby") { if (!S.step.startsWith("gala.") && /^md\./.test(S.step) && !/^md\.lineup$/.test(S.step)) main = wagStrip(S) + main; main = liteIntro(S).slice(0, 0) + newsAsk(S).slice(0, 0) + main + (S.news && S.news.list.length && S.step !== "md.lineup" ? newsCard(S) : ""); }
+  else if (wagMe && S.step !== "lobby") { if (!S.step.startsWith("gala.") && /^md\./.test(S.step) && !/^md\.lineup$/.test(S.step)) main = /^md\.(half1|half|half2)$/.test(S.step) && S.wag ? wagLive(S, main) : wagStrip(S) + main; main = liteIntro(S).slice(0, 0) + newsAsk(S).slice(0, 0) + main + (S.news && S.news.list.length && S.step !== "md.lineup" ? newsCard(S) : ""); }
   else if (S.step !== "lobby" && pmOn) { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + gambleOverlay(S) + packOverlay(S) + pmScreen(S, ctx, main); side = ""; }
   else if (S.step !== "lobby") { main = liteIntro(S) + stepHint(S) + tradePopup(S) + newsAsk(S) + (S.me && /^(md\.lineup|md\.result|season\.intro)$/.test(S.step) ? socialPanel(S) : "") + main; if (S.pm) main = gambleOverlay(S) + packOverlay(S) + (S.step.startsWith("draft.") ? creator(S) : "") + pmPanel(S) + (/^(md|season)\./.test(S.step) ? lifePanel(S) + relPanel(S) : "") + pmKit(S) + main; if (S.news && S.news.list.length && S.step !== "md.lineup") main += newsCard(S); if (S.step.startsWith("market.") && S.step !== "market.done") main += seekersCard(S); if (S.step !== "md.lineup") main += storeCard(S); }
   if (!$(".page", el.body)) el.body.innerHTML = `<div class="page"><div class="main" id="mainwrap"></div><div class="side" id="sidewrap"></div></div>`;

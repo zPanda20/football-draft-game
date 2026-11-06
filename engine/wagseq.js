@@ -1,44 +1,49 @@
-// The words for a WAG's match-time sequences. The numbers (cost, coins, followers, brand, relationships, chance) are in engine/params.js (social.wag.seqs).
-// Each kind has two beats; each beat has three options, in the same order as the params. ok = what happens when it works, bad = when it does not.
-export const SEQ = {
-  content: {
-    title: "Filming day",
-    icon: "🎬",
-    beats: ["The match is on, so the feed is quiet. You have a ring light, an idea and about an hour. What do you shoot?", "The edit is done. How do you put it out?"],
-    opts: {
-      trend: { name: "Jump on a trend", desc: "Quick, safe, everyone is doing it.", ok: "The trend video took off. Easy money.", bad: "By the time you posted, the trend was over." },
-      collab: { name: "Collab with a bigger name", desc: "Bigger pay, bigger risk.", ok: "The collab landed: a bigger audience and a nod from their team.", bad: "They posted first and tagged someone else. You still got a thank-you gift." },
-      raw: { name: "Post something honest", desc: "Builds the brand if people take it well.", ok: "Honesty works. People loved the video and the comments are kind.", bad: "It got a lot of comments and not all of them kind." },
-      post: { name: "Post it as it is", desc: "Safe, steady.", ok: "A solid post. Steady numbers.", bad: "It went out into a quiet evening." },
-      peak: { name: "Post at peak hour with a hook", desc: "Much bigger if it lands.", ok: "The hook worked: people shared it everywhere.", bad: "The timing was a bit off, but it got seen." },
-      tag: { name: "Tag a footballer in it", desc: "Warms things with the scene or whoever you see.", ok: "They noticed. A warm reply, and a few more fans.", bad: "They did not reply, and now it looks like you tried too hard." },
-    },
-  },
-  party: {
-    title: "A night out",
-    icon: "🪩",
-    beats: ["You are dressed, the car is outside and the match is on. Where do you go?", "It is late. The night can still go either way."],
-    opts: {
-      vip: { name: "VIP table", desc: "Costs more; more cameras.", ok: "The table was seen by everyone who matters.", bad: "The VIP section was empty. Still, a few photos." },
-      floor: { name: "Dance floor", desc: "Loud, free and reliable.", ok: "A great night on the floor and you are in half the photos.", bad: "Fun, but nobody was filming." },
-      bar: { name: "Quiet corner of the bar", desc: "Good for talking to people.", ok: "You had a good talk with the right people.", bad: "Good company, not much happened." },
-      live: { name: "Go live from the party", desc: "Big if it works. A disaster if not.", ok: "The live stream got huge. People joined from every club in the league.", bad: "You said the wrong thing live. People are screenshotting it." },
-      after: { name: "Afterparty", desc: "Costs a bit; you may meet someone.", ok: "A great afterparty.", bad: "Crowded and dull, but you got some followers." },
-      home: { name: "Leave early", desc: "Safe. Nothing lost.", ok: "You got a good night's sleep and a nicer morning.", bad: "" },
-    },
-  },
-  business: {
-    title: "Business day",
-    icon: "💼",
-    beats: ["The shop, the studio or the stand: whatever it is, it has your name on it. The match is on and the phones are quiet. What do you work on?", "The afternoon is yours. What do you do with it?"],
-    opts: {
-      small: { name: "Order a small batch", desc: "Steady growth.", ok: "The batch sold out quickly.", bad: "The batch was late, but it arrived." },
-      big: { name: "Place a big order", desc: "Big growth, if it sells.", ok: "The big order was a smash. The business took a big step.", bad: "The order did not sell. That was an expensive afternoon." },
-      lean: { name: "Work on the site yourself", desc: "Free and slow.", ok: "The site looks better. Small progress.", bad: "" },
-      ads: { name: "Run an ad", desc: "Costs a little; reaches many.", ok: "The ad ran well. New customers and new followers.", bad: "The ad was seen by a handful of people." },
-      hire: { name: "Hire some help", desc: "Costs more; lifts the brand.", ok: "The new hire is a good one. The business feels more serious.", bad: "The first week with the new person is rough." },
-      network: { name: "Network at the stalls", desc: "Free; people remember you.", ok: "You made friends who will vouch for you.", bad: "A pleasant chat and nothing more." },
-    },
-  },
+// The words for a WAG's matchday menu. The numbers (cost, coins, followers, brand, relationships, chance) are in engine/params.js (social.wag.menu).
+// Each action has a name, a one-line description, and a few ways it can go: ok when it works, bad when it does not (one is picked by the seeded roll).
+export const CATS = {
+  content: { name: "Content", icon: "📸" },
+  party: { name: "Going out", icon: "🪩" },
+  business: { name: "Business", icon: "💼" },
+  friends: { name: "Friends and fun", icon: "🫶" },
 };
-export const SEQ_KINDS = Object.keys(SEQ);
+export const MENU = {
+  trend: { icon: "🔥", name: "Jump on a trend", desc: "Quick, safe, and everyone else is doing it.",
+    ok: ["The trend video took off. Easy money.", "Forty thousand people watched you do the dance. Three of them were your mum."], bad: ["By the time you posted, the trend was over.", "The trend was last week. The comments were kind about it."] },
+  collab: { icon: "🤝", name: "Collab with a bigger name", desc: "Bigger pay, bigger risk.",
+    ok: ["The collab landed: a bigger audience and a nod from their team.", "Their manager sent a thank-you hamper. The cheese alone was worth it."], bad: ["They posted first and tagged someone else. You still got a thank-you gift.", "They left you on read for the whole second half."] },
+  prank: { icon: "🤡", name: "Prank the group chat", desc: "Funny if it works. Not funny if it doesn't.",
+    ok: ["You told everyone the match was cancelled. Thirty-one people believed you. It went viral.", "A rubber snake in a handbag. The scream is now a ringtone."], bad: ["Nobody laughed. Someone has muted you.", "The prank worked a bit too well. There was a long silence and a frosty voice note."] },
+  kits: { icon: "👕", name: "Rate the kits live", desc: "Rate both teams' shirts out of ten, no mercy.",
+    ok: ["Your 3/10 for the away kit became a meme. The kit man has asked for a word.", "The home kit got a 9 and a poem. Fans are printing your rating on mugs."], bad: ["You rated the third kit a 6. A man replied with a four-page essay.", "A fan account called your taste 'sponsored'. It was not sponsored."] },
+  fit: { icon: "🧥", name: "Matchday fit check", desc: "Show the outfit. Tag the brand. Strike the pose.",
+    ok: ["The scarf-over-the-shoulder look is going to be a thing by Friday.", "Three brands sent you a free jacket and one sent a very polite email."], bad: ["Your scarf was the wrong team's. It was a brave choice.", "The jacket was a tad too much for a drizzle."] },
+  vip: { icon: "🍾", name: "Book the VIP table", desc: "Costs more; more cameras.",
+    ok: ["The table was seen by everyone who matters.", "A sparkler on the bottle, a guitarist at the table and fourteen photos in an hour."], bad: ["The VIP section was empty. Still, a few photos.", "The bottle came with a bill that came with a second bill."] },
+  karaoke: { icon: "🎤", name: "Karaoke night", desc: "Free, loud and bonding.",
+    ok: ["You and the bar sang the whole of a power ballad. Someone cried.", "A standing ovation, mostly because you stopped."], bad: ["You picked a song with a key change you did not know about.", "The microphone fell in a pint. A group chat is now saving the clip."] },
+  afterparty: { icon: "🌙", name: "Plan the afterparty", desc: "Costs a bit; you may meet someone.",
+    ok: ["A great afterparty. Everyone on the guest list brought a friend.", "Nobody left until the playlist ran out of songs."], bad: ["Crowded and dull, but you got some followers.", "The DJ played the same song four times. They called it a 'remix'."] },
+  dance: { icon: "💃", name: "Win the dance-off", desc: "Challenge a stranger. Dignity optional.",
+    ok: ["You won with a move nobody could name. It is now called 'the Tuesday'.", "The crowd formed a circle. You did a slide. They went wild."], bad: ["You lost to a man in a tracksuit. He wasn't even trying.", "A hamstring has been pulled. The trophy was a small plastic one."] },
+  batch: { icon: "📦", name: "Order a small batch", desc: "Steady growth.",
+    ok: ["The batch sold out quickly.", "A good week of orders: the packing table now needs a bigger table."], bad: ["The batch was late, but it arrived.", "A courier delivered half of it to the wrong street."] },
+  bigorder: { icon: "🚚", name: "Place a big order", desc: "Big growth, if it sells. Costs a lot.",
+    ok: ["The big order was a smash. The business took a big step.", "A pallet in the hall, a queue online and a very happy supplier."], bad: ["The order did not sell. That was an expensive afternoon.", "The pallet is in the hall. So is the pallet's cousin."] },
+  ads: { icon: "📣", name: "Run an ad", desc: "Costs a little; reaches many.",
+    ok: ["The ad ran well. New customers and new followers.", "An ad with a dog in it. That's all anyone remembers. It worked."], bad: ["The ad was seen by a handful of people.", "The ad was shown mostly to your own cousin."] },
+  investor: { icon: "🧑‍💼", name: "Pitch to an investor", desc: "A long shot. Big if it lands.",
+    ok: ["The investor said 'interesting'. Twice. That's practically a yes.", "They took a photo of the product and called you 'the future'."], bad: ["They asked what the business actually did. You said 'vibes'.", "The pitch deck had a typo in the title slide."] },
+  merch: { icon: "🧢", name: "Sell matchday merch", desc: "Scarves, caps, one very odd keyring.",
+    ok: ["The 'I Was There (On the Sofa)' scarf sold out by half-time.", "The caps went fast. The odd keyring went faster."], bad: ["Three caps sold. Two to one customer.", "The 'I was there' scarf was a day early. Nobody was."] },
+  gossip: { icon: "💬", name: "Gossip in the group chat", desc: "Free. A warm thing to do with the people you like.",
+    ok: ["Forty messages and not one argument. Someone sent the dog emoji.", "You learned three things you were not meant to know and kept all of them."], bad: ["A message went to the wrong chat. It was fine.", "Somebody screenshotted it. The screenshot was kind, luckily."] },
+  playlist: { icon: "🎧", name: "Make a playlist for someone", desc: "Think about it for a bit. Then give it a very long title.",
+    ok: ["They played it twice and replied with a single heart.", "The first track made them smile. The fourth made them text back."], bad: ["Track nine was a mistake. You know which one.", "They said it was 'a lot'. They played it anyway."] },
+  dog: { icon: "🐕", name: "Adopt a very photogenic dog", desc: "Costs something. A star is born, maybe.",
+    ok: ["The dog has 40,000 followers and no idea. It was easy.", "The dog wore a tiny scarf. The internet lost it."], bad: ["The dog looked at the camera once and fell asleep.", "The dog was shy. The dog was also sick on the sofa."] },
+  bath: { icon: "🛁", name: "Take a very long bath", desc: "Always works. Nobody is watching.",
+    ok: ["You came out pink and calm and slightly more rested.", "Candle, playlist, bubble hat. Your best idea this week came to you in the tub."], bad: [] },
+  predict: { icon: "🔮", name: "Predict the score", desc: "Bet the group chat. Loser buys dinner.",
+    ok: ["You called it 2-1 at half-time. You are now unbearable.", "You predicted a draw. It was a draw. Someone is buying dinner."], bad: ["You said 3-0. It was nothing like 3-0.", "Your prediction was wrong, but so was everyone else's."] },
+};
+export const MENU_IDS = Object.keys(MENU);

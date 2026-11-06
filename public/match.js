@@ -463,7 +463,8 @@ function fixtureRows(S, ms) {
 function focusK(S) {
   const R = S.reveal;
   const own = S.me && S.me.match ? S.me.match.index : S.pm && S.pm.team != null ? R.matches.findIndex((x) => x.a === S.pm.team || x.b === S.pm.team) : -1;   // your club's match: a manager's or a footballer's
-  const mine = own;
+  const watch = S.wag && S.wag.watchTeam != null ? R.matches.findIndex((x) => x.a === S.wag.watchTeam || x.b === S.wag.watchTeam) : -1;   // a WAG follows the match they are at, or their club's
+  const mine = own >= 0 ? own : watch;
   if (st.ui.focusDay !== R.day) { st.ui.focusDay = R.day; st.ui.focus = null; }
   return st.ui.focus != null && R.matches[st.ui.focus] ? st.ui.focus : mine >= 0 ? mine : 0;
 }

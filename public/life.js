@@ -208,6 +208,8 @@ function nextBanner() {
   const n = queue.shift(); if (!n) { showing = null; return; }
   showing = n; clearTimeout(timer);
   let el = $("#newsban"); if (!el) { el = document.createElement("div"); el.id = "newsban"; document.body.appendChild(el); }
+  // The banner lives on <body>, outside the #app element that handles data-act clicks, so it listens for its own close button.
+  if (!el.dataset.wired) { el.dataset.wired = "1"; el.addEventListener("click", (e) => { if (e.target.closest(".nb-x")) { e.stopPropagation(); closeBanner(); } }); }
   const wada = n.kind === "steroids", mini = miniOn() && isTabloid(n) && !wada;
   el.className = "newsban nk-" + n.kind + " in" + (wada ? " wada" : "") + (mini ? " mini" : "");
   if (mini) {

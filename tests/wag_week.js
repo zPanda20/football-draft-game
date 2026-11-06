@@ -6,7 +6,6 @@ import { serializeGame, restoreGame } from "../engine/game.js";
 import * as SO from "../engine/social.js";
 import * as L from "../engine/life.js";
 import * as W from "../engine/wag.js";
-import { SEQ } from "../engine/wagseq.js";
 import { rollNumbers, createUserPlayer, defaultAssign } from "../engine/playermode.js";
 import { withParams } from "../engine/params.js";
 
@@ -82,47 +81,41 @@ t("a quiet night in warms whoever you see, and the scene's regard when you see n
   act(g, w, { act: "date", partner: id }, 3); kick(g, 3); const pr = W.pairOf(g, w.id, id), b0 = pr.bond; act(g, w, { act: "quiet" }, 4); kick(g, 4); assert.equal(pr.bond, b0 + g.P.social.wag.quiet.bond);
 });
 
-t("without a match, content / a night out / business open a two-beat sequence; with a match they are a quick version", () => {
-  for (const kind of ["content", "party", "business"]) {
-    const a = world().ws[0]; const g = world().g, w = W.wagList(g)[0]; act(g, w, { act: kind }); kick(g);
-    assert.ok(w.sq && w.sq.kind === kind && w.sq.beat === 0 && !w.sq.done && w.sq.picks.every((x) => x == null), kind + " sequence opens at kick-off");
-    const v = W.viewFor(g, w, { day: 2, fixtures: FX }).seq; assert.equal(v.open.options.length, 3); assert.equal(v.open.beat, 0); assert.equal(v.title, SEQ[kind].title);
-    const w2 = world().ws[0]; const g2 = world().g, x = W.wagList(g2)[0]; act(g2, x, { act: kind }); W.setMatch(g2, x, { fixture: 0, team: 0 }, { fixtures: FX }); kick(g2);
-    assert.equal(x.sq, null, kind + " at a match: no sequence"); assert.ok(x.attending);
-  }
+t("every WAG gets the matchday menu at kick-off: two picks a half, one if they are at the match", () => {
+  const { g, ws } = world({ nw: 2 }); const [a, b] = ws; act(g, a, { act: "quiet" }); act(g, b, { act: "party" }); W.setMatch(g, b, { fixture: 0, team: 0 }, { fixtures: FX }); kick(g);
+  const S = g.P.social.wag.seq; assert.equal(a.sq.left, S.slots); assert.equal(b.sq.left, S.slotsAt); assert.equal(b.sq.at, true);
+  const v = W.viewFor(g, a, { day: 2, fixtures: FX }).seq; assert.ok(v.menu.length >= 16, "a large menu: " + v.menu.length); assert.equal(v.cats.length, 4);
+  for (const m of v.menu) assert.ok(m.name && m.desc && m.icon, m.id + " has words"); assert.equal(v.left, 2);
+  assert.equal(W.viewFor(g, b, { day: 2, fixtures: FX }).seq.focus, "party", "the week's main thing is the focus");
 });
 
-t("a sequence: choose in the first half, the second opens at half-time, effects land, never twice, only the owner can choose", () => {
-  const { g, ws } = world({ nw: 2 }); const [w, o] = ws; act(g, w, { act: "content" }); act(g, o, { act: "content" }); kick(g);
-  const f0 = w.fol, c0 = w.coins; const r = W.seqChoose(g, w, 0); assert.ok(r.ok && r.entry.beat === 0); assert.equal(W.seqChoose(g, w, 1).ok, false, "one choice per beat");
-  assert.ok(w.coins !== c0 || w.fol !== f0, "something changed");
-  const half = W.seqHalf(g, { day: 2 }); assert.equal(w.sq.beat, 1); assert.equal(o.sq.beat, 1); assert.ok(o.sq.picks[0] != null, "the idle WAG's first choice was made for them");
-  assert.ok(half.notes.some((x) => x.wag === o.id) && !half.notes.some((x) => x.wag === w.id), "only the one who did not choose is told it was decided");
-  assert.equal(W.seqHalf(g, { day: 2 }).notes.length, 0, "half-time runs once");
-  assert.equal(W.seqChoose(g, w, 9).ok, false, "not an option"); assert.ok(W.seqChoose(g, w, 0).ok); assert.ok(w.sq.done);
-  assert.equal(W.seqFinish(g, { day: 2 }).notes.filter((x) => x.wag === w.id).length, 0, "nothing more for the one who finished");
-  assert.ok(o.sq.done && o.sq.picks.every((x) => x != null) && o.sq.log.length === 2 && o.sq.log.every((x) => x.auto), "the idle WAG's week is complete by full time");
-  assert.equal(W.seqFinish(g, { day: 2 }).notes.length, 0, "idempotent");
+t("a menu pick resolves at once, once per match, within the picks left, and costs what it says", () => {
+  const { g, ws } = world(); const w = ws[0]; act(g, w, { act: "quiet" }); kick(g);
+  const f0 = w.fol; const r1 = W.seqChoose(g, w, "trend"); assert.ok(r1.ok && r1.entry.beat === 0 && w.sq.left === 1); assert.ok(w.fol !== f0, "followers moved");
+  assert.equal(W.seqChoose(g, w, "trend").ok, false, "once per match"); assert.equal(W.seqChoose(g, w, "nope").ok, false, "not on the menu");
+  assert.ok(W.seqChoose(g, w, "kits").ok && w.sq.left === 0); const r3 = W.seqChoose(g, w, "gossip"); assert.equal(r3.ok, false); assert.match(r3.why, /first half/, "no more picks until half-time");
+  W.seqHalf(g, { day: 2 }); assert.equal(w.sq.beat, 1); assert.equal(w.sq.left, 2); assert.equal(W.seqHalf(g, { day: 2 }).notes.length, 0, "half-time runs once"); assert.equal(w.sq.left, 2);
+  w.coins = 10; const v = W.viewFor(g, w, { day: 2, fixtures: FX }).seq; assert.equal(v.menu.find((m) => m.id === "vip").can, false); const bad = W.seqChoose(g, w, "vip"); assert.equal(bad.ok, false); assert.match(bad.why, /30 coins/); assert.equal(w.coins, 10);
+  w.coins = 100; assert.ok(W.seqChoose(g, w, "vip").ok); assert.ok(w.coins <= 70, "paid for the table");
+  assert.ok(W.seqChoose(g, w, "bath").ok && w.sq.left === 0); W.seqFinish(g, { day: 2 }); assert.ok(w.sq.done); assert.equal(W.seqChoose(g, w, "dance").ok, false, "the menu closes at full time");
+  assert.ok(w.sq.log.length === 4 && w.sq.log.every((x) => x.text.length > 10), "every pick was told as a little story");
 });
 
-t("unanswered choices take the safe option, never one you cannot pay for", () => {
-  const { g, ws } = world(); const w = ws[0]; act(g, w, { act: "business" }); kick(g); w.coins = 0;
-  W.seqFinish(g, { day: 2 }); assert.ok(w.sq.done); const ids = w.sq.log.map((x) => x.id); assert.deepEqual(ids, ["lean", "network"], "free options when broke: " + ids);
-  assert.equal(w.coins, 0);
-  const b = world(); const x = b.ws[0]; act(b.g, x, { act: "content" }); kick(b.g); const c0 = x.coins; W.seqFinish(b.g, { day: 2 }); assert.deepEqual(x.sq.log.map((e) => e.id), ["trend", "post"]); assert.ok(x.coins >= c0);
+t("nothing is chosen for a WAG: an idle one just has a quiet match, and finishing is idempotent", () => {
+  const { g, ws } = world({ nw: 2 }); const [a, b] = ws; act(g, a, { act: "content" }); act(g, b, { act: "quiet" }); kick(g); const c0 = a.coins, f0 = a.fol;
+  assert.equal(W.seqHalf(g, { day: 2 }).notes.length, 0); assert.equal(W.seqFinish(g, { day: 2 }).notes.length, 0); assert.equal(W.seqFinish(g, { day: 2 }).notes.length, 0);
+  assert.ok(a.sq.done && a.sq.log.length === 0 && a.coins === c0 && a.fol === f0, "no hidden picks");
 });
 
-t("a sequence costs what it says and cannot be chosen without the coins", () => {
-  const { g, ws } = world(); const w = ws[0]; act(g, w, { act: "party" }); kick(g); w.coins = 10;
-  const opt = W.viewFor(g, w, { day: 2, fixtures: FX }).seq.open.options; assert.equal(opt.find((o) => o.id === "vip").can, false);
-  const r = W.seqChoose(g, w, 0); assert.equal(r.ok, false); assert.match(r.why, /30 coins/); assert.equal(w.coins, 10);
-  w.coins = 100; assert.ok(W.seqChoose(g, w, 0).ok); assert.ok(w.coins <= 70 + 0, "the VIP table was paid for");
+t("the week's focus makes its category's actions a bit better and a bit likelier", () => {
+  const run = (focus) => { const { g, ws } = world({ seed: 4 }); const w = ws[0]; act(g, w, { act: focus }); kick(g); g.P.social.wag.menu.find((m) => m.id === "trend").p = 1; const f0 = w.fol; W.seqChoose(g, w, "trend"); return w.fol - f0; };
+  assert.ok(run("content") > run("quiet"), "a content week gets more out of 'trend': " + run("content") + " vs " + run("quiet"));
 });
 
-t("sequence results depend only on the seed: same choices, same outcome; brand raises the odds", () => {
-  const run = (brand) => { const { g, ws } = world({ seed: 5 }); const w = ws[0]; w.brand = brand; act(g, w, { act: "content" }); kick(g); const out = [W.seqChoose(g, w, 1).entry.ok]; W.seqHalf(g, { day: 2 }); out.push(W.seqChoose(g, w, 1).entry.ok); return out.join(); };
+t("results depend only on the seed: same picks, same outcome; brand raises the odds", () => {
+  const run = (brand) => { const { g, ws } = world({ seed: 5 }); const w = ws[0]; w.brand = brand; act(g, w, { act: "quiet" }); kick(g); return [W.seqChoose(g, w, "collab").entry.text, W.seqChoose(g, w, "prank").entry.text].join("|"); };
   assert.equal(run(10), run(10));
-  let lo = 0, hi = 0; for (let s = 1; s <= 200; s++) { const a = world({ seed: s }), b = world({ seed: s }); a.ws[0].brand = 0; b.ws[0].brand = 100; for (const q of [a, b]) { act(q.g, q.ws[0], { act: "content" }); kick(q.g); } lo += W.seqChoose(a.g, a.ws[0], 1).entry.ok ? 1 : 0; hi += W.seqChoose(b.g, b.ws[0], 1).entry.ok ? 1 : 0; }
+  let lo = 0, hi = 0; for (let s = 1; s <= 200; s++) { const a = world({ seed: s }), b = world({ seed: s }); a.ws[0].brand = 0; b.ws[0].brand = 100; for (const q of [a, b]) { act(q.g, q.ws[0], { act: "quiet" }); kick(q.g); } lo += W.seqChoose(a.g, a.ws[0], "collab").entry.ok ? 1 : 0; hi += W.seqChoose(b.g, b.ws[0], "collab").entry.ok ? 1 : 0; }
   assert.ok(hi > lo, `a big brand lands more often (${hi} vs ${lo})`);
 });
 
@@ -146,14 +139,14 @@ t("content respects the season limit in both versions and the quick version is w
 
 t("a party can lead to a contact, who then shows in the pool next matchday", () => {
   let found = null;
-  for (let s = 1; s <= 60 && !found; s++) { const { g, ws } = world({ seed: s }); const w = ws[0]; w.coins = 500; w.brand = 100; act(g, w, { act: "party" }); kick(g); const r1 = W.seqChoose(g, w, 1); W.seqHalf(g, { day: 2 }); const r2 = W.seqChoose(g, w, 1); if (w.contacts.length) found = { g, w }; }
+  for (let s = 1; s <= 60 && !found; s++) { const { g, ws } = world({ seed: s }); const w = ws[0]; w.coins = 500; w.brand = 100; act(g, w, { act: "party" }); kick(g); W.seqChoose(g, w, "afterparty"); if (w.contacts.length) found = { g, w }; }
   assert.ok(found, "an afterparty gave someone's number"); const c = found.w.contacts[0]; assert.equal(c.via, "party"); assert.equal(c.from, 3);
   assert.ok(!W.activeContacts(found.w, 2).length && W.activeContacts(found.w, 3).length, "from the next matchday only");
   assert.ok(W.viewFor(found.g, found.w, { day: 3, fixtures: FX }).pool.some((x) => x.id === c.id && x.kind === "contact"));
 });
 
 t("the football RNG is untouched: a week of sequences changes no match result", () => {
-  const a = world({ seed: 9 }), b = world({ seed: 9 }); const w = b.ws[0]; act(b.g, w, { act: "party" }); kick(b.g); W.seqChoose(b.g, w, 0); W.seqHalf(b.g, { day: 2 }); W.seqFinish(b.g, { day: 2 });
+  const a = world({ seed: 9 }), b = world({ seed: 9 }); const w = b.ws[0]; act(b.g, w, { act: "party" }); kick(b.g); W.seqChoose(b.g, w, "afterparty"); W.seqChoose(b.g, w, "vip"); W.seqHalf(b.g, { day: 2 }); W.seqFinish(b.g, { day: 2 });
   assert.deepEqual(serializeGame(a.g).players, serializeGame(b.g).players, "players are not touched");
   assert.equal(JSON.stringify(a.g.teams.map((x) => x.coins ?? 0)), JSON.stringify(b.g.teams.map((x) => x.coins ?? 0)));
 });
@@ -163,14 +156,14 @@ t("old saves load: a WAG saved without the new fields gets them, and the whole t
   const g2 = restoreGame(D, JSON.parse(JSON.stringify(serializeGame(g)))); const v = W.wagOf(g2, w.id);
   assert.ok(v.brand > 0 && v.biz && v.biz.lvl === 0 && v.sq === null && v.match === null && v.cnt.party === 0);
   act(g2, v, { act: "content" }); kick(g2); assert.ok(v.sq);
-  const g3 = restoreGame(D, JSON.parse(JSON.stringify(serializeGame(g2)))); assert.equal(W.wagOf(g3, w.id).sq.kind, "content");
+  const g3 = restoreGame(D, JSON.parse(JSON.stringify(serializeGame(g2)))); assert.ok(W.wagOf(g3, w.id).sq && W.wagOf(g3, w.id).sq.left === 2);
   assert.ok(JSON.stringify(W.viewFor(g3, W.wagOf(g3, w.id), { day: 3, fixtures: FX })).length > 100);
 });
 
-t("privacy: a WAG's view carries its own sequence only, and no hidden numbers", () => {
+t("privacy: a WAG's view carries its own menu state only, and no hidden numbers", () => {
   const { g, ws } = world({ nw: 2 }); act(g, ws[0], { act: "content" }); kick(g);
   const mine = JSON.stringify(W.viewFor(g, ws[0], { day: 2, fixtures: FX })), theirs = JSON.stringify(W.viewFor(g, ws[1], { day: 2, fixtures: FX }));
-  assert.ok(/"seq":\{"kind":"content"/.test(mine) && /"seq":null/.test(theirs));
+  assert.ok(/"seq":\{"title":"Matchday menu"/.test(mine) && /"seq":\{"title":"Matchday menu"/.test(theirs) && !JSON.parse(theirs).seq.log.length, "each sees only their own menu state"); W.seqChoose(g, ws[0], "trend"); assert.ok(JSON.parse(JSON.stringify(W.viewFor(g, ws[1], { day: 2, fixtures: FX }))).seq.log.length === 0 && JSON.stringify(W.viewFor(g, ws[0], { day: 2, fixtures: FX })).includes('"trend"'));
   assert.ok(!/"p":0\.\d/.test(mine) && !/"x":\{/.test(mine), "chances and failure effects are not sent");
 });
 

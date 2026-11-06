@@ -420,7 +420,7 @@ t("player life: activities move energy, love, money and followers; stories follo
   const g2 = createGame({ D, N: 10, seed: 10 }); g2.md = { day: 0, total: 18 }; g2.P.life.wada = 0;
   const q = createUserPlayer(g2, { token: "u", name: "Dull Dan", pos: "CM", nums: r.nums, ovr: r.ovr, assign: defaultAssign("CM") }); q.gender = "M"; L.ensureLife(g2, q);
   let boring = 0; for (let d = 0; d < 15; d++) boring += L.runActivity(g2, q, "balance", { day: d }).stories.filter((n) => n.kind === "boring").length;
-  assert.equal(boring, 1); assert.match(g2.news.at(-1).head, /MOST BORING MAN/);
+  assert.equal(boring, 1); assert.match(g2.news.at(-1).head, /BORING|QUIET LIFE/);
   // shop: a car, then a house upgrade charges the difference; a yacht allows the Monaco party at most once a season
   q.coins = 5000; assert.ok(L.buyLife(g2, q, "car-m3") && !L.buyLife(g2, q, "car-m3")); L.buyLife(g2, q, "house-flat"); const before = q.coins; L.buyLife(g2, q, "house-town"); assert.equal(before - q.coins, 280 - 60);
   L.buyLife(g2, q, "yacht"); const gc = g2.P.life.chance; for (const k of Object.keys(gc)) gc[k] = 1; q.life.sCount = 0;
@@ -518,10 +518,10 @@ t("relationships: shared partners, asking another footballer out, exclusive, che
   assert.equal(RM.revealLoyalty(g, a, sofia).ok, true); assert.equal(RM.revealLoyalty(g, b, sofia).ok, false, "loyalty is revealed only after enough dates");
   // cheating: another date while exclusive is a scandal and she may leave; her roving eye is the hidden loyalty
   g.P.life.rom.dumpCheat = 1; a.life.opts = { day: 20, season: 1, ids: ["camille-dubois"], gone: [], n: 0 };
-  const ch = L.runActivity(g, a, "date", { day: 20, partner: "camille-dubois" }); assert.ok(ch.cheat && ch.cheat.dumped && ch.stories.some((n) => /CHEATING SCANDAL/.test(n.head)), "cheating scandal");
+  const ch = L.runActivity(g, a, "date", { day: 20, partner: "camille-dubois" }); assert.ok(ch.cheat && ch.cheat.dumped && ch.stories.some((n) => /CHEATING SCANDAL|FINDS OUT|LOVE TRIANGLE/.test(n.head)), "cheating scandal");
   assert.equal(g.rom.npc[sofia].excl, null); assert.ok(g.rom.npc[sofia].cool > g.rom.week, "she is heartbroken for a while"); assert.equal(L.npcBlock(g, sofia, c.id), "Heartbroken");
   const n2 = L.npcState(g, "ingrid-larsen"); n2.loyalty = 0; g.P.life.rom.cheatMax = 1; a.life.partner = { id: "ingrid-larsen", name: "Ingrid Larsen", g: "F", excl: true, dates: 9 }; n2.excl = a.id;
-  const pc = L.runActivity(g, a, "rest", { day: 21 }); assert.ok(pc.pcheat && a.life.partner.cheated === 1 && pc.stories.some((n) => /CAUGHT CHEATING/.test(n.head)), "a disloyal partner cheats");
+  const pc = L.runActivity(g, a, "rest", { day: 21 }); assert.ok(pc.pcheat && a.life.partner.cheated === 1 && pc.stories.some((n) => /CAUGHT CHEATING|SOMEONE ELSE|COUSIN/.test(n.head)), "a disloyal partner cheats");
   n2.loyalty = 100; for (let w = 0; w < 40; w++) { RM.newWeek(g); assert.ok(!L.runActivity(g, a, "rest", { day: 22 + w }).pcheat, "a loyal partner never does"); }
   // breaking up
   const bu = RM.breakUp(g, a); assert.ok(bu.ok && !a.life.partner && n2.excl === null && n2.cool > g.rom.week, "break up after going exclusive"); assert.equal(RM.breakUp(g, a).ok, false);
@@ -710,8 +710,8 @@ t("followers, milestones, trophies, boot deals and feuds", async () => {
   const r = rollNumbers(g.P, "x", "t", 0), p = createUserPlayer(g, { token: "t", name: "Famous", pos: "ST", nums: r.nums, ovr: r.ovr, assign: defaultAssign("ST") }); p.gender = "M"; const lf = L.ensureLife(g, p);
   const f0 = lf.fol; assert.ok(L.matchGain(g, p, { g: 2, a: 1, r: 9, potm: true, win: true }) > 3000 && lf.fol > f0);
   const f1 = lf.fol; L.matchGain(g, p, { g: 0, a: 0, r: 4.5, potm: false, win: false }); assert.ok(lf.fol < f1, "a bad game costs followers");
-  lf.fol = 130000; const s1 = L.runActivity(g, p, "rest", { day: 3 }); assert.ok(s1.stories.some((n) => n.kind === "milestone" && /100K/.test(n.head)), "100K milestone");
-  lf.fol = 1100000; const s2 = L.runActivity(g, p, "rest", { day: 4 }); assert.ok(s2.stories.some((n) => /ONE MILLION/.test(n.head)), "1M milestone");
+  lf.fol = 130000; const s1 = L.runActivity(g, p, "rest", { day: 3 }); assert.ok(s1.stories.some((n) => n.kind === "milestone" && /100K|SIX-FIGURE|SIX FIGURES/.test(n.head)), "100K milestone");
+  lf.fol = 1100000; const s2 = L.runActivity(g, p, "rest", { day: 4 }); assert.ok(s2.stories.some((n) => /ONE MILLION|1,000,000|1M CLUB/.test(n.head)), "1M milestone");
   const fb = lf.fol, cb = p.coins; L.trophyWon(g, p, "title", 0); assert.ok(lf.fol >= fb + g.P.life.trophy.title.fol && p.coins >= cb + g.P.life.trophy.title.coins && lf.trophies.length === 1);
   lf.fol = 20000; lf.hit.tier = -1; lf.offer = null; lf.deal = null; const off = L.dealOffer(g, p, 5); assert.ok(off && off.pay === g.P.life.deals[0].pay);
   const res = L.dealAnswer(g, p, true); assert.ok(res.signed && lf.deal && lf.deal.brand === off.brand);

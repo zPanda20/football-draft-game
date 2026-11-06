@@ -67,24 +67,32 @@ const res = []; const ok = (c, m) => { res.push([!!c, m]); console.log((c ? "ok 
       backToMenu++;
     }
     if (plan === "date" && s.step === "md.half1" && !seen.has("date")) { seen.add("date"); ok(s.wag.last && s.wag.last.act === "date" && String(s.wag.last.with).startsWith("n:"), "inviting a pool person who is not a player: the date happens at kick-off"); }
-    if (plan === "party" && s.step === "md.half1" && s.wag.seq && s.wag.seq.open && !sawHalf1Seq) {
-      sawHalf1Seq = true; await W.waitForTimeout(200);
-      ok(await W.locator(".wseq .wopt").count() === 3, "during the first half a night out offers three choices, on the match screen");
-      await W.screenshot({ path: SHOTS + "/04-sequence.png" });
-      await W.locator(".wseq .wopt:not([disabled])").nth(1).click(); await W.waitForTimeout(300);
-      const q = (await S(W)).wag.seq; ok(q.log.length === 1 && !q.log[0].auto, "choosing applies at once and the result is shown");
+    if (plan === "party" && s.step === "md.half1" && s.wag.seq && !s.wag.seq.done && !sawHalf1Seq) {
+      sawHalf1Seq = true; await W.waitForTimeout(250);
+      const nBig = await W.locator(".wseq .wopt.big").count(); ok(nBig >= 16, `during the first half a large menu of actions is on screen (${nBig})`);
+      ok(await W.locator(".wmini.small").count() === 1, "the match they are watching is a small tile");
+      const bx = await W.evaluate(() => { const r = (q) => { const e = document.querySelector(q); return e ? e.getBoundingClientRect() : null; }; const o = r(".wseq .wopt.big"), m = r(".wmini"); return { optH: o && o.height, optW: o && o.width, miniH: m && m.height, menuTop: r(".wseq").top, miniTop: m && m.top }; });
+      ok(bx.optH >= 60 && bx.optW >= 140, `actions are big buttons (${Math.round(bx.optW)}x${Math.round(bx.optH)})`); ok(bx.miniH < 330, `the match tile is small (${Math.round(bx.miniH)}px tall)`); ok(bx.miniTop < bx.menuTop, "the small match tile sits at the top so the score stays in view, with the big menu under it");
+      await W.screenshot({ path: SHOTS + "/04-menu.png" });
+      await W.setViewportSize({ width: 390, height: 844 }); await W.waitForTimeout(300); const ov = await W.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); overflow = overflow && ov <= 1; ok(ov <= 1, "narrow viewport: no horizontal overflow on the menu (" + ov + ")"); await W.screenshot({ path: SHOTS + "/04-menu-narrow.png" });
+      await W.setViewportSize({ width: 1280, height: 1000 }); await W.waitForTimeout(250);
+      await W.click('[data-act="wBig"]'); await W.waitForTimeout(250); ok(await W.locator(".wmini.small").count() === 0, "the match tile can be opened out"); await W.click('[data-act="wBig"]'); await W.waitForTimeout(250); ok(await W.locator(".wmini.small").count() === 1, "and made small again");
+      await W.locator(".wseq .wopt.big:not([disabled])").nth(0).click(); await W.waitForTimeout(300);
+      let q = (await S(W)).wag.seq; ok(q.log.length === 1 && q.left === 1, "a pick applies at once and the result is shown; one pick left");
+      ok(await W.locator(".wseq .wlast").count() === 1 && (await W.locator(".wseq .wlast").innerText()).length > 20, "the funny result is told on screen");
+      await W.locator(".wseq .wopt.big:not([disabled])").nth(0).click(); await W.waitForTimeout(300); q = (await S(W)).wag.seq; ok(q.log.length === 2 && q.left === 0, "second pick used"); ok(await W.locator(".wseq .wopt.big:not([disabled])").count() === 0, "no more picks until half-time: the buttons are off");
     }
-    if (plan === "party" && (s.step === "md.half" || s.step === "md.half2") && s.wag.seq && s.wag.seq.open && s.wag.seq.beat === 1 && !sawBeat2) {
-      sawBeat2 = true; ok(await W.locator(".wseq .wopt").count() === 3, "the second choice opens at half-time and stays open through the second half");
-      await W.locator(".wseq .wopt:not([disabled])").last().click(); await W.waitForTimeout(300);
+    if (plan === "party" && (s.step === "md.half" || s.step === "md.half2") && s.wag.seq && s.wag.seq.beat === 1 && s.wag.seq.left > 0 && !sawBeat2) {
+      sawBeat2 = true; ok(await W.locator(".wseq .wopt.big:not([disabled])").count() >= 10, "picks refill at half-time and stay open through the second half");
+      await W.locator(".wseq .wopt.big:not([disabled])").last().click(); await W.waitForTimeout(300);
     }
-    if (plan === "business+match" && ["md.half1", "md.half2"].includes(s.step) && !seen.has("quick")) { seen.add("quick"); ok(s.wag.seq === null && await W.locator(".wseq").count() === 0 && s.wag.attending, "at a match, business is the quick version: no match-time choices"); }
-    if (plan === "content-idle" && s.step === "md.result" && s.wag.seq && !idleDone) { idleDone = true; ok(s.wag.seq.done && s.wag.seq.log.length === 2 && s.wag.seq.log.every((x) => x.auto), "choices left alone were made for the WAG before full time, so nothing waited for them"); }
-    if (plan === "party" && s.step === "md.result" && s.wag.seq && !doneOnResult) { doneOnResult = true; ok(s.wag.seq.done && s.wag.seq.log.length === 2, "the party sequence is complete at full time"); await W.screenshot({ path: SHOTS + "/05-result.png" }); }
+    if (plan === "business+match" && ["md.half1", "md.half2"].includes(s.step) && !seen.has("quick")) { seen.add("quick"); ok(s.wag.seq && s.wag.seq.at && s.wag.seq.left === 1 && s.wag.attending, "at a match the menu is smaller: one pick a half"); }
+    if (plan === "content-idle" && s.step === "md.result" && s.wag.seq && !idleDone) { idleDone = true; ok(s.wag.seq.done && s.wag.seq.log.length === 0, "a WAG who picks nothing just has a quiet match: nothing was done for them, and nothing waited for them"); }
+    if (plan === "party" && s.step === "md.result" && s.wag.seq && !doneOnResult) { doneOnResult = true; ok(s.wag.seq.done && s.wag.seq.log.length >= 3, "the matchday menu is closed at full time with the picks logged (" + s.wag.seq.log.length + ")"); await W.screenshot({ path: SHOTS + "/05-result.png" }); }
     if (s.step === "season.end") break;
   }
   ok(lineups >= 5, `the WAG went back to the menu with everyone else every matchday (${lineups} menus)`);
-  ok(sawHalf1Seq && sawBeat2, "both choices were available live"); ok(overflow, "no horizontal overflow");
+  ok(sawHalf1Seq && sawBeat2, "both halves of the menu were available live"); ok(overflow, "no horizontal overflow");
   ok(errs.length === 0, "no page errors or console errors" + (errs.length ? ": " + errs.slice(0, 4).join(" | ") : ""));
   await br.close(); srv.kill(); host.ws.close();
   const failed = res.filter((r) => !r[0]); console.log(`\n${res.length - failed.length}/${res.length} browser checks passed; shots in ${SHOTS}`); process.exit(failed.length ? 1 : 0);
