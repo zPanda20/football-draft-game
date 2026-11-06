@@ -6515,5 +6515,24 @@
 "phy": 71,
 "sta": 76,
 "tier": "silver"
+},
+{
+"id": 348,
+"slug": "folarin-balogun",
+"name": "Folarin Balogun",
+"gender": "Male",
+"age": 25,
+"nat": "United States",
+"club": "AS Monaco",
+"pos": "ST",
+"ovr": 84,
+"pac": 86,
+"sho": 84,
+"pas": 69,
+"dri": 81,
+"def": 33,
+"phy": 74,
+"sta": 78,
+"tier": "silver"
 }
 ]

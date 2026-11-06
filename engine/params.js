@@ -217,6 +217,7 @@ export const DEFAULT_PARAMS = {
       atMatch: 0.5,                                                          // a content, party or business week spent at a match is a quick version worth this share
       seq: { slots: 2, slotsAt: 1, chance: 0.0016, cap: 0.1, focus: 1.25, focusP: 0.05 },   // picks per half (one if you are at the match); an action's chance rises by this per brand point (at most cap); actions in the category of your week's main thing are worth this much more
       attend: { meet: 0.3, target: 0.2, fame: 0.00002, fameCap: 0.1, win: 0.05, fol: 150, contactDays: 3, scene: 2 },   // meeting chance; bonus for naming someone; per follower; capped; supported team won; followers for a day out
+      stars: [{ slug: "folarin-balogun", p: 0.6 }],                           // footballers who are often "on the scene": each matchday, this chance that they take one of the scene's places (if they are free)
       date: { good: 0.55, bondStart: 15, bondGood: 10, bondBad: 2, decayAfter: 2, decay: 4, end: 8, fol: 300, brand: 1, contactBonus: 0.15, accept: 0.38, rejRecover: 3, maxOpen: 3 },   // bond goes up with good dates and fades if you neglect it; the scene's regard adds a little to a date's score
       gift: { maxPerWeek: 2 },                                                // price, fade and caps come from social.gift
       gala: { toastFol: 400, jokeHit: 300, danceBond: 3 },

@@ -73,7 +73,13 @@ export function scene(game, w, day) {
   const r = makeRng(game.seed, "wagScene", w.id, game.season, day);
   const pool = Object.values(game.players).filter((p) => fbOk(game, p.id) && p.team != null && !takenBy(game, fbId(p.id)) && !(w.contacts || []).some((c) => c.id === fbId(p.id)));
   pool.sort((a, b) => b.ovr - a.ovr || a.id - b.id);
-  const top = pool.slice(0, 60); return shuffle(top, r).slice(0, K(game).attend.scene).map((p) => fbId(p.id));
+  const n = K(game).attend.scene, top = pool.slice(0, 60), out = shuffle(top, r).slice(0, n).map((p) => fbId(p.id));
+  // The regulars: a few footballers are out and about most matchdays (params social.wag.stars), on a club's books or not. Their own seeded roll, so nothing else moves.
+  for (const s of K(game).stars || []) {
+    const p = Object.values(game.players).find((x) => x.slug === s.slug && fbOk(game, x.id) && !takenBy(game, fbId(x.id)) && !(w.contacts || []).some((c) => c.id === fbId(x.id))); if (!p || out.includes(fbId(p.id)) || makeRng(game.seed, "wagStar", w.id, game.season, day, s.slug)() >= s.p) continue;
+    out.unshift(fbId(p.id)); if (out.length > n) out.pop();
+  }
+  return out;
 }
 export const activeContacts = (w, day) => (w.contacts || []).filter((c) => c.from <= day && c.until >= day);
 // Who a WAG may invite this matchday: contacts, the scene, and anyone they are already seeing.

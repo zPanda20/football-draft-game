@@ -1,6 +1,7 @@
 // The WAG week: the full set of activities, the separate match choice, the non-player date pool, the match-time sequences, brand and business.
 // Run with: node tests/wag_week.js
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { D, createGame, runDraft, runMarket } from "./lib.js";
 import { serializeGame, restoreGame } from "../engine/game.js";
 import * as SO from "../engine/social.js";
@@ -143,6 +144,19 @@ t("a party can lead to a contact, who then shows in the pool next matchday", () 
   assert.ok(found, "an afterparty gave someone's number"); const c = found.w.contacts[0]; assert.equal(c.via, "party"); assert.equal(c.from, 3);
   assert.ok(!W.activeContacts(found.w, 2).length && W.activeContacts(found.w, 3).length, "from the next matchday only");
   assert.ok(W.viewFor(found.g, found.w, { day: 3, fixtures: FX }).pool.some((x) => x.id === c.id && x.kind === "contact"));
+});
+
+t("Folarin Balogun is in the pool at 84 and is often on the scene for a WAG; only a WAG who has him taken, or already has his number, loses him", () => {
+  const rec = D.players.find((p) => p.slug === "folarin-balogun"); assert.ok(rec && rec.ovr === 84 && rec.pos === "ST" && rec.nat === "United States" && rec.age === 25 && rec.club === "AS Monaco" && rec.tier === "silver");
+  assert.ok(existsSync(new URL("../public/assets/players/folarin-balogun.png", import.meta.url)), "his photo is in assets/players");
+  const { g, ws } = world({ nw: 2 }); const b = Object.values(g.players).find((p) => p.slug === "folarin-balogun"); assert.ok(b && b.ovr === 84, "he is in the game at 84");
+  const id = "f:" + b.id, days = 100, n = g.P.social.wag.attend.scene; let seen = 0;
+  for (let d = 0; d < days; d++) { const sc = W.scene(g, ws[0], d); assert.equal(sc.length, n, "the scene is still " + n + " people"); assert.equal(new Set(sc).size, n); if (sc.includes(id)) seen++; }
+  assert.ok(seen >= 55 && seen <= 90, `often on the scene (${seen}/${days} matchdays)`);
+  assert.deepEqual(W.scene(g, ws[0], 7), W.scene(g, ws[0], 7), "same seed, same scene");
+  const other = Array.from({ length: days }, (_, d) => W.scene(g, ws[1], d).includes(id)).filter(Boolean).length; assert.ok(other >= 55, "and for every WAG (" + other + ")");
+  ws[0].contacts = [{ id, name: b.name, team: b.team, made: 0, from: 0, until: 999, via: "match" }]; assert.ok(!W.scene(g, ws[0], 3).includes(id), "a WAG who already has his number does not see him twice");
+  ws[0].contacts = []; g.P.social.wag.stars = []; assert.ok(Array.from({ length: days }, (_, d) => W.scene(g, ws[1], d).includes(id)).filter(Boolean).length < 30, "without the setting he is an ordinary name on the list");
 });
 
 t("the football RNG is untouched: a week of sequences changes no match result", () => {
